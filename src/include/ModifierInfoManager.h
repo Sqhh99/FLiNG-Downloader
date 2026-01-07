@@ -10,7 +10,7 @@
 #include "ModifierParser.h"
 
 /**
- * @brief 修改器信息管理器，负责修改器信息的存储、格式化和转换
+ * @brief Modifier info manager responsible for modifier information storage, formatting and conversion
  */
 class ModifierInfoManager : public QObject
 {
@@ -18,8 +18,8 @@ class ModifierInfoManager : public QObject
 
 public:
     /**
-     * @brief 获取单例实例
-     * @return ModifierInfoManager对象的引用
+     * @brief Get singleton instance
+     * @return Reference to ModifierInfoManager object
      */
     static ModifierInfoManager& getInstance() {
         static ModifierInfoManager instance;
@@ -27,86 +27,86 @@ public:
     }
 
     /**
-     * @brief 创建一个新的修改器信息对象
-     * @param name 修改器名称
-     * @param gameVersion 游戏版本
-     * @param url 修改器详情页URL
-     * @return 新创建的ModifierInfo对象
+     * @brief Create a new modifier info object
+     * @param name Modifier name
+     * @param gameVersion Game version
+     * @param url Modifier detail page URL
+     * @return Newly created ModifierInfo object
      */
     ModifierInfo createModifierInfo(const QString& name, 
                                    const QString& gameVersion = QString(),
                                    const QString& url = QString());
 
     /**
-     * @brief 复制一个修改器信息对象
-     * @param other 要复制的对象
-     * @return 复制后的新对象
+     * @brief Clone a modifier info object
+     * @param other Object to clone
+     * @return Cloned new object
      */
     ModifierInfo* cloneModifierInfo(const ModifierInfo& other);
 
     /**
-     * @brief 从URL提取修改器名称
-     * @param url 修改器URL
-     * @return 提取的修改器名称
+     * @brief Extract modifier name from URL
+     * @param url Modifier URL
+     * @return Extracted modifier name
      */
     QString extractNameFromUrl(const QString& url);
 
     /**
-     * @brief 格式化修改器名称（移除特殊字符等）
-     * @param name 原始名称
-     * @return 格式化后的名称
+     * @brief Format modifier name (remove special characters etc.)
+     * @param name Original name
+     * @return Formatted name
      */
     QString formatModifierName(const QString& name);
 
     /**
-     * @brief 格式化版本号，确保统一格式
-     * @param version 原始版本号
-     * @return 格式化后的版本号
+     * @brief Format version string to ensure unified format
+     * @param version Original version string
+     * @return Formatted version string
      */
     QString formatVersionString(const QString& version);
 
     /**
-     * @brief 添加版本信息到修改器
-     * @param info 修改器信息对象
-     * @param version 版本号
-     * @param url 下载URL
+     * @brief Add version info to modifier
+     * @param info Modifier info object
+     * @param version Version number
+     * @param url Download URL
      */
     void addVersionToModifier(ModifierInfo& info, const QString& version, const QString& url);
 
     /**
-     * @brief 比较两个修改器信息是否相似（可能来自不同源但表示同一修改器）
-     * @param a 第一个修改器信息
-     * @param b 第二个修改器信息
-     * @return 相似度 0-100
+     * @brief Compare similarity between two modifier info objects (may come from different sources but represent the same modifier)
+     * @param a First modifier info
+     * @param b Second modifier info
+     * @return Similarity score 0-100
      */
     int compareModifierSimilarity(const ModifierInfo& a, const ModifierInfo& b);
 
     /**
-     * @brief 导出修改器信息为JSON格式
-     * @param info 要导出的修改器信息
-     * @return JSON字符串
+     * @brief Export modifier info to JSON format
+     * @param info Modifier info to export
+     * @return JSON string
      */
     QString exportToJson(const ModifierInfo& info);
 
     /**
-     * @brief 从JSON导入修改器信息
-     * @param json JSON字符串
-     * @return 解析的修改器信息
+     * @brief Import modifier info from JSON
+     * @param json JSON string
+     * @return Parsed modifier info
      */
     ModifierInfo importFromJson(const QString& json);
 
     /**
-     * @brief 转换HTML修改器选项为纯文本列表
-     * @param htmlOptions HTML格式的选项
-     * @return 纯文本选项列表
+     * @brief Convert HTML modifier options to plain text list
+     * @param htmlOptions Options in HTML format
+     * @return Plain text options list
      */
     QStringList convertHtmlOptionsToPlainText(const QString& htmlOptions);
 
     /**
-     * @brief 根据关键词搜索修改器
-     * @param modifiers 修改器列表
-     * @param keyword 搜索关键词
-     * @return 匹配的修改器列表
+     * @brief Search modifiers by keyword
+     * @param modifiers Modifier list
+     * @param keyword Search keyword
+     * @return Matching modifier list
      */
     QList<ModifierInfo> searchModifiersByKeyword(const QList<ModifierInfo>& modifiers, const QString& keyword);
 

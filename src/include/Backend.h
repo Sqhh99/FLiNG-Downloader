@@ -16,8 +16,8 @@
 class QGuiApplication;
 
 /**
- * Backend - QML后端桥接类
- * 暴露C++业务逻辑到QML
+ * Backend - QML backend bridge class
+ * Exposes C++ business logic to QML
  */
 class Backend : public QObject
 {
@@ -25,14 +25,14 @@ class Backend : public QObject
     QML_ELEMENT
     QML_SINGLETON
 
-    // 数据模型
+    // Data models
     Q_PROPERTY(ModifierListModel* modifierListModel READ modifierListModel CONSTANT)
     Q_PROPERTY(DownloadedModifierModel* downloadedModifierModel READ downloadedModifierModel CONSTANT)
 
-    // 当前语言
+    // Current language
     Q_PROPERTY(int currentLanguage READ currentLanguage NOTIFY languageChanged)
 
-    // 选中的修改器信息
+    // Selected modifier info
     Q_PROPERTY(QString selectedModifierName READ selectedModifierName NOTIFY selectedModifierChanged)
     Q_PROPERTY(QString selectedModifierVersion READ selectedModifierVersion NOTIFY selectedModifierChanged)
     Q_PROPERTY(int selectedModifierOptionsCount READ selectedModifierOptionsCount NOTIFY selectedModifierChanged)
@@ -41,24 +41,24 @@ class Backend : public QObject
     Q_PROPERTY(QVariantList selectedModifierVersions READ selectedModifierVersions NOTIFY selectedModifierChanged)
     Q_PROPERTY(QString selectedModifierCoverUrl READ selectedModifierCoverUrl NOTIFY selectedModifierChanged)
 
-    // 下载状态
+    // Download status
     Q_PROPERTY(bool isDownloading READ isDownloading NOTIFY downloadingChanged)
     Q_PROPERTY(qreal downloadProgress READ downloadProgress NOTIFY downloadProgressChanged)
     
-    // 下载目录
+    // Download directory
     Q_PROPERTY(QString downloadPath READ downloadPath WRITE setDownloadPath NOTIFY downloadPathChanged)
 
 public:
     explicit Backend(QObject* parent = nullptr);
     ~Backend();
 
-    // 设置 QGuiApplication 引用（用于语言切换）
+    // Set QGuiApplication reference (for language switching)
     void setApplication(QGuiApplication* app) { m_app = app; }
     
-    // 设置 QQmlEngine 引用（用于语言切换时刷新 QML）
+    // Set QQmlEngine reference (for refreshing QML during language switch)
     void setQmlEngine(QQmlEngine* engine) { m_qmlEngine = engine; }
 
-    // 属性访问
+    // Property access
     ModifierListModel* modifierListModel() const { return m_modifierListModel; }
     DownloadedModifierModel* downloadedModifierModel() const { return m_downloadedModifierModel; }
     int currentLanguage() const;
@@ -71,7 +71,7 @@ public:
     QVariantList selectedModifierVersions() const;
     QString selectedModifierCoverUrl() const;
 
-    // 封面提取功能
+    // Cover extraction feature
     Q_INVOKABLE void extractCover();
     Q_PROPERTY(QString selectedModifierCoverPath READ selectedModifierCoverPath NOTIFY coverExtracted)
     QString selectedModifierCoverPath() const { return m_currentCoverPath; }
@@ -79,35 +79,35 @@ public:
     bool isDownloading() const { return m_isDownloading; }
     qreal downloadProgress() const { return m_downloadProgress; }
     
-    // 下载目录
+    // Download directory
     QString downloadPath() const;
     Q_INVOKABLE void setDownloadPath(const QString& path);
-    Q_INVOKABLE void requestDownloadFolderSelection();  // 请求打开目录选择对话框
+    Q_INVOKABLE void requestDownloadFolderSelection();  // Request to open folder selection dialog
 
 public slots:
-    // 搜索功能
+    // Search functionality
     Q_INVOKABLE void searchModifiers(const QString& keyword);
     Q_INVOKABLE void fetchRecentModifiers();
     Q_INVOKABLE void setSortOrder(int sortIndex);
 
-    // 修改器选择
+    // Modifier selection
     Q_INVOKABLE void selectModifier(int index);
     Q_INVOKABLE void selectVersion(int versionIndex);
 
-    // 下载功能
+    // Download functionality
     Q_INVOKABLE void downloadModifier(int versionIndex);
     Q_INVOKABLE void openDownloadFolder();
 
-    // 已下载管理
+    // Downloaded management
     Q_INVOKABLE void runModifier(int index);
     Q_INVOKABLE void deleteModifier(int index);
     Q_INVOKABLE void checkForUpdates();
 
-    // 设置
+    // Settings
     Q_INVOKABLE void setTheme(int themeIndex);
     Q_INVOKABLE void setLanguage(int languageIndex);
     
-    // 搜索建议 - 从 game_mappings.json 获取
+    // Search suggestions - obtained from game_mappings.json
     Q_INVOKABLE QStringList getSuggestions(const QString& keyword, int maxResults = 8);
 
 
@@ -122,7 +122,7 @@ signals:
     void statusMessage(const QString& message);
     void coverExtracted();
     void downloadPathChanged();
-    void downloadFolderSelectionRequested();  // 请求显示文件夹选择对话框
+    void downloadFolderSelectionRequested();  // Request to show folder selection dialog
 
 private slots:
     void onSearchCompleted(const QList<ModifierInfo>& modifiers);
@@ -139,28 +139,28 @@ private:
     ModifierListModel* m_modifierListModel;
     DownloadedModifierModel* m_downloadedModifierModel;
     
-    // 当前选中的修改器
+    // Currently selected modifier
     int m_selectedIndex = -1;
     ModifierInfo m_selectedModifier;
     QString m_selectedOptions;
     int m_selectedVersionIndex = 0;
     
-    // 下载状态
+    // Download status
     bool m_isDownloading = false;
     qreal m_downloadProgress = 0.0;
     
-    // 临时存储已下载修改器列表
+    // Temporary storage for downloaded modifiers list
     QList<DownloadedModifierInfo> m_downloadedList;
     
-    // 封面提取器
+    // Cover extractor
     CoverExtractor* m_coverExtractor;
     QString m_currentCoverPath;
     
-    // 游戏名称映射数据 (中英文搜索建议)
+    // Game name mapping data (Chinese-English search suggestions)
     struct GameMapping {
-        QString chineseName;   // 中文名
-        QString englishName;   // 英文名
-        QStringList aliases;   // 别名列表
+        QString chineseName;   // Chinese name
+        QString englishName;   // English name
+        QStringList aliases;   // Alias list
     };
     QList<GameMapping> m_gameMappings;
     void loadGameMappings();

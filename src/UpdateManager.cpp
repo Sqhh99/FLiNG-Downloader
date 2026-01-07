@@ -13,31 +13,31 @@ void UpdateManager::checkModifierUpdate(const QString& url, const QString& curre
                                        std::function<void(bool)> callback)
 {
     if (url.isEmpty()) {
-        qDebug() << "更新检查URL为空，无法检查更新";
+        qDebug() << "Update check URL is empty";
         if (callback) {
             callback(false);
         }
         return;
     }
 
-    // 使用NetworkManager获取修改器详情页
+    // Use NetworkManager to get modifier details page
     NetworkManager::getInstance().sendGetRequest(
         url,
         [this, currentVersion, currentGameVersion, callback](const QByteArray& data, bool success) {
             if (success) {
-                // 解析页面内容
+                // Parse page content
                 ModifierInfo* modifier = ModifierParser::parseModifierDetailHTML(data.toStdString(), "");
                 
                 if (modifier) {
-                    // 比较游戏版本
+                    // Compare game version
                     bool hasUpdate = false;
                     
-                    // 如果游戏版本不同，视为有更新
+                    // If game version differs, consider it updated
                     if (modifier->gameVersion != currentGameVersion) {
                         hasUpdate = true;
                     }
                     
-                    // 比较修改器版本 - 如果有版本号，进行版本号比较
+                    // Compare modifier version - if version exists, compare versions
                     if (!modifier->versions.isEmpty() && !currentVersion.isEmpty()) {
                         QString latestVersion = modifier->versions.first().first;
                         if (isNewerVersion(currentVersion, latestVersion)) {
@@ -51,13 +51,13 @@ void UpdateManager::checkModifierUpdate(const QString& url, const QString& curre
                         callback(hasUpdate);
                     }
                 } else {
-                    qDebug() << "解析修改器详情失败";
+                    qDebug() << "Failed to parse modifier details";
                     if (callback) {
                         callback(false);
                     }
                 }
             } else {
-                qDebug() << "获取修改器详情页失败";
+                qDebug() << "Failed to fetch modifier details page";
                 if (callback) {
                     callback(false);
                 }
@@ -70,7 +70,7 @@ void UpdateManager::batchCheckUpdates(const QList<std::tuple<int, QString, QStri
                                       UpdateProgressCallback progressCallback,
                                       std::function<void(int)> completedCallback)
 {
-    // 检查是否有修改器需要更新
+    // Check if there are modifiers to update
     if (modifiers.isEmpty()) {
         if (completedCallback) {
             completedCallback(0);
@@ -78,34 +78,34 @@ void UpdateManager::batchCheckUpdates(const QList<std::tuple<int, QString, QStri
         return;
     }
     
-    // 创建计数器来跟踪完成的检查
+    // Create counters to track completed checks
     int* completedChecks = new int(0);
     int* updatesFound = new int(0);
     QList<int>* updatedIndices = new QList<int>();
     
-    // 对每个修改器进行检查
+    // Check each modifier
     for (const auto& modifierInfo : modifiers) {
         int index = std::get<0>(modifierInfo);
         const QString& url = std::get<1>(modifierInfo);
         const QString& version = std::get<2>(modifierInfo);
         const QString& gameVersion = std::get<3>(modifierInfo);
         
-        // 检查URL是否有效
+        // Check if URL is valid
         if (url.isEmpty()) {
             (*completedChecks)++;
             
-            // 更新进度
+            // Update progress
             if (progressCallback) {
                 progressCallback(*completedChecks, modifiers.size(), !updatedIndices->isEmpty());
             }
             
-            // 检查是否全部完成
+            // Check if all complete
             if (*completedChecks >= modifiers.size()) {
                 if (completedCallback) {
                     completedCallback(*updatesFound);
                 }
                 
-                // 清理内存
+                // Clean up memory
                 delete completedChecks;
                 delete updatesFound;
                 delete updatedIndices;
@@ -114,11 +114,11 @@ void UpdateManager::batchCheckUpdates(const QList<std::tuple<int, QString, QStri
             continue;
         }
         
-        // 检查更新
+        // Check for update
         checkModifierUpdate(
             url, version, gameVersion,
             [this, index, completedChecks, updatesFound, updatedIndices, modifiers, progressCallback, completedCallback](bool hasUpdate) {
-                // 更新计数器
+                // Update counters
                 if (hasUpdate) {
                     (*updatesFound)++;
                     updatedIndices->append(index);
@@ -126,18 +126,18 @@ void UpdateManager::batchCheckUpdates(const QList<std::tuple<int, QString, QStri
                 
                 (*completedChecks)++;
                 
-                // 更新进度
+                // Update progress
                 if (progressCallback) {
                     progressCallback(*completedChecks, modifiers.size(), !updatedIndices->isEmpty());
                 }
                 
-                // 检查是否全部完成
+                // Check if all complete
                 if (*completedChecks >= modifiers.size()) {
                     if (completedCallback) {
                         completedCallback(*updatesFound);
                     }
                     
-                    // 清理内存
+                    // Clean up memory
                     delete completedChecks;
                     delete updatesFound;
                     delete updatedIndices;
@@ -149,22 +149,22 @@ void UpdateManager::batchCheckUpdates(const QList<std::tuple<int, QString, QStri
 
 bool UpdateManager::isNewerVersion(const QString& oldVersion, const QString& newVersion)
 {
-    // 如果版本号相同，无更新
+    // If versions are the same, no update
     if (oldVersion == newVersion) {
         return false;
     }
     
-    // 如果任一版本为空，则认为有更新
+    // If either version is empty, consider it updated
     if (oldVersion.isEmpty() || newVersion.isEmpty()) {
         return true;
     }
     
-    // 提取版本号中的数字部分
+    // Extract numeric parts from version strings
     QRegularExpression re("(\\d+)");
     QRegularExpressionMatchIterator oldMatches = re.globalMatch(oldVersion);
     QRegularExpressionMatchIterator newMatches = re.globalMatch(newVersion);
     
-    // 比较每个数字部分
+    // Compare each numeric part
     while (oldMatches.hasNext() && newMatches.hasNext()) {
         QRegularExpressionMatch oldMatch = oldMatches.next();
         QRegularExpressionMatch newMatch = newMatches.next();
@@ -179,11 +179,11 @@ bool UpdateManager::isNewerVersion(const QString& oldVersion, const QString& new
         }
     }
     
-    // 如果新版本有更多的数字部分，视为较新
+    // If new version has more numeric parts, consider it newer
     if (newMatches.hasNext()) {
         return true;
     }
     
-    // 默认情况下假设没有更新
+    // Default to no update
     return false;
 } 

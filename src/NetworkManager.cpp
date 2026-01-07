@@ -7,9 +7,9 @@
 NetworkManager::NetworkManager(QObject* parent)
     : QObject(parent)
     , m_networkManager(new QNetworkAccessManager(this))
-    , m_timeoutInterval(30000) // 默认30秒超时
+    , m_timeoutInterval(30000) // Default 30 second timeout
 {
-    // 设置默认用户代理
+    // Set default user agent
     m_globalUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 }
 
@@ -28,38 +28,38 @@ void NetworkManager::sendGetRequest(const QString& url, NetworkResponseCallback 
 {
     QNetworkRequest request((QUrl(url)));
     
-    // 设置用户代理
+    // Set user agent
     QString effectiveUserAgent = userAgent.isEmpty() ? m_globalUserAgent : userAgent;
     request.setHeader(QNetworkRequest::UserAgentHeader, effectiveUserAgent);
     
-    // 发送GET请求
+    // Send GET request
     QNetworkReply* reply = m_networkManager->get(request);
     
-    // 设置超时
+    // Set timeout
     QTimer* timer = createTimeoutTimer(reply);
     
-    // 连接完成信号
+    // Connect finished signal
     connect(reply, &QNetworkReply::finished, this, [this, reply, callback, timer]() {
         timer->stop();
         timer->deleteLater();
         
         if (reply->error() == QNetworkReply::NoError) {
-            // 读取响应数据
+            // Read response data
             QByteArray responseData = reply->readAll();
             callback(responseData, true);
         } else {
-            qDebug() << "网络请求失败：" << reply->errorString();
+            qDebug() << "Network request failed:" << reply->errorString();
             callback(QByteArray(), false);
         }
         
-        // 清理资源
+        // Clean up resources
         reply->deleteLater();
     });
     
-    // 连接错误信号
+    // Connect error signal
     connect(reply, &QNetworkReply::errorOccurred, this, [reply, callback, timer](QNetworkReply::NetworkError) {
         timer->stop();
-        qDebug() << "网络错误：" << reply->errorString();
+        qDebug() << "Network error:" << reply->errorString();
     });
 }
 
@@ -69,49 +69,49 @@ void NetworkManager::downloadFile(const QString& url,
                                   std::function<void(bool, const QString&)> finishedCallback,
                                   const QString& userAgent)
 {
-    // 确保目录存在
+    // Ensure directory exists
     QFileInfo fileInfo(savePath);
     QDir dir = fileInfo.absoluteDir();
     if (!dir.exists()) {
         dir.mkpath(".");
     }
     
-    // 创建文件
+    // Create file
     QFile* file = new QFile(savePath);
     if (!file->open(QIODevice::WriteOnly)) {
-        qDebug() << "无法创建文件：" << file->errorString();
-        finishedCallback(false, "无法创建文件：" + file->errorString());
+        qDebug() << "Cannot create file:" << file->errorString();
+        finishedCallback(false, "Cannot create file: " + file->errorString());
         delete file;
         return;
     }
     
-    // 创建网络请求
+    // Create network request
     QNetworkRequest request((QUrl(url)));
     
-    // 设置用户代理
+    // Set user agent
     QString effectiveUserAgent = userAgent.isEmpty() ? m_globalUserAgent : userAgent;
     request.setHeader(QNetworkRequest::UserAgentHeader, effectiveUserAgent);
     
-    // 开始下载
+    // Start download
     QNetworkReply* reply = m_networkManager->get(request);
-    m_currentDownloadReply = reply; // 保存当前下载的Reply对象
+    m_currentDownloadReply = reply; // Save current download reply
     
-    // 设置超时
+    // Set timeout
     QTimer* timer = createTimeoutTimer(reply);
     
-    // 连接进度信号
+    // Connect progress signal
     connect(reply, &QNetworkReply::downloadProgress, this, [progressCallback, timer](qint64 bytesReceived, qint64 bytesTotal) {
-        timer->start(); // 重置定时器
+        timer->start(); // Reset timer
         progressCallback(bytesReceived, bytesTotal);
     });
     
-    // 连接读取数据信号
+    // Connect data ready signal
     connect(reply, &QNetworkReply::readyRead, this, [reply, file, timer]() {
-        timer->start(); // 重置定时器
+        timer->start(); // Reset timer
         file->write(reply->readAll());
     });
     
-    // 连接完成信号
+    // Connect finished signal
     connect(reply, &QNetworkReply::finished, this, [this, reply, file, finishedCallback, timer]() {
         timer->stop();
         timer->deleteLater();
@@ -121,24 +121,24 @@ void NetworkManager::downloadFile(const QString& url,
         if (reply->error() == QNetworkReply::NoError) {
             finishedCallback(true, QString());
         } else {
-            qDebug() << "下载失败：" << reply->errorString();
-            file->remove(); // 删除不完整的文件
+            qDebug() << "Download failed:" << reply->errorString();
+            file->remove(); // Delete incomplete file
             finishedCallback(false, reply->errorString());
         }
         
-        // 清理资源
+        // Clean up resources
         file->deleteLater();
         reply->deleteLater();
         
-        // 清除当前下载的Reply对象
+        // Clear current download reply
         if (m_currentDownloadReply == reply) {
             m_currentDownloadReply = nullptr;
         }
     });
     
-    // 连接错误信号
+    // Connect error signal
     connect(reply, &QNetworkReply::errorOccurred, this, [file, timer](QNetworkReply::NetworkError) {
-        timer->start(); // 重置定时器
+        timer->start(); // Reset timer
     });
 }
 
@@ -184,13 +184,13 @@ QTimer* NetworkManager::createTimeoutTimer(QNetworkReply* reply)
 
 void NetworkManager::onTimeoutTriggered()
 {
-    qDebug() << "网络请求超时";
+    qDebug() << "Network request timeout";
 }
 
 void NetworkManager::cancelDownload()
 {
     if (m_currentDownloadReply && m_currentDownloadReply->isRunning()) {
-        qDebug() << "取消当前下载";
+        qDebug() << "Cancelling download";
         m_currentDownloadReply->abort();
     }
 } 

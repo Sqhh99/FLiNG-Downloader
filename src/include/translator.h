@@ -7,13 +7,13 @@
 #include <memory>
 #include <ctime>
 
-// 前向声明以避免循环包含
+// Forward declaration to avoid circular inclusion
 #ifdef QT_CORE_LIB
 #include <QString>
 #include <QStringList>
 #endif
 
-// 翻译结果结构体
+// Translation result structure
 struct TranslationResult {
     bool success;
     std::string original;
@@ -26,7 +26,7 @@ struct TranslationResult {
     TranslationResult() : success(false) {}
 };
 
-// 基础翻译器接口
+// Base translator interface
 class ITranslator {
 public:
     virtual ~ITranslator() = default;
@@ -39,13 +39,13 @@ public:
     virtual bool testApi() = 0;
 };
 
-// AppWorlds翻译器
+// AppWorlds translator
 class AppWorldsTranslator : public ITranslator {
 private:
     std::string baseUrl;
     std::map<std::string, std::string> headers;
     double requestInterval;
-    std::time_t lastRequestTime;  // 使用std::time_t替代time_t
+    std::time_t lastRequestTime;  // Use std::time_t instead of time_t
     
     void waitForRateLimit();
     std::string urlEncode(const std::string& str);
@@ -66,13 +66,13 @@ public:
     bool testApi() override;
 };
 
-// SuApi翻译器
+// SuApi translator
 class SuApiTranslator : public ITranslator {
 private:
     std::string baseUrl;
     std::map<std::string, std::string> headers;
     double requestInterval;
-    std::time_t lastRequestTime;  // 使用std::time_t替代time_t
+    std::time_t lastRequestTime;  // Use std::time_t instead of time_t
     
     void waitForRateLimit();
     std::string urlEncode(const std::string& str);
@@ -93,7 +93,7 @@ public:
     bool testApi() override;
 };
 
-// 翻译器工厂
+// Translator factory
 class TranslatorFactory {
 public:
     enum class TranslatorType {

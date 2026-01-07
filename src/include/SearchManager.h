@@ -10,7 +10,7 @@
 #include "GameMappingManager.h"
 
 /**
- * @brief 搜索管理器，负责处理搜索功能和搜索历史
+ * @brief Search manager responsible for handling search functionality and search history
  */
 class SearchManager : public QObject
 {
@@ -18,8 +18,8 @@ class SearchManager : public QObject
 
 public:
     /**
-     * @brief 获取SearchManager单例实例
-     * @return SearchManager单例引用
+     * @brief Get the SearchManager singleton instance
+     * @return Reference to the SearchManager singleton
      */
     static SearchManager& getInstance() {
         static SearchManager instance;
@@ -27,25 +27,25 @@ public:
     }
 
     /**
-     * @brief 执行修改器搜索
-     * @param searchTerm 搜索关键词
-     * @param callback 搜索结果回调函数
+     * @brief Execute modifier search
+     * @param searchTerm Search keyword
+     * @param callback Search result callback function
      */
     void searchModifiers(const QString& searchTerm, 
                           std::function<void(const QList<ModifierInfo>&)> callback);
 
     /**
-     * @brief 执行修改器搜索 - 使用Qt信号槽连接方式
-     * @param searchTerm 搜索关键词
-     * @param receiver 接收结果的对象
-     * @param slot 处理结果的槽函数指针
+     * @brief Execute modifier search - using Qt signal-slot connection method
+     * @param searchTerm Search keyword
+     * @param receiver Object that receives the result
+     * @param slot Slot function pointer that handles the result
      */
     template<typename Receiver, typename Slot>
     void searchModifiers(const QString& searchTerm, const Receiver* receiver, Slot slot) {
-        // 使用lambda转发到标准回调方法
+        // Use lambda to forward to standard callback method
         searchModifiers(searchTerm, [=](const QList<ModifierInfo>& modifiers) {
-            // 使用QMetaObject::invokeMethod在接收者的线程上调用槽
-            // 这确保了槽函数总是在正确的线程上被调用
+            // Use QMetaObject::invokeMethod to call the slot on receiver's thread
+            // This ensures the slot function is always called on the correct thread
             QMetaObject::invokeMethod(const_cast<Receiver*>(receiver), [=]() {
                 (const_cast<Receiver*>(receiver)->*slot)(modifiers);
             }, Qt::QueuedConnection);
@@ -53,15 +53,15 @@ public:
     }
 
     /**
-     * @brief 加载热门修改器列表（用于首页显示）
-     * @param callback 搜索结果回调函数
+     * @brief Load featured modifier list (for homepage display)
+     * @param callback Search result callback function
      */
     void loadFeaturedModifiers(std::function<void(const QList<ModifierInfo>&)> callback);
 
     /**
-     * @brief 加载热门修改器列表 - 使用Qt信号槽连接方式
-     * @param receiver 接收结果的对象
-     * @param slot 处理结果的槽函数指针
+     * @brief Load featured modifier list - using Qt signal-slot connection method
+     * @param receiver Object that receives the result
+     * @param slot Slot function pointer that handles the result
      */
     template<typename Receiver, typename Slot>
     void loadFeaturedModifiers(const Receiver* receiver, Slot slot) {
@@ -73,15 +73,15 @@ public:
     }
 
     /**
-     * @brief 获取并解析最近更新的修改器列表（从flingtrainer.com首页）
-     * @param callback 搜索结果回调函数
+     * @brief Fetch and parse recently updated modifier list (from flingtrainer.com homepage)
+     * @param callback Search result callback function
      */
     void fetchRecentlyUpdatedModifiers(std::function<void(const QList<ModifierInfo>&)> callback);
 
     /**
-     * @brief 获取并解析最近更新的修改器列表 - 使用Qt信号槽连接方式
-     * @param receiver 接收结果的对象
-     * @param slot 处理结果的槽函数指针
+     * @brief Fetch and parse recently updated modifier list - using Qt signal-slot connection method
+     * @param receiver Object that receives the result
+     * @param slot Slot function pointer that handles the result
      */
     template<typename Receiver, typename Slot>
     void fetchRecentlyUpdatedModifiers(const Receiver* receiver, Slot slot) {
@@ -93,46 +93,46 @@ public:
     }
 
     /**
-     * @brief 更新ModifierManager的修改器列表
-     * @param modifiers 修改器列表
+     * @brief Update the ModifierManager modifier list
+     * @param modifiers Modifier list
      */
     void updateModifierManagerList(const QList<ModifierInfo>& modifiers);
 
     /**
-     * @brief 添加搜索词到历史记录
-     * @param searchTerm 搜索词
+     * @brief Add search term to history
+     * @param searchTerm Search term
      */
     void addSearchToHistory(const QString& searchTerm);
 
     /**
-     * @brief 获取搜索历史记录
-     * @return 搜索历史词列表
+     * @brief Get search history
+     * @return List of search history terms
      */
     QStringList getSearchHistory() const;
 
     /**
-     * @brief 清除搜索历史记录
+     * @brief Clear search history
      */
     void clearSearchHistory();
 
     /**
-     * @brief 按相关性排序搜索结果
-     * @param modifiers 修改器列表
-     * @param searchTerm 搜索关键词
-     * @return 排序后的修改器列表
+     * @brief Sort search results by relevance
+     * @param modifiers Modifier list
+     * @param searchTerm Search keyword
+     * @return Sorted modifier list
      */
     QList<ModifierInfo> sortByRelevance(const QList<ModifierInfo>& modifiers, 
                                         const QString& searchTerm);
 
     /**
-     * @brief 按热门程度排序搜索结果
-     * @param modifiers 修改器列表
-     * @return 排序后的修改器列表
+     * @brief Sort search results by popularity
+     * @param modifiers Modifier list
+     * @return Sorted modifier list
      */
     QList<ModifierInfo> sortByPopularity(const QList<ModifierInfo>& modifiers);    /**
-     * @brief 按日期排序搜索结果
-     * @param modifiers 修改器列表
-     * @return 排序后的修改器列表
+     * @brief Sort search results by date
+     * @param modifiers Modifier list
+     * @return Sorted modifier list
      */
     QList<ModifierInfo> sortByDate(const QList<ModifierInfo>& modifiers);
 
@@ -140,25 +140,25 @@ private:
     SearchManager(QObject* parent = nullptr);
     ~SearchManager() = default;
 
-    // 禁止拷贝和赋值
+    // Disable copy and assignment
     SearchManager(const SearchManager&) = delete;
     SearchManager& operator=(const SearchManager&) = delete;
 
-    // 执行实际的搜索操作（内部方法）
+    // Execute actual search operation (internal method)
     void performSearch(const QString& searchTerm, 
                       std::function<void(const QList<ModifierInfo>&)> callback);
 
-    // 初始化默认搜索建议
+    // Initialize default search suggestions
     void initializeDefaultSuggestions();
 
-    // 计算搜索词与修改器的相关性分数
+    // Calculate relevance score between search term and modifier
     int calculateRelevanceScore(const ModifierInfo& modifier, const QString& searchTerm);
 
-    // 保存和加载搜索历史
+    // Save and load search history
     void saveSearchHistory();
     void loadSearchHistory();
 
 private:
-    QStringList m_searchHistory;    // 搜索历史记录
-    int m_maxHistoryItems;          // 最大历史记录数量
+    QStringList m_searchHistory;    // Search history
+    int m_maxHistoryItems;          // Maximum history items count
 }; 

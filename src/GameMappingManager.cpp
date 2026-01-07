@@ -35,25 +35,20 @@ bool GameMappingManager::initialize()
         return true;
     }
     
-    qDebug() << "GameMappingManager: 初始化游戏映射数据...";
+    qDebug() << "GameMappingManager: Initializing...";
     
-    // 初始化翻译器
     initializeTranslator();
     
-    // 加载内置映射
     if (!loadBuiltinMappings()) {
-        qWarning() << "GameMappingManager: 加载内置映射失败";
+        qWarning() << "GameMappingManager: Failed to load built-in mappings";
         return false;
     }
     
-    // 加载用户自定义映射
     loadUserMappings();
-    
-    // 加载翻译缓存
     loadTranslationCache();
     
     m_initialized = true;
-    qDebug() << "GameMappingManager: 初始化完成，加载了" << m_builtinMappings.size() << "个内置映射";
+    qDebug() << "GameMappingManager: Initialized with" << m_builtinMappings.size() << "mappings";
     
     return true;
 }
@@ -65,44 +60,36 @@ QString GameMappingManager::translateToEnglish(const QString& chinese)
     if (chinese.isEmpty()) {
         return QString();
     }
-      // 1. 检查翻译缓存
+      // 1. Check translation cache
     if (m_translationCache.contains(chinese)) {
         QString cachedResult = m_translationCache[chinese];
-        qDebug() << "GameMappingManager: 从缓存获取翻译:" << chinese << "->" << cachedResult;
-        
-        // 尝试解析JSON响应
         QString parsedResult = parseTranslationFromJson(cachedResult);
-        if (!parsedResult.isEmpty()) {
-            return parsedResult;
-        }
-        
-        // 如果解析失败，直接返回原始结果（可能是之前的简单映射）
-        return cachedResult;
+        return !parsedResult.isEmpty() ? parsedResult : cachedResult;
     }
     
-    // 2. 检查用户自定义映射
+    // 2. Check user-defined mapping
     if (m_userMappings.contains(chinese)) {
         return m_userMappings[chinese];
     }
     
-    // 3. 检查内置映射
+    // 3. Check built-in mapping
     if (m_builtinMappings.contains(chinese)) {
         return m_builtinMappings[chinese].english;
     }
     
-    // 4. 检查别名映射
+    // 4. Check alias mapping
     if (m_aliasToEnglish.contains(chinese)) {
         return m_aliasToEnglish[chinese];
     }
     
-    // 5. 部分匹配检查
+    // 5. Partial match check
     for (auto it = m_builtinMappings.begin(); it != m_builtinMappings.end(); ++it) {
-        // 检查是否包含关键词
+        // Check if contains keyword
         if (chinese.contains(it.key()) || it.key().contains(chinese)) {
             return it.value().english;
         }
         
-        // 检查别名
+        // Check aliases
         for (const QString& alias : it.value().aliases) {
             if (chinese.contains(alias) || alias.contains(chinese)) {
                 return it.value().english;
@@ -110,33 +97,29 @@ QString GameMappingManager::translateToEnglish(const QString& chinese)
         }
     }
     
-    return QString(); // 未找到映射，需要异步翻译
+    return QString(); // Mapping not found, need async translation
 }
 
 void GameMappingManager::translateToEnglishAsync(const QString& chinese, std::function<void(const QString&)> callback)
 {
-    // 先尝试同步查找
+    // Try synchronous lookup first
     QString result = translateToEnglish(chinese);
     if (!result.isEmpty()) {
         callback(result);
         return;
     }
     
-    // 如果没有找到，添加到异步翻译队列
+    // If not found, add to async translation queue
     QMutexLocker locker(&m_mutex);
     
     if (!m_pendingTranslations.contains(chinese)) {
         m_pendingTranslations.append(chinese);
         m_translationCallbacks[chinese] = callback;
         
-        qDebug() << "GameMappingManager: 添加到翻译队列:" << chinese;
-        
-        // 启动翻译定时器（避免过于频繁的API调用）
         if (!m_translationTimer->isActive()) {
-            m_translationTimer->start(1000); // 1秒后开始翻译
+            m_translationTimer->start(1000);
         }
     } else {
-        // 如果已经在队列中，更新回调
         m_translationCallbacks[chinese] = callback;
     }
 }
@@ -151,9 +134,9 @@ QString GameMappingManager::fuzzyMatch(const QString& input) const
     
     QString bestMatch;
     double maxSimilarity = 0.0;
-    const double threshold = 0.6; // 相似度阈值
+    const double threshold = 0.6; // Similarity threshold
     
-    // 检查所有内置映射
+    // Check all built-in mappings
     for (auto it = m_builtinMappings.begin(); it != m_builtinMappings.end(); ++it) {
         double similarity = calculateSimilarity(input, it.key());
         if (similarity > maxSimilarity && similarity >= threshold) {
@@ -161,7 +144,7 @@ QString GameMappingManager::fuzzyMatch(const QString& input) const
             bestMatch = it.value().english;
         }
         
-        // 检查别名
+        // Check aliases
         for (const QString& alias : it.value().aliases) {
             similarity = calculateSimilarity(input, alias);
             if (similarity > maxSimilarity && similarity >= threshold) {
@@ -199,7 +182,7 @@ QStringList GameMappingManager::getAllAliases() const
     QMutexLocker locker(&m_mutex);
     
     QStringList allAliases;
-    allAliases << m_builtinMappings.keys(); // 添加主要中文名
+    allAliases << m_builtinMappings.keys(); // Add main Chinese names
     
     for (const GameMappingInfo& info : m_builtinMappings) {
         allAliases << info.aliases;
@@ -213,9 +196,8 @@ void GameMappingManager::addUserMapping(const QString& chinese, const QString& e
 {
     QMutexLocker locker(&m_mutex);
     m_userMappings[chinese] = english;
-    qDebug() << "GameMappingManager: 添加用户映射:" << chinese << "->" << english;
+    qDebug() << "GameMappingManager: Added user mapping:" << chinese << "->" << english;
     
-    // 自动保存用户映射
     locker.unlock();
     saveUserMappings();
 }
@@ -224,27 +206,26 @@ void GameMappingManager::addTranslationCache(const QString& chinese, const QStri
 {
     QMutexLocker locker(&m_mutex);
     m_translationCache[chinese] = english;
-    qDebug() << "GameMappingManager: 添加翻译缓存:" << chinese << "->" << english;
 }
 
 bool GameMappingManager::loadBuiltinMappings()
 {
-    // 清空现有映射
+    // Clear existing mappings
     m_builtinMappings.clear();
     m_aliasToEnglish.clear();
     
-    // 尝试从资源文件加载JSON映射
+    // Try to load JSON mappings from resource file
     QString filePath = getBuiltinMappingPath();
     QFile file(filePath);
     
     if (!file.exists()) {
-        qWarning() << "GameMappingManager: 内置映射文件不存在:" << filePath;
-        return loadDefaultMappings(); // 回退到默认映射
+        qWarning() << "GameMappingManager: Built-in mapping file not found:" << filePath;
+        return false;
     }
     
     if (!file.open(QIODevice::ReadOnly)) {
-        qWarning() << "GameMappingManager: 无法打开内置映射文件:" << filePath;
-        return loadDefaultMappings(); // 回退到默认映射
+        qWarning() << "GameMappingManager: Cannot open built-in mapping file:" << filePath;
+        return false;
     }
     
     QByteArray data = file.readAll();
@@ -254,14 +235,14 @@ bool GameMappingManager::loadBuiltinMappings()
     QJsonDocument doc = QJsonDocument::fromJson(data, &error);
     
     if (error.error != QJsonParseError::NoError) {
-        qWarning() << "GameMappingManager: 内置映射JSON解析错误:" << error.errorString();
-        return loadDefaultMappings(); // 回退到默认映射
+        qWarning() << "GameMappingManager: JSON parse error:" << error.errorString();
+        return false;
     }
     
     QJsonObject root = doc.object();
     QJsonObject mappings = root["mappings"].toObject();
     
-    // 解析每个游戏映射
+    // Parse each game mapping
     for (auto it = mappings.begin(); it != mappings.end(); ++it) {
         QString chinese = it.key();
         QJsonObject gameObj = it.value().toObject();
@@ -270,7 +251,7 @@ bool GameMappingManager::loadBuiltinMappings()
         info.english = gameObj["english"].toString();
         info.category = gameObj["category"].toString();
         
-        // 解析别名
+        // Parse aliases
         QJsonArray aliasArray = gameObj["aliases"].toArray();
         for (const auto& alias : aliasArray) {
             info.aliases.append(alias.toString());
@@ -278,70 +259,17 @@ bool GameMappingManager::loadBuiltinMappings()
         
         m_builtinMappings[chinese] = info;
         
-        // 建立别名映射
+        // Build alias mapping
         for (const QString& alias : info.aliases) {
             m_aliasToEnglish[alias] = info.english;
         }
     }
     
-    qDebug() << "GameMappingManager: 从JSON文件加载了" << m_builtinMappings.size() << "个内置映射";
+    qDebug() << "GameMappingManager: Loaded" << m_builtinMappings.size() << "built-in mappings from JSON";
     return true;
 }
 
-bool GameMappingManager::loadDefaultMappings()
-{
-    // 创建基础的内置映射作为回退（仅包含最基础的映射）
-    m_builtinMappings.clear();
-    m_aliasToEnglish.clear();
-    
-    qWarning() << "GameMappingManager: JSON文件加载失败，使用最小化默认映射";
-    
-    // 只保留最基础的几个映射作为紧急回退
-    QMap<QString, GameMappingInfo> defaultMappings;
-    
-    // 最重要的游戏映射（确保即使JSON文件损坏也能工作）
-    GameMappingInfo stellarblade;
-    stellarblade.english = "Stellar Blade";
-    stellarblade.aliases = QStringList{"剑", "星之剑"};
-    stellarblade.category = "action";
-    defaultMappings["剑星"] = stellarblade;
-    
-    GameMappingInfo eldenring;
-    eldenring.english = "Elden Ring";
-    eldenring.aliases = QStringList{"老头环", "法环"};
-    eldenring.category = "action";
-    defaultMappings["艾尔登法环"] = eldenring;
-      GameMappingInfo blackmyth;
-    blackmyth.english = "Black Myth: Wukong";
-    blackmyth.aliases = QStringList{"悟空", "黑神话"};
-    blackmyth.category = "action";
-    defaultMappings["黑神话悟空"] = blackmyth;
-    
-    GameMappingInfo assassinscreed;
-    assassinscreed.english = "Assassin's Creed";
-    assassinscreed.aliases = QStringList{"AC", "刺客信条系列"};
-    assassinscreed.category = "action";
-    defaultMappings["刺客信条"] = assassinscreed;
-    
-    GameMappingInfo frostpunk2;
-    frostpunk2.english = "Frostpunk 2";
-    frostpunk2.aliases = QStringList{"冰雪朋克2", "极地朋克2"};
-    frostpunk2.category = "strategy";
-    defaultMappings["冰汽时代2"] = frostpunk2;
-    
-    // 将默认映射添加到主映射中
-    m_builtinMappings = defaultMappings;
-    
-    // 建立别名映射
-    for (auto it = m_builtinMappings.begin(); it != m_builtinMappings.end(); ++it) {
-        for (const QString& alias : it.value().aliases) {
-            m_aliasToEnglish[alias] = it.value().english;
-        }
-    }
-    
-    qDebug() << "GameMappingManager: 使用最小化默认映射，加载了" << m_builtinMappings.size() << "个基础映射";
-    return true;
-}
+// loadDefaultMappings removed - JSON is embedded in resources and cannot be corrupted
 
 bool GameMappingManager::loadUserMappings()
 {
@@ -349,12 +277,11 @@ bool GameMappingManager::loadUserMappings()
     QFile file(filePath);
     
     if (!file.exists()) {
-        qDebug() << "GameMappingManager: 用户映射文件不存在，跳过加载";
-        return true; // 不存在是正常的
+        return true; // File not existing is normal
     }
     
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        qWarning() << "GameMappingManager: 无法打开用户映射文件:" << filePath;
+        qWarning() << "GameMappingManager: Cannot open user mapping file:" << filePath;
         return false;
     }
     
@@ -365,7 +292,7 @@ bool GameMappingManager::loadUserMappings()
     QJsonDocument doc = QJsonDocument::fromJson(data, &error);
     
     if (error.error != QJsonParseError::NoError) {
-        qWarning() << "GameMappingManager: 用户映射JSON解析错误:" << error.errorString();
+        qWarning() << "GameMappingManager: User mapping JSON parse error:" << error.errorString();
         return false;
     }
     
@@ -374,9 +301,11 @@ bool GameMappingManager::loadUserMappings()
     
     for (auto it = mappings.begin(); it != mappings.end(); ++it) {
         m_userMappings[it.key()] = it.value().toString();
-        qDebug() << "GameMappingManager: 加载用户映射:" << it.key() << "->" << it.value().toString();
     }
     
+    if (!m_userMappings.isEmpty()) {
+        qDebug() << "GameMappingManager: Loaded" << m_userMappings.size() << "user mappings";
+    }
     return true;
 }
 
@@ -386,12 +315,11 @@ bool GameMappingManager::loadTranslationCache()
     QFile file(filePath);
     
     if (!file.exists()) {
-        qDebug() << "GameMappingManager: 翻译缓存文件不存在，跳过加载";
-        return true; // 不存在是正常的
+        return true; // File not existing is normal
     }
     
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        qWarning() << "GameMappingManager: 无法打开翻译缓存文件:" << filePath;
+        qWarning() << "GameMappingManager: Cannot open translation cache:" << filePath;
         return false;
     }
     
@@ -402,45 +330,38 @@ bool GameMappingManager::loadTranslationCache()
     QJsonDocument doc = QJsonDocument::fromJson(data, &error);
     
     if (error.error != QJsonParseError::NoError) {
-        qWarning() << "GameMappingManager: 翻译缓存JSON解析错误:" << error.errorString();
+        qWarning() << "GameMappingManager: Translation cache JSON parse error:" << error.errorString();
         return false;
     }
     
     QJsonObject obj = doc.object();
     m_translationCache.clear();
     
-    // 修复：检查并清理包含原始JSON的缓存项
     bool needsCleanup = false;
     for (auto it = obj.begin(); it != obj.end(); ++it) {
         QString value = it.value().toString();
         
-        // 检查是否是原始JSON响应（包含"code":200格式）
+        // Check if value is raw JSON response that needs parsing
         if (value.contains("{\"code\":") && value.contains("\"data\":")) {
-            qDebug() << "GameMappingManager: 检测到原始JSON缓存，尝试解析:" << it.key();
-            
-            // 尝试从JSON中提取真正的翻译结果
             QString parsedResult = parseTranslationFromJson(value);
             if (!parsedResult.isEmpty() && parsedResult != value) {
                 m_translationCache[it.key()] = parsedResult;
-                qDebug() << "GameMappingManager: 修复翻译缓存:" << it.key() << "->" << parsedResult;
                 needsCleanup = true;
             } else {
-                qWarning() << "GameMappingManager: 无法修复翻译缓存，删除:" << it.key();
-                needsCleanup = true;
+                needsCleanup = true; // Remove invalid entry
             }
         } else {
-            // 正常的翻译结果
             m_translationCache[it.key()] = value;
-            qDebug() << "GameMappingManager: 加载翻译缓存:" << it.key() << "->" << value;
         }
     }
     
-    // 如果有修复，保存清理后的缓存
     if (needsCleanup) {
-        qDebug() << "GameMappingManager: 翻译缓存已修复，保存清理后的版本";
         saveTranslationCache();
     }
     
+    if (!m_translationCache.isEmpty()) {
+        qDebug() << "GameMappingManager: Loaded" << m_translationCache.size() << "cached translations";
+    }
     return true;
 }
 
@@ -465,9 +386,8 @@ void GameMappingManager::saveUserMappings()
     if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
         file.write(doc.toJson());
         file.close();
-        qDebug() << "GameMappingManager: 用户映射已保存到:" << filePath;
     } else {
-        qWarning() << "GameMappingManager: 无法保存用户映射到:" << filePath;
+        qWarning() << "GameMappingManager: Cannot save user mappings to:" << filePath;
     }
 }
 
@@ -492,24 +412,23 @@ void GameMappingManager::saveTranslationCache()
     if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
         file.write(doc.toJson());
         file.close();
-        qDebug() << "GameMappingManager: 翻译缓存已保存到:" << filePath;
     } else {
-        qWarning() << "GameMappingManager: 无法保存翻译缓存到:" << filePath;
+        qWarning() << "GameMappingManager: Cannot save translation cache to:" << filePath;
     }
 }
 
 double GameMappingManager::calculateSimilarity(const QString& str1, const QString& str2) const
 {
-    // 简单的相似度计算
+    // Simple similarity calculation
     if (str1 == str2) return 1.0;
     if (str1.isEmpty() || str2.isEmpty()) return 0.0;
     
-    // 计算包含关系
+    // Calculate containment relationship
     if (str1.contains(str2) || str2.contains(str1)) {
         return 0.8;
     }
     
-    // 计算字符匹配度
+    // Calculate character match ratio
     int matches = 0;
     int maxLen = qMax(str1.length(), str2.length());
     int minLen = qMin(str1.length(), str2.length());
@@ -542,13 +461,10 @@ QString GameMappingManager::getBuiltinMappingPath() const
 
 void GameMappingManager::initializeTranslator()
 {
-    // 初始化翻译器（默认使用SuApi，因为它看起来更稳定）
     m_translator = TranslatorFactory::createTranslator(TranslatorFactory::TranslatorType::SU_API);
     
     if (!m_translator) {
-        qWarning() << "GameMappingManager: 翻译器初始化失败";
-    } else {
-        qDebug() << "GameMappingManager: 翻译器初始化成功";
+        qWarning() << "GameMappingManager: Translator initialization failed";
     }
 }
 
@@ -565,13 +481,11 @@ void GameMappingManager::onTranslationTimerTimeout()
 void GameMappingManager::performTranslation(const QString& chinese)
 {
     if (!m_translator) {
-        qWarning() << "GameMappingManager: 翻译器未初始化";
-        emit translationFailed(chinese, "翻译器未初始化");
+        qWarning() << "GameMappingManager: Translator not initialized";
+        emit translationFailed(chinese, "Translator not initialized");
         return;
     }
-      qDebug() << "GameMappingManager: 开始翻译" << chinese;
     
-    // 在后台线程中执行翻译
     auto future = QtConcurrent::run([this, chinese]() {
         std::string chineseStd = chinese.toStdString();
         TranslationResult result = m_translator->translate(chineseStd, "zh-CN", "en");
@@ -579,25 +493,19 @@ void GameMappingManager::performTranslation(const QString& chinese)
         if (result.success && !result.translated.empty()) {
             QString english = QString::fromStdString(result.translated);
             
-            // 简单的后处理：首字母大写
             if (!english.isEmpty()) {
                 english[0] = english[0].toUpper();
             }
             
-            // 添加到翻译缓存
             addTranslationCache(chinese, english);
             saveTranslationCache();
             
-            qDebug() << "GameMappingManager: 翻译成功:" << chinese << "->" << english;
-            
-            // 回调处理
             QMutexLocker locker(&m_mutex);
             if (m_translationCallbacks.contains(chinese)) {
                 auto callback = m_translationCallbacks[chinese];
                 m_translationCallbacks.remove(chinese);
                 locker.unlock();
                 
-                // 在主线程中执行回调
                 QMetaObject::invokeMethod(this, [callback, english]() {
                     callback(english);
                 }, Qt::QueuedConnection);
@@ -606,9 +514,8 @@ void GameMappingManager::performTranslation(const QString& chinese)
             emit translationCompleted(chinese, english);
         } else {
             QString error = QString::fromStdString(result.error);
-            qWarning() << "GameMappingManager: 翻译失败:" << chinese << "错误:" << error;
+            qWarning() << "GameMappingManager: Translation failed for" << chinese << ":" << error;
             
-            // 移除回调
             QMutexLocker locker(&m_mutex);
             m_translationCallbacks.remove(chinese);
             
@@ -632,7 +539,6 @@ QString GameMappingManager::parseTranslationFromJson(const QString& jsonResponse
         return QString();
     }
     
-    // 如果不是JSON格式，直接返回
     if (!jsonResponse.startsWith("{") && !jsonResponse.startsWith("[")) {
         return jsonResponse;
     }
@@ -642,13 +548,12 @@ QString GameMappingManager::parseTranslationFromJson(const QString& jsonResponse
         QJsonDocument doc = QJsonDocument::fromJson(jsonResponse.toUtf8(), &error);
         
         if (error.error != QJsonParseError::NoError) {
-            qWarning() << "GameMappingManager: JSON解析错误:" << error.errorString();
             return QString();
         }
         
         QJsonObject obj = doc.object();
         
-        // 处理SuAPI格式
+        // Handle SuAPI format
         if (obj.contains("data") && obj["data"].isArray()) {
             QJsonArray dataArray = obj["data"].toArray();
             if (!dataArray.isEmpty()) {
@@ -658,39 +563,30 @@ QString GameMappingManager::parseTranslationFromJson(const QString& jsonResponse
                     if (!translations.isEmpty()) {
                         QJsonObject translation = translations[0].toObject();
                         if (translation.contains("text")) {
-                            QString result = translation["text"].toString().trimmed();
-                            qDebug() << "GameMappingManager: 从SuAPI JSON解析出翻译结果:" << result;
-                            return result;
+                            return translation["text"].toString().trimmed();
                         }
                     }
                 }
             }
         }
         
-        // 处理AppWorlds格式
+        // Handle AppWorlds format
         if (obj.contains("data") && obj["data"].isString()) {
-            QString result = obj["data"].toString().trimmed();
-            qDebug() << "GameMappingManager: 从AppWorlds JSON解析出翻译结果:" << result;
-            return result;
+            return obj["data"].toString().trimmed();
         }
         
-        // 处理其他可能的格式
+        // Handle other formats
         if (obj.contains("result")) {
-            QString result = obj["result"].toString().trimmed();
-            qDebug() << "GameMappingManager: 从result字段解析出翻译结果:" << result;
-            return result;
+            return obj["result"].toString().trimmed();
         }
         
         if (obj.contains("translation")) {
-            QString result = obj["translation"].toString().trimmed();
-            qDebug() << "GameMappingManager: 从translation字段解析出翻译结果:" << result;
-            return result;
+            return obj["translation"].toString().trimmed();
         }
         
     } catch (const std::exception& e) {
-        qWarning() << "GameMappingManager: JSON解析异常:" << e.what();
+        qWarning() << "GameMappingManager: JSON parse exception:" << e.what();
     }
     
-    qWarning() << "GameMappingManager: 无法从JSON中解析翻译结果:" << jsonResponse.left(100);
     return QString();
 }

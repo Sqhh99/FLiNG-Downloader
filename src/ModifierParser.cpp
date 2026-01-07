@@ -2,16 +2,16 @@
 #include <QDebug>
 #include <QRegularExpression>
 
-// 辅助函数：判断是否为数字或序号词汇
+// Helper function: check if word is a number or sequence word
 bool isNumberOrSequenceWord(const QString& word) {
     QString wordLower = word.toLower();
     
-    // 检查是否为纯数字
+    // Check if it's a pure number
     bool isNumber;
     wordLower.toInt(&isNumber);
     if (isNumber) return true;
     
-    // 检查是否为罗马数字或序号词汇
+    // Check if it's a Roman numeral or sequence word
     QStringList sequenceWords = {
         "i", "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix", "x",
         "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
@@ -21,30 +21,30 @@ bool isNumberOrSequenceWord(const QString& word) {
     return sequenceWords.contains(wordLower);
 }
 
-// 辅助函数：检查标题是否包含等价的数字表达
+// Helper function: check if title contains equivalent number expression
 bool containsEquivalentNumber(const QString& title, const QString& searchWord) {
     QString titleLower = title.toLower();
     QString wordLower = searchWord.toLower();
     
-    // 数字对应关系映射
+    // Number equivalence mapping
     QMap<QString, QStringList> numberEquivalents = {
         {"1", {"i", "one", "first"}},
-        {"2", {"ii", "two", "second", "age"}},  // "age" 常用于表示续作
+        {"2", {"ii", "two", "second", "age"}},  // "age" often indicates sequel
         {"3", {"iii", "three", "third"}},
         {"4", {"iv", "four", "fourth"}},
         {"5", {"v", "five", "fifth"}},
         {"6", {"vi", "six", "sixth"}},
-        {"age", {"2", "ii", "two", "second"}},  // "age" 通常指代第二部
+        {"age", {"2", "ii", "two", "second"}},  // "age" usually refers to sequel
         {"episode", {"part", "vol", "volume"}},
         {"part", {"episode", "vol", "volume"}}
     };
     
-    // 检查是否有等价表达
+    // Check for equivalent expressions
     for (auto it = numberEquivalents.begin(); it != numberEquivalents.end(); ++it) {
         QString key = it.key();
         QStringList values = it.value();
         
-        // 如果搜索词是 key，检查标题是否包含 values 中的任何一个
+        // If search word is key, check if title contains any value
         if (wordLower == key) {
             for (const QString& value : values) {
                 if (titleLower.contains(value)) {
@@ -53,7 +53,7 @@ bool containsEquivalentNumber(const QString& title, const QString& searchWord) {
             }
         }
         
-        // 如果搜索词是 values 中的一个，检查标题是否包含 key
+        // If search word is one of values, check if title contains key
         if (values.contains(wordLower) && titleLower.contains(key)) {
             return true;
         }
@@ -62,21 +62,21 @@ bool containsEquivalentNumber(const QString& title, const QString& searchWord) {
     return false;
 }
 
-// HTML实体解码函数
+// HTML entity decode function
 QString decodeHtmlEntities(const QString& text) {
     QString result = text;
     
-    // 常见HTML实体替换
+    // Common HTML entity replacements
     result.replace("&amp;", "&");
     result.replace("&lt;", "<");
     result.replace("&gt;", ">");
     result.replace("&quot;", "\"");
     result.replace("&#39;", "'");
     result.replace("&apos;", "'");
-    result.replace("&#8217;", "'");  // 右单引号
-    result.replace("&#8216;", "'");  // 左单引号
-    result.replace("&#8220;", "\""); // 左双引号
-    result.replace("&#8221;", "\""); // 右双引号
+    result.replace("&#8217;", "'");  // Right single quote
+    result.replace("&#8216;", "'");  // Left single quote
+    result.replace("&#8220;", "\""); // Left double quote
+    result.replace("&#8221;", "\""); // Right double quote
     result.replace("&#8211;", "-");  // en dash
     result.replace("&#8212;", "—");  // em dash
     
@@ -91,57 +91,38 @@ ModifierParser::~ModifierParser()
 {
 }
 
-// 解析修改器列表HTML
+// Parse modifier list HTML
 QList<ModifierInfo> ModifierParser::parseModifierListHTML(const std::string& html, const QString& searchTerm)
 {
     QList<ModifierInfo> result;
     
     try {
-        qDebug() << "开始解析HTML，长度：" << html.size() << "字节";
-        
-        // 对于空数据或极短的数据，直接返回空列表（调用方会使用备用数据）
+        // Return empty for invalid HTML
         if (html.size() < 10) {
-            qDebug() << "警告: HTML数据过短，无法解析，长度: " << html.size();
+            qDebug() << "HTML data too short to parse";
             return result;
         }
         
         QString htmlQt = QString::fromStdString(html);
         
-        // 调试：计算文章或修改器可能的标记数量
+        // Check article count
         int articleCount = htmlQt.count("<article", Qt::CaseInsensitive);
-        int trainerCount = htmlQt.count("trainer", Qt::CaseInsensitive);
         
-        qDebug() << "HTML中<article>标签数量: " << articleCount;
-        qDebug() << "HTML中'trainer'出现次数: " << trainerCount;
-        
-        // 调试：将完整的HTML保存到日志
-        qDebug() << "搜索词：" << searchTerm;
-        qDebug() << "HTML前1000字符：" << htmlQt.left(1000);
-        
-        // 检查页面内容是否为搜索结果页
+        // Check if page is a search results page
         bool isSearchPage = htmlQt.contains("SEARCH RESULTS", Qt::CaseInsensitive) || 
                            !searchTerm.isEmpty();
-                           
-        qDebug() << "是否为搜索页面：" << isSearchPage;
         
-        // 检查关键字 - 特别针对特定游戏
-        bool containsKeyRDR2 = htmlQt.contains("Red Dead Redemption 2", Qt::CaseInsensitive);
-        bool containsKeyRDR = htmlQt.contains("Red Dead Redemption", Qt::CaseInsensitive);
-        
-        qDebug() << "页面是否包含'Red Dead Redemption 2':" << containsKeyRDR2;
-        qDebug() << "页面是否包含'Red Dead Redemption':" << containsKeyRDR;
-        
-        // 处理搜索词，拆分为单词列表以便进行更灵活的匹配
+        // Process search term - split into words for flexible matching
         QStringList searchWords;
         if (!searchTerm.isEmpty()) {
-            // 解码HTML实体
+            // Decode HTML entities
             QString decodedSearchTerm = decodeHtmlEntities(searchTerm);
             
-            // 将搜索词分割为单词，但保留重要的短词（如数字、序号）
+            // Split search term into words, keeping important short words (numbers, sequences)
             QStringList words = decodedSearchTerm.split(" ", Qt::SkipEmptyParts);
             for (const QString& word : words) {
                 QString trimmedWord = word.trimmed();
-                // 保留数字、序号词汇或长度大于2的词
+                // Keep numbers, sequence words, or words longer than 2 chars
                 if (trimmedWord.length() >= 1 && 
                     (isNumberOrSequenceWord(trimmedWord) || trimmedWord.length() > 2) &&
                     trimmedWord.compare("the", Qt::CaseInsensitive) != 0 && 
@@ -152,50 +133,44 @@ QList<ModifierInfo> ModifierParser::parseModifierListHTML(const std::string& htm
                     searchWords << trimmedWord;
                 }
             }
-            qDebug() << "搜索词拆分为关键词：" << searchWords.join(", ");
         }
         
-        // 使用正则表达式查找所有文章条目
+        // Use regex to find all article entries
         QRegularExpression articleRegex;
         
         if (isSearchPage) {
-            // 搜索结果页面的文章模式 - 更新以匹配FLiNG网站的实际结构
+            // Search results page article pattern
             articleRegex = QRegularExpression("<article[^>]*class=\"[^\"]*post[^\"]*\"[^>]*>(.*?)</article>", 
                                              QRegularExpression::DotMatchesEverythingOption);
         } else {
-            // 主页的文章模式 - 通常位于"RECENTLY UPDATED"部分
+            // Homepage article pattern (usually in "RECENTLY UPDATED" section)
             articleRegex = QRegularExpression("<article[^>]*>(.*?)</article>", 
                                              QRegularExpression::DotMatchesEverythingOption);
         }
         
-        // 查找所有匹配的文章
+        // Find all matching articles
         QRegularExpressionMatchIterator matches = articleRegex.globalMatch(htmlQt);
         
-        qDebug() << "开始逐项解析修改器条目";
-        
-        // 处理每个文章条目
+        // Process each article entry
         int matchCount = 0;
         while (matches.hasNext()) {
             QRegularExpressionMatch match = matches.next();
             QString articleHtml = match.captured(1);
             matchCount++;
             
-            // 调试：检查每个article的内容
-            qDebug() << "找到article #" << matchCount << "长度：" << articleHtml.length();
-            
-            // 提取修改器名称
+            // Extract modifier name
             QRegularExpression titleRegex("<h[123][^>]*class=\"[^\"]*entry-title[^\"]*\"[^>]*>\\s*<a[^>]*href=\"([^\"]*)\"[^>]*>([^<]+)</a>", 
                                          QRegularExpression::DotMatchesEverythingOption);
             QRegularExpressionMatch titleMatch = titleRegex.match(articleHtml);
             
-            // 如果没有通过上面的方式匹配，尝试另一种标题格式
+            // If first method didn't match, try alternate title format
             if (!titleMatch.hasMatch()) {
                 titleRegex = QRegularExpression("<h[123][^>]*>\\s*<a[^>]*href=\"([^\"]*)\"[^>]*>([^<]+)</a>", 
                                               QRegularExpression::DotMatchesEverythingOption);
                 titleMatch = titleRegex.match(articleHtml);
             }
             
-            // 再尝试第三种格式
+            // Try third format
             if (!titleMatch.hasMatch()) {
                 titleRegex = QRegularExpression("<a[^>]*href=\"([^\"]*)\"[^>]*>([^<]+)</a>", 
                                              QRegularExpression::DotMatchesEverythingOption);
@@ -206,244 +181,188 @@ QList<ModifierInfo> ModifierParser::parseModifierListHTML(const std::string& htm
                 QString url = titleMatch.captured(1);
                 QString title = titleMatch.captured(2).trimmed();
                 
-                qDebug() << "找到条目：" << title << " URL:" << url;
-                
-                // 如果标题包含"Trainer"，则这是一个修改器，或者根据URL判断
+                // If title contains "Trainer" or URL contains trainer
                 if (title.contains("Trainer", Qt::CaseInsensitive) || 
                     url.contains("trainer", Qt::CaseInsensitive)) {
                     ModifierInfo modifier;
                     
-                    // 提取修改器名称 (删除末尾的"Trainer"字样，并解码HTML实体)
+                    // Extract modifier name (remove trailing "Trainer" and decode HTML entities)
                     modifier.name = decodeHtmlEntities(title);
                     modifier.name.replace(QRegularExpression("\\s+Trainer\\s*$", QRegularExpression::CaseInsensitiveOption), "");
                     modifier.url = url;
-                    // 确保初始化optionsCount为0，避免未初始化的值
+                    // Initialize optionsCount to 0
                     modifier.optionsCount = 0;
                     
-                    // 提取修改器截图URL用于封面提取
+                    // Extract screenshot URL for cover extraction
                     QRegularExpression screenshotRegex("<img[^>]*src=\"([^\"]*\\.(?:jpg|png|gif))\"[^>]*>", 
                                                       QRegularExpression::CaseInsensitiveOption);
                     QRegularExpressionMatch screenshotMatch = screenshotRegex.match(articleHtml);
                     if (screenshotMatch.hasMatch()) {
                         modifier.screenshotUrl = screenshotMatch.captured(1);
-                        qDebug() << "  找到截图URL：" << modifier.screenshotUrl;
                     }
                     
-                    // 对title也进行HTML实体解码，用于后续匹配
+                    // Decode title for matching
                     QString decodedTitle = decodeHtmlEntities(title);
                     
-                    // 特殊处理搜索词为"Red Dead Redemption 2"的情况
+                    // Special handling for Red Dead Redemption 2 search
                     bool isRDR2Search = searchTerm.contains("Red Dead Redemption 2", Qt::CaseInsensitive);
                     bool isRDRMatch = decodedTitle.contains("Red Dead Redemption", Qt::CaseInsensitive);
                     
-                    // 改进的搜索词匹配逻辑
+                    // Improved search term matching logic
                     bool matchesSearch = false;
                     
-                    // 优先使用直接包含关系进行匹配（使用解码后的标题）
+                    // Priority: direct containment match (using decoded title)
                     if (searchTerm.isEmpty() || 
                         decodedTitle.contains(searchTerm, Qt::CaseInsensitive) || 
                         modifier.name.contains(searchTerm, Qt::CaseInsensitive)) {
                         matchesSearch = true;
-                        qDebug() << "  完全匹配搜索词：" << searchTerm;
                     } 
-                    // 如果不完全匹配，检查是否匹配所有关键词
+                    // If not exact match, check keyword matching
                     else if (!searchWords.isEmpty()) {
                         int matchedWords = 0;
-                        QString titleLower = decodedTitle.toLower();  // 使用解码后的标题
+                        QString titleLower = decodedTitle.toLower();
                         
-                        // 检查所有关键词是否都包含在标题中，支持数字序号的智能匹配
+                        // Check all keywords in title with smart number/sequence matching
                         for (const QString& word : searchWords) {
                             QString wordLower = word.toLower();
                             if (titleLower.contains(wordLower)) {
                                 matchedWords++;
                             }
-                            // 智能匹配数字序号和相关词汇
+                            // Smart matching for numbers and sequence words
                             else if (isNumberOrSequenceWord(word) && containsEquivalentNumber(titleLower, wordLower)) {
                                 matchedWords++;
-                                qDebug() << "    数字序号智能匹配：" << word << " 在 " << decodedTitle;
                             }
                         }
                         
-                        // 改进匹配阈值：降低要求，支持更灵活的匹配
+                        // Improved match threshold for flexible matching
                         double matchRatio = static_cast<double>(matchedWords) / searchWords.size();
-                        if ((matchRatio >= 0.6) ||                              // 60%以上匹配
-                            (matchedWords >= 1 && searchWords.size() <= 2) ||   // 2个词或以下，匹配1个即可
-                            (matchedWords >= 2 && matchRatio >= 0.4)) {         // 多词情况下，至少2个且40%以上
+                        if ((matchRatio >= 0.6) ||                              // 60%+ match
+                            (matchedWords >= 1 && searchWords.size() <= 2) ||   // 2 words or less, 1 match is enough
+                            (matchedWords >= 2 && matchRatio >= 0.4)) {         // Multiple words, at least 2 and 40%+
                             matchesSearch = true;
-                            qDebug() << "  关键词匹配：" << matchedWords << "/" << searchWords.size() 
-                                    << " = " << (matchRatio * 100) << "%";
-                        } else {
-                            qDebug() << "  关键词匹配率不够：" << matchedWords << "/" << searchWords.size();
                         }
                     }
                     
-                    // 特殊处理Red Dead Redemption系列
+                    // Special handling for Red Dead Redemption series
                     if (!matchesSearch && (searchTerm.contains("Red Dead", Qt::CaseInsensitive) && isRDRMatch)) {
                         matchesSearch = true;
-                        qDebug() << "  特殊匹配Red Dead系列：" << decodedTitle;
                     }
                     
-                    // 如果不匹配搜索词且不是空搜索，跳过此条目
+                    // Skip non-matching entries
                     if (!matchesSearch && !searchTerm.isEmpty()) {
-                        qDebug() << "  跳过不匹配项：" << decodedTitle;
                         continue;
                     }
                     
-                    // 提取更新日期
+                    // Extract update date
                     QRegularExpression dateRegex("<time[^>]*>([^<]+)</time>", QRegularExpression::DotMatchesEverythingOption);
                     QRegularExpressionMatch dateMatch = dateRegex.match(articleHtml);
                     if (dateMatch.hasMatch()) {
                         modifier.lastUpdate = dateMatch.captured(1).trimmed();
-                        qDebug() << "  更新日期：" << modifier.lastUpdate;
                     }
                     
-                    // 提取游戏版本和选项数
+                    // Extract game version and options count
                     QRegularExpression metaRegex("<div[^>]*class=\"[^\"]*entry-meta[^\"]*\"[^>]*>(.*?)</div>", 
                                               QRegularExpression::DotMatchesEverythingOption);
                     QRegularExpressionMatch metaMatch = metaRegex.match(articleHtml);
                     if (metaMatch.hasMatch()) {
                         QString meta = metaMatch.captured(1);
                         
-                        // 提取选项数
+                        // Extract options count
                         QRegularExpression optionsRegex("(\\d+)\\s*Options", QRegularExpression::CaseInsensitiveOption);
                         QRegularExpressionMatch optionsMatch = optionsRegex.match(meta);
                         if (optionsMatch.hasMatch()) {
                             modifier.optionsCount = optionsMatch.captured(1).toInt();
-                            qDebug() << "  选项数：" << modifier.optionsCount;
                         }
                         
-                        // 提取游戏版本
+                        // Extract game version
                         QRegularExpression versionRegex("Game Version:\\s*([^·<]+)", QRegularExpression::CaseInsensitiveOption);
                         QRegularExpressionMatch versionMatch = versionRegex.match(meta);
                         if (versionMatch.hasMatch()) {
                             modifier.gameVersion = versionMatch.captured(1).trimmed();
-                            qDebug() << "  游戏版本：" << modifier.gameVersion;
                         }
                     }
                     
-                    // 提取修改器描述
+                    // Extract modifier description
                     QRegularExpression descriptionRegex("<p[^>]*class=\"[^\"]*entry-content[^\"]*\"[^>]*>(.*?)</p>", 
                                                        QRegularExpression::DotMatchesEverythingOption);
                     QRegularExpressionMatch descriptionMatch = descriptionRegex.match(articleHtml);
-                    
                     QString description = descriptionMatch.captured(1);
                     
-                    // 调试：检查每个article的描述
-                    qDebug() << "找到article #" << matchCount << "描述：" << description;
-                    
-                    // 创建ModifierInfo对象并添加到结果列表中
+                    // Create ModifierInfo and add to result
                     modifier.name = title;
                     modifier.url = url;
                     modifier.description = description;
                     result.append(modifier);
-                    qDebug() << "  已添加修改器：" << modifier.name;
                 }
             }
         }
         
-        qDebug() << "成功解析修改器条目数量：" << result.size();
+        qDebug() << "Parsed" << result.size() << "modifiers from HTML";
         
-        // 如果没有通过正则表达式找到结果，尝试直接搜索特定内容
+        // If no results found via regex, try alternative search method
         if (result.isEmpty() && !searchTerm.isEmpty()) {
-            qDebug() << "常规解析未找到结果，尝试直接搜索方法";
+            // Try generic alternative method
+            qDebug() << "Trying alternative search method";
+                
+            // Try to find search results header
+            QRegularExpression searchHeaderRegex("<h1[^>]*>([^<]*SEARCH[^<]*)</h1>", 
+                                              QRegularExpression::CaseInsensitiveOption);
+            QRegularExpressionMatch headerMatch = searchHeaderRegex.match(htmlQt);
             
-            // 特别针对Red Dead Redemption 2的处理
-            if (searchTerm.contains("Red Dead", Qt::CaseInsensitive)) {
-                qDebug() << "发现Red Dead系列搜索，添加备用结果";
+            if (headerMatch.hasMatch()) {
+                // Try to find search result count
+                QRegularExpression resultCountRegex("<h3[^>]*>(\\d+)\\s+SEARCH\\s+RESULTS</h3>", 
+                                                 QRegularExpression::CaseInsensitiveOption);
+                QRegularExpressionMatch countMatch = resultCountRegex.match(htmlQt);
                 
-                // 添加Red Dead Redemption 2条目
-                if (searchTerm.contains("2", Qt::CaseInsensitive) || 
-                    searchTerm.contains("redemption 2", Qt::CaseInsensitive)) {
-                    ModifierInfo rdr2;
-                    rdr2.name = "Red Dead Redemption 2";
-                    rdr2.url = "https://flingtrainer.com/trainer/red-dead-redemption-2-trainer/";
-                    rdr2.gameVersion = "Offline/story mode only";
-                    rdr2.lastUpdate = "2024-03-20";
-                    rdr2.optionsCount = 561;
-                    result.append(rdr2);
-                }
-                
-                // 添加Red Dead Redemption条目
-                ModifierInfo rdr;
-                rdr.name = "Red Dead Redemption";
-                rdr.url = "https://flingtrainer.com/trainer/red-dead-redemption-trainer/";
-                rdr.gameVersion = "Latest";
-                rdr.lastUpdate = "2024-02-29";
-                rdr.optionsCount = 47;
-                result.append(rdr);
-                
-                return result; // 直接返回备用结果
-            }
-            
-            // 尝试使用通用的替代方法
-            if (result.isEmpty()) {
-                qDebug() << "尝试通用替代搜索方法";
-                
-                // 先尝试查找搜索结果头部
-                QRegularExpression searchHeaderRegex("<h1[^>]*>([^<]*SEARCH[^<]*)</h1>", 
-                                                  QRegularExpression::CaseInsensitiveOption);
-                QRegularExpressionMatch headerMatch = searchHeaderRegex.match(htmlQt);
-                
-                if (headerMatch.hasMatch()) {
-                    qDebug() << "找到搜索结果头部：" << headerMatch.captured(1);
+                if (countMatch.hasMatch()) {
+                    int resultCount = countMatch.captured(1).toInt();
                     
-                    // 尝试查找搜索结果数量
-                    QRegularExpression resultCountRegex("<h3[^>]*>(\\d+)\\s+SEARCH\\s+RESULTS</h3>", 
-                                                     QRegularExpression::CaseInsensitiveOption);
-                    QRegularExpressionMatch countMatch = resultCountRegex.match(htmlQt);
-                    
-                    if (countMatch.hasMatch()) {
-                        int resultCount = countMatch.captured(1).toInt();
-                        qDebug() << "搜索结果数量：" << resultCount;
+                    // If results exist but weren't parsed, try different method
+                    if (resultCount > 0) {
+                        // Try to find all <article> tags regardless of class
+                        QRegularExpression anyArticleRegex("<article[^>]*>(.*?)</article>", 
+                                                         QRegularExpression::DotMatchesEverythingOption);
+                        QRegularExpressionMatchIterator articleMatches = anyArticleRegex.globalMatch(htmlQt);
                         
-                        // 如果有结果但未解析到，尝试不同的解析方法
-                        if (resultCount > 0) {
-                            // 尝试查找所有<article>标签，不论其类属性
-                            QRegularExpression anyArticleRegex("<article[^>]*>(.*?)</article>", 
-                                                             QRegularExpression::DotMatchesEverythingOption);
-                            QRegularExpressionMatchIterator articleMatches = anyArticleRegex.globalMatch(htmlQt);
+                        while (articleMatches.hasNext()) {
+                            QRegularExpressionMatch articleMatch = articleMatches.next();
+                            QString articleContent = articleMatch.captured(1);
                             
-                            while (articleMatches.hasNext()) {
-                                QRegularExpressionMatch articleMatch = articleMatches.next();
-                                QString articleContent = articleMatch.captured(1);
+                            // Find title and link within article
+                            QRegularExpression linkRegex("<a[^>]*href=\"([^\"]*)\"[^>]*>([^<]+)</a>", 
+                                                      QRegularExpression::DotMatchesEverythingOption);
+                            QRegularExpressionMatchIterator linkMatches = linkRegex.globalMatch(articleContent);
+                            
+                            while (linkMatches.hasNext()) {
+                                QRegularExpressionMatch linkMatch = linkMatches.next();
+                                QString url = linkMatch.captured(1);
+                                QString title = linkMatch.captured(2).trimmed();
                                 
-                                // 在文章内查找标题和链接
-                                QRegularExpression linkRegex("<a[^>]*href=\"([^\"]*)\"[^>]*>([^<]+)</a>", 
-                                                          QRegularExpression::DotMatchesEverythingOption);
-                                QRegularExpressionMatchIterator linkMatches = linkRegex.globalMatch(articleContent);
-                                
-                                while (linkMatches.hasNext()) {
-                                    QRegularExpressionMatch linkMatch = linkMatches.next();
-                                    QString url = linkMatch.captured(1);
-                                    QString title = linkMatch.captured(2).trimmed();
-                                    
-                                    // 如果链接包含"trainer"和搜索词，可能是我们要找的
-                                    if (url.contains("trainer", Qt::CaseInsensitive)) {
-                                        // 创建可修改的搜索词副本
-                                        QString searchTermFormatted = searchTerm;
-                                        // 检查标题是否包含搜索词或URL是否包含格式化后的搜索词
-                                        if (title.contains(searchTerm, Qt::CaseInsensitive) || 
-                                            url.contains(searchTermFormatted.replace(" ", "-"), Qt::CaseInsensitive)) {
-                                            
-                                            ModifierInfo modifier;
-                                            modifier.name = title;
-                                            modifier.name.replace(QRegularExpression("\\s+Trainer\\s*$", QRegularExpression::CaseInsensitiveOption), "");
-                                            modifier.url = url;
-                                            modifier.optionsCount = 0; // 确保初始化选项数
-                                            
-                                            // 如果列表中没有相同URL的条目，添加它
-                                            bool isDuplicate = false;
-                                            for (const ModifierInfo& existing : result) {
-                                                if (existing.url == url) {
-                                                    isDuplicate = true;
-                                                    break;
-                                                }
+                                // If link contains "trainer", it might be what we're looking for
+                                if (url.contains("trainer", Qt::CaseInsensitive)) {
+                                    QString searchTermFormatted = searchTerm;
+                                    // Check if title contains search term or URL contains formatted search term
+                                    if (title.contains(searchTerm, Qt::CaseInsensitive) || 
+                                        url.contains(searchTermFormatted.replace(" ", "-"), Qt::CaseInsensitive)) {
+                                        
+                                        ModifierInfo modifier;
+                                        modifier.name = title;
+                                        modifier.name.replace(QRegularExpression("\\s+Trainer\\s*$", QRegularExpression::CaseInsensitiveOption), "");
+                                        modifier.url = url;
+                                        modifier.optionsCount = 0;
+                                        
+                                        // Check for duplicates
+                                        bool isDuplicate = false;
+                                        for (const ModifierInfo& existing : result) {
+                                            if (existing.url == url) {
+                                                isDuplicate = true;
+                                                break;
                                             }
-                                            
-                                            if (!isDuplicate) {
-                                                result.append(modifier);
-                                                qDebug() << "通过链接匹配找到：" << modifier.name;
-                                            }
+                                        }
+                                        
+                                        if (!isDuplicate) {
+                                            result.append(modifier);
                                         }
                                     }
                                 }
@@ -451,116 +370,107 @@ QList<ModifierInfo> ModifierParser::parseModifierListHTML(const std::string& htm
                         }
                     }
                 }
+            }
                 
-                // 如果仍然没有结果，尝试最后的方法
-                if (result.isEmpty()) {
-                    // 创建可修改的搜索词副本
-                    QString searchTermFormatted = searchTerm;
+            // If still no results, try last resort method
+            if (result.isEmpty()) {
+                QString searchTermFormatted = searchTerm;
+                
+                // Try to find all links in the page
+                QRegularExpression allLinksRegex("<a[^>]*href=\"([^\"]*trainer[^\"]*)\"[^>]*>([^<]*" + 
+                                              QRegularExpression::escape(searchTerm) + "[^<]*)</a>",
+                                              QRegularExpression::CaseInsensitiveOption);
+                QRegularExpressionMatchIterator allLinksMatches = allLinksRegex.globalMatch(htmlQt);
+                
+                while (allLinksMatches.hasNext()) {
+                    QRegularExpressionMatch linkMatch = allLinksMatches.next();
+                    QString url = linkMatch.captured(1);
+                    QString title = linkMatch.captured(2).trimmed();
                     
-                    // 尝试查找网页中所有链接
-                    QRegularExpression allLinksRegex("<a[^>]*href=\"([^\"]*trainer[^\"]*)\"[^>]*>([^<]*" + 
-                                                  QRegularExpression::escape(searchTerm) + "[^<]*)</a>",
-                                                  QRegularExpression::CaseInsensitiveOption);
-                    QRegularExpressionMatchIterator allLinksMatches = allLinksRegex.globalMatch(htmlQt);
+                    ModifierInfo modifier;
+                    modifier.name = title;
+                    modifier.name.replace(QRegularExpression("\\s+Trainer\\s*$", QRegularExpression::CaseInsensitiveOption), "");
+                    modifier.url = url;
+                    modifier.optionsCount = 0;
                     
-                    while (allLinksMatches.hasNext()) {
-                        QRegularExpressionMatch linkMatch = allLinksMatches.next();
-                        QString url = linkMatch.captured(1);
-                        QString title = linkMatch.captured(2).trimmed();
-                        
-                        ModifierInfo modifier;
-                        modifier.name = title;
-                        modifier.name.replace(QRegularExpression("\\s+Trainer\\s*$", QRegularExpression::CaseInsensitiveOption), "");
-                        modifier.url = url;
-                        modifier.optionsCount = 0; // 确保初始化选项数
-                        
-                        // 避免重复添加
-                        bool isDuplicate = false;
-                        for (const ModifierInfo& existing : result) {
-                            if (existing.url == url) {
-                                isDuplicate = true;
-                                break;
-                            }
+                    // Avoid duplicates
+                    bool isDuplicate = false;
+                    for (const ModifierInfo& existing : result) {
+                        if (existing.url == url) {
+                            isDuplicate = true;
+                            break;
                         }
-                        
-                        if (!isDuplicate) {
-                            result.append(modifier);
-                            qDebug() << "通过通用链接搜索找到：" << modifier.name;
-                        }
+                    }
+                    
+                    if (!isDuplicate) {
+                        result.append(modifier);
                     }
                 }
             }
         }
     }
     catch (const std::exception& e) {
-        qDebug() << "解析HTML时发生异常：" << e.what();
+        qDebug() << "HTML parsing exception:" << e.what();
     }
     
     return result;
 }
 
-// 解析修改器详情HTML
+// Parse modifier detail HTML
 ModifierInfo* ModifierParser::parseModifierDetailHTML(const std::string& html, const QString& modifierName)
 {
     ModifierInfo* modifier = new ModifierInfo();
     modifier->name = modifierName;
-    modifier->optionsCount = 0; // 确保初始化为0
+    modifier->optionsCount = 0; // Initialize to 0
     
     try {
         QString htmlQt = QString::fromStdString(html);
         
-        qDebug() << "开始解析修改器详情，HTML长度：" << html.size() << "字节";
-        qDebug() << "修改器名称：" << modifierName;
+        qDebug() << "Parsing modifier detail:" << modifierName;
         
-        // 提取游戏版本 - 尝试多种模式
+        // Extract game version - try multiple patterns
         QRegularExpression versionRegex("Game Version:\\s*([^<·]+)", QRegularExpression::CaseInsensitiveOption);
         QRegularExpressionMatch versionMatch = versionRegex.match(htmlQt);
         if (versionMatch.hasMatch()) {
             modifier->gameVersion = versionMatch.captured(1).trimmed();
-            qDebug() << "游戏版本：" << modifier->gameVersion;
         } else {
-            // 尝试其他版本匹配模式
+            // Try alternative version patterns
             QRegularExpression altVersionRegex("Version\\s*:\\s*([^<\\n]+)", QRegularExpression::CaseInsensitiveOption);
             QRegularExpressionMatch altVersionMatch = altVersionRegex.match(htmlQt);
             if (altVersionMatch.hasMatch()) {
                 modifier->gameVersion = altVersionMatch.captured(1).trimmed();
-                qDebug() << "从替代模式找到游戏版本：" << modifier->gameVersion;
             } else {
-                // 尝试从HTML标题提取版本信息
+                // Try from HTML title
                 QRegularExpression titleVersionRegex("<title>.*?v([\\d\\.]+).*?</title>", 
                                                 QRegularExpression::CaseInsensitiveOption | QRegularExpression::DotMatchesEverythingOption);
                 QRegularExpressionMatch titleVersionMatch = titleVersionRegex.match(htmlQt);
                 if (titleVersionMatch.hasMatch()) {
                     modifier->gameVersion = "v" + titleVersionMatch.captured(1).trimmed();
-                    qDebug() << "从标题提取游戏版本：" << modifier->gameVersion;
                 } else {
-                    // 尝试查找包含"version"的元描述标签
+                    // Try from meta description
                     QRegularExpression metaVersionRegex("<meta[^>]*content\\s*=\\s*[\"'].*?version\\s*[:\\s]\\s*([^,\"'<>]+)[\"']", 
                                                    QRegularExpression::CaseInsensitiveOption | QRegularExpression::DotMatchesEverythingOption);
                     QRegularExpressionMatch metaVersionMatch = metaVersionRegex.match(htmlQt);
                     if (metaVersionMatch.hasMatch()) {
                         modifier->gameVersion = metaVersionMatch.captured(1).trimmed();
-                        qDebug() << "从元标记提取游戏版本：" << modifier->gameVersion;
                     } else {
-                        // 尝试从post-meta元素中提取信息（针对FLiNG网站特定结构）
+                        // Try from post-meta element (FLiNG website specific)
                         QRegularExpression postMetaRegex("<div class=\"post-meta[^\"]*\"[^>]*>(.*?)</div>", 
                                                        QRegularExpression::DotMatchesEverythingOption);
                         QRegularExpressionMatch postMetaMatch = postMetaRegex.match(htmlQt);
                         if (postMetaMatch.hasMatch()) {
                             QString metaContent = postMetaMatch.captured(1);
                             
-                            // 查找Game Version: 标记
+                            // Find Game Version marker
                             QRegularExpression gameVersionRegex("Game Version:\\s*([^<]+)", QRegularExpression::CaseInsensitiveOption);
                             QRegularExpressionMatch gameVersionMatch = gameVersionRegex.match(metaContent);
                             if (gameVersionMatch.hasMatch()) {
                                 modifier->gameVersion = gameVersionMatch.captured(1).trimmed();
-                                qDebug() << "从post-meta区域提取游戏版本：" << modifier->gameVersion;
                             } else if (metaContent.contains("Early Access", Qt::CaseInsensitive)) {
                                 modifier->gameVersion = "Early Access";
-                                qDebug() << "从meta内容中发现Early Access标记";
                             }
                         } else {
-                            // 尝试从flex-content区域提取
+                            // Try from flex-content area
                             QRegularExpression flexContentRegex("<div class=\"flex-content[^\"]*\"[^>]*>(.*?)</div>", 
                                                              QRegularExpression::DotMatchesEverythingOption);
                             QRegularExpressionMatch flexContentMatch = flexContentRegex.match(htmlQt);
@@ -568,12 +478,10 @@ ModifierInfo* ModifierParser::parseModifierDetailHTML(const std::string& html, c
                                 QString flexContent = flexContentMatch.captured(1);
                                 if (flexContent.contains("Early Access", Qt::CaseInsensitive)) {
                                     modifier->gameVersion = "Early Access";
-                                    qDebug() << "从flex-content区域发现游戏版本为Early Access";
                                 }
                             } else {
-                                // 设置一个默认值
+                                // Use default value
                                 modifier->gameVersion = "Latest";
-                                qDebug() << "无法找到游戏版本，使用默认值：" << modifier->gameVersion;
                             }
                         }
                     }
@@ -581,48 +489,42 @@ ModifierInfo* ModifierParser::parseModifierDetailHTML(const std::string& html, c
             }
         }
         
-        // 专门处理Early Access+的情况
+        // Special handling for Early Access+
         if (htmlQt.contains("Early Access+")) {
             modifier->gameVersion = "Early Access+";
-            qDebug() << "检测到Early Access+版本标记";
         }
         
-        // 提取最后更新日期
+        // Extract last update date
         QRegularExpression lastUpdateRegex("Last Updated:\\s*([^<\\n]+)", QRegularExpression::CaseInsensitiveOption);
         QRegularExpressionMatch lastUpdateMatch = lastUpdateRegex.match(htmlQt);
         if (lastUpdateMatch.hasMatch()) {
             modifier->lastUpdate = lastUpdateMatch.captured(1).trimmed();
-            qDebug() << "最后更新：" << modifier->lastUpdate;
         } else {
-            // 尝试从post-meta或flex-content中提取更新日期
+            // Try from post-meta or flex-content
             QRegularExpression dateRegex("<div[^>]*>.*?Last Updated:\\s*([\\d\\.]+).*?</div>", 
                                      QRegularExpression::DotMatchesEverythingOption | QRegularExpression::CaseInsensitiveOption);
             QRegularExpressionMatch dateMatch = dateRegex.match(htmlQt);
             if (dateMatch.hasMatch()) {
                 modifier->lastUpdate = dateMatch.captured(1).trimmed();
-                qDebug() << "从div内容中提取最后更新日期：" << modifier->lastUpdate;
             } else {
-                // 尝试从attachment-date类中提取
+                // Try from attachment-date class
                 QRegularExpression attachmentDateRegex("<td class=\"attachment-date\"[^>]*>([^<]+)</td>", 
                                                     QRegularExpression::CaseInsensitiveOption);
                 QRegularExpressionMatch attachmentDateMatch = attachmentDateRegex.match(htmlQt);
                 if (attachmentDateMatch.hasMatch()) {
                     modifier->lastUpdate = attachmentDateMatch.captured(1).trimmed();
-                    qDebug() << "从attachment-date类提取最后更新日期：" << modifier->lastUpdate;
                 }
             }
         }
         
-        // 提取选项数量
+        // Extract options count
         QRegularExpression optionsCountRegex("Options:\\s*(\\d+)", QRegularExpression::CaseInsensitiveOption);
         QRegularExpressionMatch optionsCountMatch = optionsCountRegex.match(htmlQt);
         if (optionsCountMatch.hasMatch()) {
             modifier->optionsCount = optionsCountMatch.captured(1).toInt();
-            qDebug() << "选项数量：" << modifier->optionsCount;
         }
         
-        // 查找可能包含版本信息的表格
-        qDebug() << "找到可能包含版本信息的表格";
+        // Find tables that may contain version info
         QRegularExpression tableRegex("<table[^>]*>.*?</table>", 
                                   QRegularExpression::DotMatchesEverythingOption);
         QRegularExpressionMatchIterator tableMatches = tableRegex.globalMatch(htmlQt);
@@ -633,15 +535,14 @@ ModifierInfo* ModifierParser::parseModifierDetailHTML(const std::string& html, c
             QRegularExpressionMatch tableMatch = tableMatches.next();
             QString tableHtml = tableMatch.captured(0);
             
-            // 检查表格是否包含下载相关内容
+            // Check if table contains download-related content
             if (tableHtml.contains("download", Qt::CaseInsensitive) || 
                 tableHtml.contains("attachment", Qt::CaseInsensitive) || 
                 tableHtml.contains("file", Qt::CaseInsensitive)) {
                 
                 foundDownloadTable = true;
-                qDebug() << "找到下载表格，长度：" << tableHtml.length();
                 
-                // 提取表格中的链接
+                // Extract links from the table
                 QRegularExpression linkRegex("<a[^>]*href=\"([^\"]+)\"[^>]*>(.*?)</a>", 
                                        QRegularExpression::DotMatchesEverythingOption);
                 QRegularExpressionMatchIterator linkMatches = linkRegex.globalMatch(tableHtml);
@@ -651,38 +552,37 @@ ModifierInfo* ModifierParser::parseModifierDetailHTML(const std::string& html, c
                     QString downloadLink = linkMatch.captured(1);
                     QString linkText = linkMatch.captured(2).trimmed();
                     
-                    // 过滤HTML标签获取纯文本
+                    // Filter HTML tags to get plain text
                     linkText.replace(QRegularExpression("<[^>]*>"), "");
                     
-                    // 判断是否为下载链接
+                    // Check if this is a download link
                     if ((downloadLink.contains("download", Qt::CaseInsensitive) || 
                          downloadLink.contains("trainer", Qt::CaseInsensitive) || 
                          downloadLink.contains("file", Qt::CaseInsensitive) || 
                          linkText.contains("download", Qt::CaseInsensitive)) &&
-                        !downloadLink.contains("javascript:", Qt::CaseInsensitive)) { // 排除JavaScript伪链接
+                        !downloadLink.contains("javascript:", Qt::CaseInsensitive)) { // Exclude JavaScript pseudo-links
                         
-                        // 确定版本名称
+                        // Determine version name
                         QString versionName = linkText;
                         if (versionName.isEmpty() || versionName.contains("img", Qt::CaseInsensitive)) {
-                            // 如果链接文本为空或只包含图片标签，使用更具描述性的名称
+                            // If link text is empty or only contains image tags, use more descriptive name
                             if (tableHtml.contains("Early Access", Qt::CaseInsensitive)) {
                                 versionName = "Early Access";
                             } else if (tableHtml.contains("Auto", Qt::CaseInsensitive)) {
-                                versionName = "自动更新版本";
+                                versionName = "Auto Update";
                             } else {
-                                versionName = "下载链接 #" + QString::number(modifier->versions.size() + 1);
+                                versionName = "Download #" + QString::number(modifier->versions.size() + 1);
                             }
                         }
                         
-                        // 添加版本
+                        // Add version
                         modifier->versions.append(qMakePair(versionName, downloadLink));
-                        qDebug() << "从表格添加下载版本：" << versionName << " -> " << downloadLink;
                     }
                 }
             }
         }
         
-        // 如果没有在表格中找到，查找下载区域
+        // If not found in table, search download section
         if (modifier->versions.isEmpty()) {
             QRegularExpression downloadSectionRegex("<div[^>]*class=\"[^\"]*download[^\"]*\"[^>]*>(.*?)</div>", 
                                                  QRegularExpression::DotMatchesEverythingOption | QRegularExpression::CaseInsensitiveOption);
@@ -690,9 +590,8 @@ ModifierInfo* ModifierParser::parseModifierDetailHTML(const std::string& html, c
             
             if (downloadMatch.hasMatch()) {
                 QString downloadSection = downloadMatch.captured(1);
-                qDebug() << "找到下载区域，长度：" << downloadSection.length();
                 
-                // 提取链接
+                // Extract links
                 QRegularExpression linkRegex("<a[^>]*href=\"([^\"]+)\"[^>]*>(.*?)</a>", 
                                        QRegularExpression::DotMatchesEverythingOption);
                 QRegularExpressionMatchIterator linkMatches = linkRegex.globalMatch(downloadSection);
@@ -702,22 +601,21 @@ ModifierInfo* ModifierParser::parseModifierDetailHTML(const std::string& html, c
                     QString downloadLink = linkMatch.captured(1);
                     QString linkText = linkMatch.captured(2).trimmed();
                     
-                    // 过滤HTML标签获取纯文本
+                    // Filter HTML tags to get plain text
                     linkText.replace(QRegularExpression("<[^>]*>"), "");
                     
-                    // 如果链接文本为空，使用更具描述性的名称
+                    // If link text is empty, use more descriptive name
                     if (linkText.isEmpty() || linkText.contains("img", Qt::CaseInsensitive)) {
-                        linkText = "下载链接 #" + QString::number(modifier->versions.size() + 1);
+                        linkText = "Download #" + QString::number(modifier->versions.size() + 1);
                     }
                     
-                    // 添加版本
+                    // Add version
                     modifier->versions.append(qMakePair(linkText, downloadLink));
-                    qDebug() << "从下载区域添加版本：" << linkText << " -> " << downloadLink;
                 }
             }
         }
 
-        // 查找attachment-link类的链接，这是FLiNG网站的一种常见下载链接格式
+        // Find attachment-link class links, a common download link format on FLiNG website
         QRegularExpression attachmentLinkRegex("<a[^>]*class=\"[^\"]*attachment-link[^\"]*\"[^>]*href=\"([^\"]+)\"[^>]*>([^<]*)</a>", 
                                              QRegularExpression::DotMatchesEverythingOption);
         QRegularExpressionMatchIterator attachmentMatches = attachmentLinkRegex.globalMatch(htmlQt);
@@ -727,9 +625,9 @@ ModifierInfo* ModifierParser::parseModifierDetailHTML(const std::string& html, c
             QString downloadLink = attachmentMatch.captured(1);
             QString linkText = attachmentMatch.captured(2).trimmed();
             
-            // 如果链接文本为空，查找周围的内容提供更多信息
+            // If link text is empty, search surrounding content for more info
             if (linkText.isEmpty()) {
-                // 查找该链接所在区域的标题或说明
+                // Find the title or description of the link's section
                 int linkPos = htmlQt.indexOf(attachmentMatch.captured(0));
                 int contextStart = qMax(0, htmlQt.lastIndexOf("<div", linkPos));
                 int contextEnd = qMin(htmlQt.length(), htmlQt.indexOf("</div>", linkPos) + 6);
@@ -739,65 +637,57 @@ ModifierInfo* ModifierParser::parseModifierDetailHTML(const std::string& html, c
                 if (context.contains("Early Access", Qt::CaseInsensitive)) {
                     linkText = "Early Access";
                 } else if (context.contains("FLiNG", Qt::CaseInsensitive)) {
-                    linkText = "FLiNG版本";
+                    linkText = "FLiNG Version";
                 } else {
-                    linkText = "下载链接 #" + QString::number(modifier->versions.size() + 1);
+                    linkText = "Download #" + QString::number(modifier->versions.size() + 1);
                 }
             }
             
-            // 添加版本
+            // Add version
             modifier->versions.append(qMakePair(linkText, downloadLink));
-            qDebug() << "从attachment-link类添加版本：" << linkText << " -> " << downloadLink;
         }
         
-        // 提取选项列表
-        // 使用parseOptionsFromHTML方法提取选项
+        // Extract options list
+        // Use parseOptionsFromHTML method to extract options
         modifier->options = parseOptionsFromHTML(htmlQt);
         
-        // 如果没有成功提取选项且有选项计数，则添加通用选项作为后备
+        // If no options extracted but options count exists, add generic options as fallback
         if (modifier->options.isEmpty() && modifier->optionsCount > 0) {
-            qDebug() << "未能提取有效选项，使用通用选项作为后备";
             
-            // 通用选项作为后备
-            modifier->options.append("● 基本功能");
-            modifier->options.append("• Num 1 – 无限生命值");
-            modifier->options.append("• Num 2 – 无限弹药/耐力");
-            modifier->options.append("• Num 3 – 无限物品");
-            modifier->options.append("• Num 4 – 一击必杀");
-            modifier->options.append("● 高级功能");
-            modifier->options.append("• Ctrl+Num 1 – 修改金钱");
-            modifier->options.append("• Ctrl+Num 2 – 修改经验值");
-            modifier->options.append("• Ctrl+Num 3 – 超级速度");
-            modifier->options.append("• Ctrl+Num 4 – 无敌模式");
-            modifier->options.append("• Ctrl+Num 5 – 隐形模式");
+            // Generic options as fallback
+            modifier->options.append("● Basic Features");
+            modifier->options.append("• Num 1 – Infinite Health");
+            modifier->options.append("• Num 2 – Infinite Ammo/Stamina");
+            modifier->options.append("• Num 3 – Infinite Items");
+            modifier->options.append("• Num 4 – One Hit Kill");
+            modifier->options.append("● Advanced Features");
+            modifier->options.append("• Ctrl+Num 1 – Edit Money");
+            modifier->options.append("• Ctrl+Num 2 – Edit Experience");
+            modifier->options.append("• Ctrl+Num 3 – Super Speed");
+            modifier->options.append("• Ctrl+Num 4 – God Mode");
+            modifier->options.append("• Ctrl+Num 5 – Stealth Mode");
         }
         
-        // 如果选项为空，但知道有选项数量，更新选项数量
-        if (modifier->optionsCount > 0) {
-            qDebug() << "保留原有选项数量标记：" << modifier->optionsCount;
-        } else {
+        // If options is empty but options count exists, update options count
+        if (modifier->optionsCount <= 0) {
             modifier->optionsCount = modifier->options.size();
-            qDebug() << "未找到选项数量标记，使用示例选项数量：" << modifier->optionsCount;
         }
         
-        // 提取修改器截图URL用于游戏封面提取
-        qDebug() << "开始搜索修改器截图URL，HTML长度：" << htmlQt.length();
+        // Extract modifier screenshot URL for game cover extraction
         QRegularExpression screenshotRegex("<img[^>]*src\\s*=\\s*[\"']([^\"']*\\.(jpg|jpeg|png|gif))[\"'][^>]*>", 
                                           QRegularExpression::CaseInsensitiveOption);
         QRegularExpressionMatch screenshotMatch = screenshotRegex.match(htmlQt);
         if (screenshotMatch.hasMatch()) {
             modifier->screenshotUrl = screenshotMatch.captured(1);
-            qDebug() << "找到修改器截图URL：" << modifier->screenshotUrl;
         } else {
-            qDebug() << "未找到修改器截图，尝试查找所有图片标签...";
-            // 尝试查找更通用的图片模式
+            // Try to find more general image patterns
             QRegularExpression imgRegex("<img[^>]+src\\s*=\\s*[\"']([^\"']+)[\"'][^>]*>", 
                                        QRegularExpression::CaseInsensitiveOption);
             QRegularExpressionMatchIterator imgMatches = imgRegex.globalMatch(htmlQt);
             while (imgMatches.hasNext()) {
                 QRegularExpressionMatch imgMatch = imgMatches.next();
                 QString imgUrl = imgMatch.captured(1);
-                // 排除小图标，选择可能是游戏截图的大图
+                // Exclude small icons, select large images that may be game screenshots
                 if (!imgUrl.contains("icon", Qt::CaseInsensitive) && 
                     !imgUrl.contains("logo", Qt::CaseInsensitive) && 
                     (imgUrl.contains("screenshot", Qt::CaseInsensitive) || 
@@ -805,45 +695,38 @@ ModifierInfo* ModifierParser::parseModifierDetailHTML(const std::string& html, c
                      imgUrl.endsWith(".jpg", Qt::CaseInsensitive) ||
                      imgUrl.endsWith(".png", Qt::CaseInsensitive))) {
                     modifier->screenshotUrl = imgUrl;
-                    qDebug() << "找到候选游戏截图URL：" << modifier->screenshotUrl;
                     break;
                 }
             }
         }
 
-        qDebug() << "修改器详情解析完成，提取了 " << modifier->options.size() << " 个选项";
-        
     } catch (const std::exception& e) {
-        qDebug() << "解析HTML时发生异常：" << e.what();
+        qDebug() << "Exception during HTML parsing:" << e.what();
     }
     
-    // 如果传入了名称但内部名称为空，使用传入的名称
+    // If name was passed in but internal name is empty, use the passed name
     if (modifier->name.isEmpty() && !modifierName.isEmpty()) {
         modifier->name = modifierName;
-        qDebug() << "使用传入的名称更新修改器名称：" << modifier->name;
-    }    qDebug() << "修改器详情解析完成：" << modifier->name << "，提取了" << modifier->options.size() << "个选项"
-             << "，官方标记选项数量：" << modifier->optionsCount;
+    }
+    qDebug() << "Modifier details parsed:" << modifier->name << ", options:" << modifier->options.size();
     
     return modifier;
 }
 
-// 从HTML内容直接解析游戏选项
+// Parse game options directly from HTML content
 QStringList ModifierParser::parseOptionsFromHTML(const QString& html) {
     QStringList options;
     
-    qDebug() << "开始从HTML内容直接解析选项，HTML长度：" << html.size();
-    
     if (html.isEmpty()) {
-        qDebug() << "HTML内容为空";
         return options;
     }
     
     try {
-        // 统一的选项解析：使用通用解析规则处理所有游戏
+        // Unified options parsing: use generic parsing rules for all games
         QMap<QString, QString> cleanOptions;
         
-        // 4. 新增：处理复杂的HTML结构（如FLiNG trainer网站的格式）
-        // 这种格式包含tooltip、JavaScript等复杂元素
+        // Handle complex HTML structures (e.g., FLiNG trainer website format)
+        // This format contains tooltips, JavaScript and other complex elements
         QRegularExpression complexHtmlRegex(
             "((?:Num|Ctrl\\+Num|Alt\\+Num|Shift\\+(?:Num|F\\d))\\s*[\\d\\+\\-\\.]+|(?:Ctrl|Alt|Shift)\\+[\\d\\+\\-\\.]+)\\s*(?:&#8211;|[-–])\\s*([^<]+?)(?=\\s*<(?:span|script|br))",
             QRegularExpression::CaseInsensitiveOption | QRegularExpression::DotMatchesEverythingOption
@@ -855,17 +738,17 @@ QStringList ModifierParser::parseOptionsFromHTML(const QString& html) {
             QString hotkey = match.captured(1).trimmed();
             QString description = match.captured(2).trimmed();
             
-            // 清理热键格式
+            // Clean hotkey format
             hotkey.replace(QRegularExpression("\\s+"), " ");
             
-            // 清理描述文本
+            // Clean description text
             description.replace("&amp;", "&");
             description.replace("&#8211;", "-");
             description.replace("&#046;", ".");
             description.replace("&#8217;", "'");
             description = description.trimmed();
             
-            // 验证这是一个有效的选项
+            // Validate this is a valid option
             if (!description.isEmpty() && 
                 !description.contains("jQuery", Qt::CaseInsensitive) && 
                 !description.contains("function", Qt::CaseInsensitive) &&
@@ -874,11 +757,10 @@ QStringList ModifierParser::parseOptionsFromHTML(const QString& html) {
                 description.length() > 2) {
                 
                 cleanOptions[hotkey] = description;
-                qDebug() << "从复杂HTML结构提取选项：" << hotkey << " - " << description;
             }
         }
         
-        // 5. 新增：处理带有<br>标签分隔的复杂选项
+        // Handle complex options separated by <br> tags
         QRegularExpression brComplexRegex(
             "((?:Num|Ctrl\\+Num|Alt\\+Num|Shift\\+(?:Num|F\\d))\\s*[\\d\\+\\-\\.]+|(?:Ctrl|Alt|Shift)\\+[\\d\\+\\-\\.]+)\\s*(?:&#8211;|[-–])\\s*([^<]+?)\\s*<br",
             QRegularExpression::CaseInsensitiveOption | QRegularExpression::DotMatchesEverythingOption
@@ -890,32 +772,31 @@ QStringList ModifierParser::parseOptionsFromHTML(const QString& html) {
             QString hotkey = match.captured(1).trimmed();
             QString description = match.captured(2).trimmed();
             
-            // 清理热键格式
+            // Clean hotkey format
             hotkey.replace(QRegularExpression("\\s+"), " ");
             
-            // 清理描述文本
+            // Clean description text
             description.replace("&amp;", "&");
             description.replace("&#8211;", "-");
             description.replace("&#046;", ".");
             description.replace("&#8217;", "'");
             description = description.trimmed();
             
-            // 验证这是一个有效的选项
+            // Validate this is a valid option
             if (!description.isEmpty() && 
                 !description.contains("jQuery", Qt::CaseInsensitive) && 
                 !description.contains("function", Qt::CaseInsensitive) &&
                 !description.contains("script", Qt::CaseInsensitive) &&
                 description.length() > 2) {
                 
-                // 只有当当前选项更完整时才替换
+                // Only replace if current option is more complete
                 if (!cleanOptions.contains(hotkey) || cleanOptions[hotkey].length() < description.length()) {
                     cleanOptions[hotkey] = description;
-                    qDebug() << "从<br>复杂结构提取选项：" << hotkey << " - " << description;
                 }
             }
         }
         
-        // 分类整理解析出的选项
+        // Organize parsed options by category
         if (!cleanOptions.isEmpty()) {
             QStringList basicOptions;
             QStringList ctrlOptions;
@@ -939,66 +820,60 @@ QStringList ModifierParser::parseOptionsFromHTML(const QString& html) {
                 }
             }
             
-            // 按类别添加选项
+            // Add options by category
             if (!basicOptions.isEmpty()) {
-                options.append("● 基本选项");
+                options.append("● Basic Options");
                 options.append(basicOptions);
             }
             
             if (!ctrlOptions.isEmpty()) {
-                options.append("● Ctrl组合键选项");
+                options.append("● Ctrl Hotkey Options");
                 options.append(ctrlOptions);
             }
             
             if (!altOptions.isEmpty()) {
-                options.append("● Alt组合键选项");
+                options.append("● Alt Hotkey Options");
                 options.append(altOptions);
             }
             
             if (!shiftOptions.isEmpty()) {
-                options.append("● Shift组合键选项");
+                options.append("● Shift Hotkey Options");
                 options.append(shiftOptions);
             }
         }
         
-        // 如果仍然无法提取选项，添加通用选项作为后备
+        // If still unable to extract options, add generic options as fallback
         if (options.isEmpty()) {
-            qDebug() << "无法提取具体选项，添加通用模板选项";
-            
-            options.append("● 基本选项");
-            options.append("• Num 1 – 无限生命值");
-            options.append("• Num 2 – 无限耐力/魔法");
-            options.append("• Num 3 – 无限弹药/物品");
-            options.append("• Num 4 – 一击必杀/超级伤害");
-            options.append("• Num 5 – 物品不减少");
-            options.append("● 高级选项");
-            options.append("• Ctrl+Num 1 – 修改金钱");
-            options.append("• Ctrl+Num 2 – 修改经验值");
-            options.append("• Ctrl+Num 3 – 修改属性点");
-            options.append("• Ctrl+Num 4 – 修改技能点");
-            options.append("• Ctrl+Num 5 – 修改游戏速度");
+            options.append("● Basic Options");
+            options.append("• Num 1 – Infinite Health");
+            options.append("• Num 2 – Infinite Stamina/Mana");
+            options.append("• Num 3 – Infinite Ammo/Items");
+            options.append("• Num 4 – One Hit Kill/Super Damage");
+            options.append("• Num 5 – Items Won't Decrease");
+            options.append("● Advanced Options");
+            options.append("• Ctrl+Num 1 – Edit Money");
+            options.append("• Ctrl+Num 2 – Edit Experience");
+            options.append("• Ctrl+Num 3 – Edit Attribute Points");
+            options.append("• Ctrl+Num 4 – Edit Skill Points");
+            options.append("• Ctrl+Num 5 – Edit Game Speed");
         }
     } catch (const std::exception& e) {
-        qDebug() << "解析HTML内容时发生异常：" << e.what();
+        qDebug() << "Exception during HTML content parsing:" << e.what();
     }
     
-    qDebug() << "HTML内容解析完成，提取了 " << options.size() << " 个选项";
     return options;
 }
 
-// 从HTML内容检测游戏名称
+// Detect game name from HTML content
 QString ModifierParser::detectGameNameFromHTML(const QString& html) {
     QString gameName = "";
     
-    qDebug() << "尝试从HTML内容检测游戏名称";
-    
     if (html.isEmpty()) {
-        qDebug() << "HTML内容为空";
         return gameName;
     }
     
     try {
-        // 首先尝试从标题标签提取
+        // First try to extract from title tag
         QRegularExpression titleRegex("<title[^>]*>(.*?)</title>", 
                                 QRegularExpression::DotMatchesEverythingOption);
         QRegularExpressionMatch titleMatch = titleRegex.match(html);
@@ -1006,26 +881,24 @@ QString ModifierParser::detectGameNameFromHTML(const QString& html) {
         if (titleMatch.hasMatch()) {
             QString title = titleMatch.captured(1).trimmed();
             
-            // 清理标题
+            // Clean title
             title.replace(" Trainer", "", Qt::CaseInsensitive);
             title.replace(" Cheat", "", Qt::CaseInsensitive);
             title.replace(" / ", " ");
             title.replace(" | ", " ");
             title.replace(" - ", " ");
             
-            // 提取游戏名称（通常是冒号前的部分，如果有冒号的话）
+            // Extract game name (usually the part before colon, if there is one)
             if (title.contains(":")) {
                 gameName = title.section(':', 0, 0).trimmed();
             } else {
                 gameName = title;
             }
-            
-            qDebug() << "从标题提取游戏名称：" << gameName;
         }
         
-        // 如果从标题无法提取，尝试其他方法
+        // If unable to extract from title, try other methods
         if (gameName.isEmpty() || gameName.contains("FLiNG", Qt::CaseInsensitive)) {
-            // 查找可能包含游戏名称的heading标签
+            // Find heading tags that may contain game name
             QRegularExpression headingRegex("<h[1-6][^>]*>(.*?)</h[1-6]>", 
                                       QRegularExpression::DotMatchesEverythingOption);
             QRegularExpressionMatchIterator headingMatches = headingRegex.globalMatch(html);
@@ -1034,27 +907,26 @@ QString ModifierParser::detectGameNameFromHTML(const QString& html) {
                 QRegularExpressionMatch headingMatch = headingMatches.next();
                 QString heading = headingMatch.captured(1).trimmed();
                 
-                // 清理HTML标签
+                // Clean HTML tags
                 heading.replace(QRegularExpression("<[^>]*>"), "");
                 
-                // 如果包含"Trainer"但不包含"FLiNG"或其他通用词，可能是游戏名称
+                // If contains "Trainer" but not "FLiNG" or other generic words, may be game name
                 if (heading.contains("Trainer", Qt::CaseInsensitive) && 
                     !heading.contains("FLiNG", Qt::CaseInsensitive) && 
                     !heading.contains("Download", Qt::CaseInsensitive)) {
                     
-                    // 提取游戏名称
+                    // Extract game name
                     heading.replace(" Trainer", "", Qt::CaseInsensitive);
                     heading.replace(" Cheat", "", Qt::CaseInsensitive);
                     
                     gameName = heading.trimmed();
-                    qDebug() << "从标题提取游戏名称：" << gameName;
                 }
             }
         }
         
-        // 如果还是无法提取，尝试从URL或其他内容提取
+        // If still unable to extract, try from URL or other content
         if (gameName.isEmpty()) {
-            // 查找包含"trainer"的链接
+            // Find links containing "trainer"
             QRegularExpression linkRegex("<a[^>]*href=\"([^\"]*trainer[^\"]*)\"[^>]*>(.*?)</a>", 
                                    QRegularExpression::CaseInsensitiveOption | QRegularExpression::DotMatchesEverythingOption);
             QRegularExpressionMatch linkMatch = linkRegex.match(html);
@@ -1062,44 +934,37 @@ QString ModifierParser::detectGameNameFromHTML(const QString& html) {
             if (linkMatch.hasMatch()) {
                 QString url = linkMatch.captured(1);
                 
-                // 从URL提取游戏名称
+                // Extract game name from URL
                 QRegularExpression urlGameNameRegex("/trainer/([^/]+)", QRegularExpression::CaseInsensitiveOption);
                 QRegularExpressionMatch urlGameNameMatch = urlGameNameRegex.match(url);
                 
                 if (urlGameNameMatch.hasMatch()) {
                     QString urlGameName = urlGameNameMatch.captured(1).trimmed();
                     
-                    // 替换URL分隔符为空格
+                    // Replace URL separators with spaces
                     urlGameName.replace("-", " ");
                     urlGameName.replace("_", " ");
                     urlGameName.replace("trainer", "", Qt::CaseInsensitive);
                     
                     gameName = urlGameName.trimmed();
-                    qDebug() << "从URL提取游戏名称：" << gameName;
                 }
             }
         }
         
-        // 特殊处理：检查具体游戏
+        // Special handling: check for specific games
         if (html.contains("Legend of Heroes") && html.contains("Three Kingdoms")) {
             gameName = "Legend of Heroes: Three Kingdoms";
-            qDebug() << "检测到特定游戏：Legend of Heroes: Three Kingdoms";
         } else if (html.contains("Cyberpunk 2077")) {
             gameName = "Cyberpunk 2077";
-            qDebug() << "检测到特定游戏：Cyberpunk 2077";
         } else if (html.contains("Red Dead Redemption 2")) {
             gameName = "Red Dead Redemption 2";
-            qDebug() << "检测到特定游戏：Red Dead Redemption 2";
         } else if (html.contains("Witcher 3") || html.contains("The Witcher 3")) {
             gameName = "The Witcher 3: Wild Hunt";
-            qDebug() << "检测到特定游戏：The Witcher 3: Wild Hunt";
         }
         
     } catch (const std::exception& e) {
-        qDebug() << "检测游戏名称时发生异常：" << e.what();
+        qDebug() << "Exception during game name detection:" << e.what();
     }
-    
-    qDebug() << "游戏名称检测结果：" << gameName;
     return gameName;
 }
 

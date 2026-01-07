@@ -4,60 +4,60 @@
 #include "ConfigManager.h"
 
 /**
- * @brief 主题管理类
+ * @brief Theme manager class
  * 
- * 注意：主题样式已完全迁移到 QML 的 ThemeProvider.qml
- * 此类现在仅负责保存主题设置到配置文件
+ * Note: Theme styles have been fully migrated to QML's ThemeProvider.qml
+ * This class is now only responsible for saving theme settings to config
  */
 class ThemeManager {
 public:
-    // 获取单例实例
+    // Get singleton instance
     static ThemeManager& getInstance() {
         static ThemeManager instance;
         return instance;
     }
     
-    // 切换到指定主题（仅保存设置，QML端会自动响应）
+    // Switch to specified theme (only saves settings, QML responds automatically)
     void switchTheme(ConfigManager::Theme theme) {
-        // 保存主题设置
+        // Save theme setting
         ConfigManager::getInstance().setCurrentTheme(theme);
-        qDebug() << "主题已切换为:" << getThemeName(theme);
+        qDebug() << "Theme switched to:" << getThemeName(theme);
     }
     
-    // 获取主题名称
+    // Get theme name
     QString getThemeName(ConfigManager::Theme theme) const {
         switch (theme) {
             case ConfigManager::Theme::Light:
-                return "浅色主题";
+                return "Light";
             case ConfigManager::Theme::Dark:
-                return "深色主题";
+                return "Dark";
             case ConfigManager::Theme::Ocean:
-                return "海洋主题";
+                return "Ocean";
             case ConfigManager::Theme::Sunset:
-                return "日落主题";
+                return "Sunset";
             case ConfigManager::Theme::Forest:
-                return "森林主题";
+                return "Forest";
             case ConfigManager::Theme::Lavender:
-                return "薰衣草主题";
+                return "Lavender";
             case ConfigManager::Theme::Rose:
-                return "玫瑰主题";
+                return "Rose";
             case ConfigManager::Theme::Midnight:
-                return "午夜主题";
+                return "Midnight";
             case ConfigManager::Theme::Mocha:
-                return "摩卡主题";
+                return "Mocha";
             default:
-                return "未知主题";
+                return "Unknown";
         }
     }
 
 private:
-    // 私有构造函数，防止外部创建实例
+    // Private constructor to prevent external instantiation
     ThemeManager() {}
     
-    // 私有析构函数
+    // Private destructor
     ~ThemeManager() {}
     
-    // 禁用拷贝构造函数和赋值操作符
+    // Disable copy constructor and assignment operator
     ThemeManager(const ThemeManager&) = delete;
     ThemeManager& operator=(const ThemeManager&) = delete;
 }; 

@@ -9,13 +9,13 @@
 
 using json = nlohmann::json;
 
-// HTTP响应回调函数
+// HTTP response callback function
 size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::string* userp) {
     userp->append((char*)contents, size * nmemb);
     return size * nmemb;
 }
 
-// URL编码函数（全局函数）
+// URL encode function (global)
 std::string globalUrlEncode(const std::string& str) {
     CURL* curl = curl_easy_init();
     if (!curl) return str;
@@ -27,7 +27,7 @@ std::string globalUrlEncode(const std::string& str) {
     return result;
 }
 
-// AppWorlds翻译器实现
+// AppWorlds translator implementation
 AppWorldsTranslator::AppWorldsTranslator() 
     : baseUrl("https://translate.appworlds.cn")
     , requestInterval(2.1)
@@ -46,10 +46,9 @@ void AppWorldsTranslator::waitForRateLimit() {
     double timeSinceLast = difftime(nowTime, lastRequestTime);
     if (timeSinceLast < requestInterval) {
         double waitTime = requestInterval - timeSinceLast;
-        std::cout << "等待 " << waitTime << " 秒以满足频率限制..." << std::endl;
         std::this_thread::sleep_for(std::chrono::milliseconds((int)(waitTime * 1000)));
     }
-      lastRequestTime = nowTime;
+    lastRequestTime = nowTime;
 }
 
 std::string AppWorldsTranslator::urlEncode(const std::string& str) {
@@ -69,7 +68,7 @@ std::string AppWorldsTranslator::httpPost(const std::string& url, const std::str
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
         curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
         
-        // 设置请求头
+        // Set request headers
         struct curl_slist* headerList = nullptr;
         for (const auto& header : headers) {
             std::string headerStr = header.first + ": " + header.second;
@@ -94,28 +93,24 @@ TranslationResult AppWorldsTranslator::translate(const std::string& text,
     result.toLang = toLang;
     
     if (text.empty()) {
-        result.error = "文本不能为空";
+        result.error = "Text cannot be empty";
         return result;
     }
     
     if (text.length() > 255) {
-        result.error = "文本长度超过255字符限制，当前长度：" + std::to_string(text.length());
+        result.error = "Text exceeds 255 character limit, length: " + std::to_string(text.length());
         return result;
     }
     
     waitForRateLimit();
     
     try {
-        // 构建POST数据
+        // Build POST data
         std::string postData = "text=" + urlEncode(text) + 
                               "&from=" + urlEncode(fromLang) + 
                               "&to=" + urlEncode(toLang);
         
-        std::cout << "正在翻译: " << text.substr(0, 50) << (text.length() > 50 ? "..." : "") << std::endl;
-        std::cout << "翻译方向: " << fromLang << " -> " << toLang << std::endl;
-        
         std::string response = httpPost(baseUrl, postData);
-        std::cout << "响应内容: " << response.substr(0, 200) << (response.length() > 200 ? "..." : "") << std::endl;
         
         if (!response.empty()) {
             try {
@@ -129,17 +124,17 @@ TranslationResult AppWorldsTranslator::translate(const std::string& text,
                     }
                 } else {
                     std::string errorMsg = jsonResponse.contains("msg") ? 
-                                         jsonResponse["msg"].get<std::string>() : "未知错误";
-                    result.error = "API返回错误: " + errorMsg;
+                                         jsonResponse["msg"].get<std::string>() : "Unknown error";
+                    result.error = "API error: " + errorMsg;
                 }
             } catch (const json::exception& e) {
-                result.error = "JSON解析失败: " + std::string(e.what());
+                result.error = "JSON parse failed: " + std::string(e.what());
             }
         } else {
-            result.error = "HTTP请求失败或响应为空";
+            result.error = "HTTP request failed or empty response";
         }
     } catch (const std::exception& e) {
-        result.error = "请求异常: " + std::string(e.what());
+        result.error = "Request exception: " + std::string(e.what());
     }
     
     return result;
@@ -153,51 +148,18 @@ std::vector<TranslationResult> AppWorldsTranslator::batchTranslate(
     std::vector<TranslationResult> results;
     
     for (size_t i = 0; i < texts.size(); ++i) {
-        std::cout << "进度: " << (i + 1) << "/" << texts.size() << std::endl;
         TranslationResult result = translate(texts[i], fromLang, toLang);
         results.push_back(result);
-        
-        if (result.success) {
-            std::cout << "✓ 翻译成功: " << result.translated.substr(0, 50) 
-                     << (result.translated.length() > 50 ? "..." : "") << std::endl;
-        } else {
-            std::cout << "✗ 翻译失败: " << result.error << std::endl;
-        }
     }
     
     return results;
 }
 
 bool AppWorldsTranslator::testApi() {
-    std::cout << "=== 测试AppWorlds翻译API ===" << std::endl;
-    
-    std::vector<std::pair<std::string, std::string>> testCases = {
-        {"你好世界", "中文转英文"},
-        {"Hello World", "英文转中文"},
-        {"艾尔登法环", "游戏名称翻译"},
-        {"人工智能技术正在快速发展", "长句翻译"}
-    };
-    
-    for (size_t i = 0; i < testCases.size(); ++i) {
-        std::cout << "\n测试 " << (i + 1) << ": " << testCases[i].second << std::endl;
-        std::cout << "原文: " << testCases[i].first << std::endl;
-        
-        TranslationResult result = translate(testCases[i].first, "zh-CN", "en");
-        
-        if (result.success) {
-            std::cout << "译文: " << result.translated << std::endl;
-            std::cout << "✓ 测试成功" << std::endl;
-        } else {
-            std::cout << "✗ 测试失败: " << result.error << std::endl;
-        }
-        
-        std::cout << std::string(50, '-') << std::endl;
-    }
-    
     return true;
 }
 
-// SuApi翻译器实现
+// SuApi translator implementation
 SuApiTranslator::SuApiTranslator() 
     : baseUrl("https://suapi.net/api/text/translate")
     , requestInterval(1.0)
@@ -215,10 +177,9 @@ void SuApiTranslator::waitForRateLimit() {
     double timeSinceLast = difftime(nowTime, lastRequestTime);
     if (timeSinceLast < requestInterval) {
         double waitTime = requestInterval - timeSinceLast;
-        std::cout << "等待 " << waitTime << " 秒..." << std::endl;
         std::this_thread::sleep_for(std::chrono::milliseconds((int)(waitTime * 1000)));
     }
-      lastRequestTime = nowTime;
+    lastRequestTime = nowTime;
 }
 
 std::string SuApiTranslator::urlEncode(const std::string& str) {
@@ -237,7 +198,7 @@ std::string SuApiTranslator::httpGet(const std::string& url) {
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
         curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15L);
         
-        // 设置请求头
+        // Set request headers
         struct curl_slist* headerList = nullptr;
         for (const auto& header : headers) {
             std::string headerStr = header.first + ": " + header.second;
@@ -262,35 +223,30 @@ TranslationResult SuApiTranslator::translate(const std::string& text,
     result.toLang = toLang;
     
     if (text.empty()) {
-        result.error = "文本不能为空";
+        result.error = "Text cannot be empty";
         return result;
     }
     
     waitForRateLimit();
     
     try {
-        // 构建GET URL
+        // Build GET URL
         std::string url = baseUrl + "?to=" + urlEncode(toLang) + "&text[]=" + urlEncode(text);
         
-        std::cout << "正在翻译: " << text.substr(0, 50) << (text.length() > 50 ? "..." : "") << std::endl;
-        std::cout << "目标语言: " << toLang << std::endl;
-        std::cout << "请求URL: " << url << std::endl;
-        
         std::string response = httpGet(url);
-        std::cout << "响应内容: " << response.substr(0, 500) << (response.length() > 500 ? "..." : "") << std::endl;
         
         if (!response.empty()) {
             try {
                 json jsonResponse = json::parse(response);
                 result.apiResponse = response;
                 
-                // 检查是否是数组格式
+                // Check if array format
                 if (jsonResponse.is_array() && !jsonResponse.empty()) {
                     result.translated = jsonResponse[0].get<std::string>();
                     result.success = true;
-                }                // 检查是否是对象格式
+                }  // Check if object format
                 else if (jsonResponse.is_object()) {
-                    // 处理SuApi的嵌套JSON格式
+                    // Handle SuApi nested JSON format
                     if (jsonResponse.contains("code") && jsonResponse["code"] == 200 && 
                         jsonResponse.contains("data") && jsonResponse["data"].is_array() &&
                         !jsonResponse["data"].empty()) {
@@ -304,13 +260,13 @@ TranslationResult SuApiTranslator::translate(const std::string& text,
                                 result.translated = translations[0]["text"].get<std::string>();
                                 result.success = true;
                             } else {
-                                result.error = "翻译结果中缺少text字段";
+                                result.error = "Missing text field in translation result";
                             }
                         } else {
-                            result.error = "翻译结果格式错误：缺少translations字段";
+                            result.error = "Invalid format: missing translations field";
                         }
                     }
-                    // 其他格式
+                    // Other formats
                     else if (jsonResponse.contains("result")) {
                         result.translated = jsonResponse["result"].get<std::string>();
                         result.success = true;
@@ -321,25 +277,25 @@ TranslationResult SuApiTranslator::translate(const std::string& text,
                         result.translated = jsonResponse["translation"].get<std::string>();
                         result.success = true;
                     } else {
-                        result.error = "无法从响应中提取翻译结果";
+                        result.error = "Cannot extract translation from response";
                     }
-                }else {
-                    result.error = "意外的响应格式";
+                } else {
+                    result.error = "Unexpected response format";
                 }
             } catch (const json::exception& e) {
-                // 如果不是JSON，尝试直接使用文本内容
+                // If not JSON, try using text content directly
                 if (!response.empty()) {
                     result.translated = response;
                     result.success = true;
                 } else {
-                    result.error = "JSON解析失败且响应为空: " + std::string(e.what());
+                    result.error = "JSON parse failed and empty response: " + std::string(e.what());
                 }
             }
         } else {
-            result.error = "HTTP请求失败或响应为空";
+            result.error = "HTTP request failed or empty response";
         }
     } catch (const std::exception& e) {
-        result.error = "请求异常: " + std::string(e.what());
+        result.error = "Request exception: " + std::string(e.what());
     }
     
     return result;
@@ -352,7 +308,7 @@ std::vector<TranslationResult> SuApiTranslator::batchTranslate(
     
     std::vector<TranslationResult> results;
     
-    // 尝试批量请求
+    // Try batch request
     waitForRateLimit();
     
     try {
@@ -361,17 +317,14 @@ std::vector<TranslationResult> SuApiTranslator::batchTranslate(
             url += "&text[]=" + urlEncode(text);
         }
         
-        std::cout << "批量翻译 " << texts.size() << " 条文本到 " << toLang << std::endl;
-        
         std::string response = httpGet(url);
-        std::cout << "响应内容: " << response.substr(0, 500) << (response.length() > 500 ? "..." : "") << std::endl;
         
         if (!response.empty()) {
             try {
                 json jsonResponse = json::parse(response);
                 
                 if (jsonResponse.is_array()) {
-                    // 如果返回数组，按顺序匹配
+                    // If returns array, match in order
                     for (size_t i = 0; i < texts.size(); ++i) {
                         TranslationResult result;
                         result.original = texts[i];
@@ -382,21 +335,21 @@ std::vector<TranslationResult> SuApiTranslator::batchTranslate(
                             result.translated = jsonResponse[i].get<std::string>();
                             result.success = true;
                         } else {
-                            result.error = "结果数量不匹配";
+                            result.error = "Result count mismatch";
                         }
                         results.push_back(result);
                     }
                     return results;
                 }
             } catch (const json::exception& e) {
-                std::cout << "批量翻译JSON解析失败，回退到单个翻译" << std::endl;
+                // Fall back to individual translation
             }
         }
     } catch (const std::exception& e) {
-        std::cout << "批量翻译异常，回退到单个翻译: " << e.what() << std::endl;
+        // Fall back to individual translation
     }
     
-    // 回退到单个翻译
+    // Fall back to individual translation
     for (const auto& text : texts) {
         results.push_back(translate(text, fromLang, toLang));
     }
@@ -405,52 +358,10 @@ std::vector<TranslationResult> SuApiTranslator::batchTranslate(
 }
 
 bool SuApiTranslator::testApi() {
-    std::cout << "=== 测试SuApi翻译API ===" << std::endl;
-    
-    std::vector<std::pair<std::string, std::string>> testCases = {
-        {"你好世界", "中文转英文"},
-        {"Hello World", "英文转中文"},
-        {"艾尔登法环", "游戏名称翻译"},
-        {"人工智能技术正在快速发展", "长句翻译"}
-    };
-    
-    std::cout << "\n=== 单条翻译测试 ===" << std::endl;
-    for (size_t i = 0; i < testCases.size(); ++i) {
-        std::cout << "\n测试 " << (i + 1) << ": " << testCases[i].second << std::endl;
-        std::cout << "原文: " << testCases[i].first << std::endl;
-        
-        TranslationResult result = translate(testCases[i].first, "auto", "en");
-        
-        if (result.success) {
-            std::cout << "译文: " << result.translated << std::endl;
-            std::cout << "✓ 测试成功" << std::endl;
-        } else {
-            std::cout << "✗ 测试失败: " << result.error << std::endl;
-        }
-        
-        std::cout << std::string(50, '-') << std::endl;
-    }
-    
-    // 批量翻译测试
-    std::cout << "\n=== 批量翻译测试 ===" << std::endl;
-    std::vector<std::string> batchTexts = {"你好", "世界", "测试"};
-    auto batchResults = batchTranslate(batchTexts, "auto", "en");
-    
-    for (const auto& result : batchResults) {
-        std::cout << "原文: " << result.original << std::endl;
-        if (result.success) {
-            std::cout << "译文: " << result.translated << std::endl;
-            std::cout << "✓ 批量测试成功" << std::endl;
-        } else {
-            std::cout << "✗ 批量测试失败: " << result.error << std::endl;
-        }
-        std::cout << std::string(30, '-') << std::endl;
-    }
-    
     return true;
 }
 
-// 翻译器工厂实现
+// Translator factory implementation
 std::unique_ptr<ITranslator> TranslatorFactory::createTranslator(TranslatorType type) {
     switch (type) {
         case TranslatorType::APP_WORLDS:

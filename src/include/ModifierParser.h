@@ -6,18 +6,18 @@
 #include <QStringList>
 #include <QPixmap>
 
-// 游戏修改器信息结构
+// Game modifier information structure
 struct ModifierInfo {
     QString name;
     QString gameVersion;
     QString lastUpdate;
     int optionsCount;
     QString description;
-    QList<QPair<QString, QString>> versions; // <版本标识, 下载链接>
-    QStringList options; // 修改器提供的功能选项
-    QString url; // 详情页URL，用于加载详细信息
-    QString screenshotUrl; // 修改器截图URL，用于提取游戏封面
-    QPixmap gameCover; // 提取的游戏封面
+    QList<QPair<QString, QString>> versions; // <version identifier, download link>
+    QStringList options; // Modifier feature options
+    QString url; // Detail page URL for loading detailed information
+    QString screenshotUrl; // Modifier screenshot URL for extracting game cover
+    QPixmap gameCover; // Extracted game cover
 };
 
 class ModifierParser {
@@ -25,14 +25,14 @@ public:
     ModifierParser();
     ~ModifierParser();
     
-    // 解析修改器列表HTML
+    // Parse modifier list HTML
     static QList<ModifierInfo> parseModifierListHTML(const std::string& html, const QString& searchTerm);
     
-    // 解析修改器详情HTML
+    // Parse modifier detail HTML
     static ModifierInfo* parseModifierDetailHTML(const std::string& html, const QString& modifierName);
-      // 直接从HTML内容解析修改器选项
-    // 用于从剪贴板内容或用户提供的HTML片段解析选项
+      // Parse modifier options directly from HTML content
+    // Used for parsing options from clipboard content or user-provided HTML snippets
     static QStringList parseOptionsFromHTML(const QString& html);
-      // 检测修改器名称
+      // Detect modifier name
     static QString detectGameNameFromHTML(const QString& html);
 };

@@ -8,11 +8,11 @@
 #include "NetworkManager.h"
 #include "FileSystem.h"
 
-// 更新进度回调
-using UpdateProgressCallback = std::function<void(int, int, bool)>; // 当前进度, 总数, 是否有更新
+// Update progress callback
+using UpdateProgressCallback = std::function<void(int, int, bool)>; // current progress, total, has update
 
 /**
- * @brief 更新管理器类，专门处理更新检查相关功能
+ * @brief Update manager class for handling update checking functionality
  */
 class UpdateManager : public QObject
 {
@@ -20,8 +20,8 @@ class UpdateManager : public QObject
 
 public:
     /**
-     * @brief 获取单例实例
-     * @return UpdateManager对象的引用
+     * @brief Get singleton instance
+     * @return Reference to UpdateManager object
      */
     static UpdateManager& getInstance() {
         static UpdateManager instance;
@@ -29,37 +29,39 @@ public:
     }
 
     /**
-     * @brief 检查指定修改器的更新
-     * @param info 修改器信息
-     * @param callback 完成回调
+     * @brief Check update for specified modifier
+     * @param url Modifier URL
+     * @param currentVersion Current version
+     * @param currentGameVersion Current game version
+     * @param callback Completion callback
      */
     void checkModifierUpdate(const QString& url, const QString& currentVersion, const QString& currentGameVersion,
                              std::function<void(bool)> callback);
 
     /**
-     * @brief 批量检查修改器更新
-     * @param modifiers 需要检查的修改器列表
-     * @param progressCallback 进度回调
-     * @param completedCallback 完成回调，参数为找到的更新数量
+     * @brief Batch check modifier updates
+     * @param modifiers List of modifiers to check
+     * @param progressCallback Progress callback
+     * @param completedCallback Completion callback, parameter is the number of updates found
      */
     void batchCheckUpdates(const QList<std::tuple<int, QString, QString, QString>>& modifiers, 
                            UpdateProgressCallback progressCallback,
                            std::function<void(int)> completedCallback);
 
     /**
-     * @brief 比较版本号，判断是否有更新
-     * @param oldVersion 当前版本
-     * @param newVersion 新版本
-     * @return 如果新版本比旧版本新，返回true
+     * @brief Compare version numbers to determine if update is available
+     * @param oldVersion Current version
+     * @param newVersion New version
+     * @return true if new version is newer than old version
      */
     bool isNewerVersion(const QString& oldVersion, const QString& newVersion);
 
 private:
-    // 私有构造函数
+    // Private constructor
     UpdateManager(QObject* parent = nullptr);
     ~UpdateManager() = default;
 
-    // 禁止拷贝和赋值
+    // Disable copy and assignment
     UpdateManager(const UpdateManager&) = delete;
     UpdateManager& operator=(const UpdateManager&) = delete;
 }; 

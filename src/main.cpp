@@ -16,71 +16,71 @@
 
 int main(int argc, char *argv[])
 {
-    // 使用 QGuiApplication (纯 QML 应用)
+    // Use QGuiApplication (pure QML app)
     QGuiApplication app(argc, argv);
     
     try {
-        qDebug() << "应用程序开始初始化...";
+        qDebug() << "Application initializing...";
         
-        // 初始化资源系统
+        // Initialize resource system
         Q_INIT_RESOURCE(resources);
         Q_INIT_RESOURCE(qml);
-        qDebug() << "✅ 资源系统已初始化";
+        qDebug() << "Resources initialized";
         
-        // 验证资源系统
+        // Verify resource system
         QDir resourceRoot(":/");
         if (resourceRoot.exists()) {
             QStringList entries = resourceRoot.entryList();
-            qDebug() << "📁 可用资源目录:" << entries;
+            qDebug() << "Available resource dirs:" << entries;
         } else {
-            qDebug() << "❌ 资源系统初始化失败!";
+            qDebug() << "Resource system initialization failed";
         }
         
-        // 应用当前语言
+        // Apply current language
         LanguageManager::getInstance().applyCurrentLanguage(app);
         
-        // 设置 QuickControls2 样式
+        // Set QuickControls2 style
         QQuickStyle::setStyle("Basic");
         
-        // 初始化游戏名映射管理器
-        qDebug() << "正在初始化游戏名映射管理器...";
+        // Initialize game mapping manager
+        qDebug() << "Initializing game mapping manager...";
         if (GameMappingManager::getInstance().initialize()) {
-            qDebug() << "✅ 游戏名映射管理器初始化成功";
+            qDebug() << "Game mapping manager initialized";
         } else {
-            qDebug() << "⚠️ 游戏名映射管理器初始化失败，中文搜索功能可能受限";
+            qDebug() << "Game mapping manager failed, Chinese search may be limited";
         }
         
-        // 注册 QML 类型
+        // Register QML types
         qmlRegisterType<ModifierListModel>("DownloadIntegrator", 1, 0, "ModifierListModel");
         qmlRegisterType<DownloadedModifierModel>("DownloadIntegrator", 1, 0, "DownloadedModifierModel");
         
-        // 创建 Backend 实例
+        // Create Backend instance
         Backend* backend = new Backend(&app);
         backend->setApplication(&app);
         
-        // 创建 QML 引擎
+        // Create QML engine
         QQmlApplicationEngine engine;
         
-        // 设置 QQmlEngine 引用（用于语言切换时刷新 QML）
+        // Set QQmlEngine reference (for language switch refresh)
         backend->setQmlEngine(&engine);
         
-        // 添加 QML 导入路径
+        // Add QML import path
         engine.addImportPath("qrc:/qml");
         
-        // 将主题索引暴露到 QML (用于初始化 ThemeProvider)
+        // Expose theme index to QML (for ThemeProvider initialization)
         int currentTheme = static_cast<int>(ConfigManager::getInstance().getCurrentTheme());
         engine.rootContext()->setContextProperty("initialTheme", currentTheme);
         
-        // 加载主 QML 文件，使用 setInitialProperties 绑定 required property
+        // Load main QML file with setInitialProperties for required property
         const QUrl url(QStringLiteral("qrc:/qml/Main.qml"));
         
-        // 设置 required property 的初始值
+        // Set required property initial values
         engine.setInitialProperties({{"backend", QVariant::fromValue(backend)}});
         
         QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,
                          &app, [url](QObject *obj, const QUrl &objUrl) {
             if (!obj && url == objUrl) {
-                qDebug() << "❌ QML 加载失败!";
+                qDebug() << "QML load failed";
                 QCoreApplication::exit(-1);
             }
         }, Qt::QueuedConnection);
@@ -88,21 +88,21 @@ int main(int argc, char *argv[])
         engine.load(url);
         
         if (engine.rootObjects().isEmpty()) {
-            qDebug() << "❌ 没有 QML 对象被加载";
+            qDebug() << "No QML objects loaded";
             return -1;
         }
         
-        qDebug() << "✅ 应用程序初始化完成，启动事件循环";
+        qDebug() << "Application initialized, starting event loop";
         
-        // 运行应用程序
+        // Run application
         return app.exec();
     } 
     catch (const std::exception& e) {
-        qDebug() << "发生异常:" << e.what();
+        qDebug() << "Exception:" << e.what();
         return 1;
     } 
     catch (...) {
-        qDebug() << "发生未知异常";
+        qDebug() << "Unknown exception";
         return 1;
     }
 }

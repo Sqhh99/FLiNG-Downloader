@@ -6,7 +6,7 @@
 #include "ModifierManager.h"
 
 /**
- * DownloadedModifierModel - 已下载修改器列表数据模型
+ * DownloadedModifierModel - Downloaded modifier list data model
  */
 class DownloadedModifierModel : public QAbstractListModel
 {
@@ -31,7 +31,7 @@ public:
     QVariant data(const QModelIndex& index, int role = Qt::DisplayRole) const override;
     QHash<int, QByteArray> roleNames() const override;
 
-    // 数据操作
+    // Data operations
     Q_INVOKABLE void clear();
     Q_INVOKABLE void setModifiers(const QList<DownloadedModifierInfo>& modifiers);
     Q_INVOKABLE void addModifier(const DownloadedModifierInfo& modifier);

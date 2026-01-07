@@ -13,7 +13,7 @@
 #include "ModifierInfoManager.h"
 #include "SearchManager.h"
 
-// 已下载修改器信息结构
+// Downloaded modifier information structure
 struct DownloadedModifierInfo {
     QString name;
     QString version;
@@ -25,18 +25,18 @@ struct DownloadedModifierInfo {
     bool hasUpdate;
 };
 
-// 排序类型枚举
+// Sort type enumeration
 enum class SortType {
     ByUpdateDate,
     ByName,
     ByOptionsCount
 };
 
-// 修改器查找回调函数类型
+// Modifier search callback function type
 using ModifierFoundCallback = std::function<void(const QList<ModifierInfo>&)>;
 using ModifierDetailCallback = std::function<void(ModifierInfo*)>;
 using ModifierDownloadFinishedCallback = std::function<void(bool, const QString&, const QString&, const ModifierInfo&, bool)>;
-using UpdateProgressCallback = std::function<void(int, int, bool)>; // 当前进度, 总数, 是否有更新
+using UpdateProgressCallback = std::function<void(int, int, bool)>; // current progress, total, has update
 
 class ModifierManager : public QObject
 {
@@ -45,43 +45,43 @@ class ModifierManager : public QObject
 public:
     static ModifierManager& getInstance();
 
-    // 搜索修改器 - 使用SearchManager实现
+    // Search modifiers - implemented using SearchManager
     void searchModifiers(const QString& searchTerm, ModifierFoundCallback callback);
     
-    // 直接设置修改器列表 - 供SearchManager调用
+    // Set modifier list directly - called by SearchManager
     void setModifierList(const QList<ModifierInfo>& modifiers);
     
-    // 获取修改器详情
+    // Get modifier details
     void getModifierDetail(const QString& url, ModifierDetailCallback callback);
     
-    // 下载修改器 - 使用DownloadManager实现
+    // Download modifier - implemented using DownloadManager
     void downloadModifier(const ModifierInfo& modifier, 
                          const QString& version, 
                          const QString& savePath,
                          ModifierDownloadFinishedCallback callback,
                          DLProgressCallback progressCallback);
     
-    // 已下载修改器管理
+    // Downloaded modifier management
     QList<DownloadedModifierInfo> getDownloadedModifiers() const;
     void addDownloadedModifier(const ModifierInfo& info, const QString& version, const QString& filePath);
     void removeDownloadedModifier(int index);
     
-    // 更新检查 - 使用UpdateManager实现
+    // Update checking - implemented using UpdateManager
     void checkForUpdates(int index = -1, std::function<void(bool)> callback = nullptr);
     void batchCheckForUpdates(UpdateProgressCallback progressCallback, 
                               std::function<void(int)> completedCallback);
     void setModifierUpdateStatus(int index, bool hasUpdate);
     
-    // 修改器列表排序与过滤 - 使用SearchManager和ModifierInfoManager实现
+    // Modifier list sorting and filtering - implemented using SearchManager and ModifierInfoManager
     void sortModifierList(SortType sortType);
     QList<ModifierInfo> getSortedModifierList() const;
     QList<ModifierInfo> filterModifiersByKeyword(const QString& keyword) const;
     
-    // 保存和加载已下载修改器列表 - 使用ModifierInfoManager的JSON功能
+    // Save and load downloaded modifier list - using ModifierInfoManager's JSON functionality
     void saveDownloadedModifiers();
     void loadDownloadedModifiers();
     
-    // 导出和导入修改器信息 - 使用ModifierInfoManager实现
+    // Export and import modifier info - implemented using ModifierInfoManager
     bool exportModifierToFile(const ModifierInfo& info, const QString& filePath);
     ModifierInfo importModifierFromFile(const QString& filePath);
 
@@ -89,11 +89,11 @@ private:
     ModifierManager(QObject* parent = nullptr);
     ~ModifierManager();
 
-    // 禁止拷贝和赋值
+    // Disable copy and assignment
     ModifierManager(const ModifierManager&) = delete;
     ModifierManager& operator=(const ModifierManager&) = delete;
 
 private:
-    QList<ModifierInfo> m_modifierList;         // 当前修改器列表(搜索结果)
-    QList<DownloadedModifierInfo> m_downloadedModifiers; // 已下载的修改器
+    QList<ModifierInfo> m_modifierList;         // Current modifier list (search results)
+    QList<DownloadedModifierInfo> m_downloadedModifiers; // Downloaded modifiers
 }; 

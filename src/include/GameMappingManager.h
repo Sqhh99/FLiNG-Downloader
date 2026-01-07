@@ -12,7 +12,7 @@
 #include <QTimer>
 #include <memory>
 
-// 前向声明
+// Forward declaration
 struct TranslationResult;
 class ITranslator;
 
@@ -20,7 +20,7 @@ struct GameMappingInfo {
     QString english;
     QStringList aliases;
     QString category;
-    bool isTranslated = false;  // 标记是否是翻译得到的
+    bool isTranslated = false;  // Flag indicating if obtained through translation
 };
 
 class GameMappingManager : public QObject
@@ -30,38 +30,38 @@ class GameMappingManager : public QObject
 public:
     static GameMappingManager& getInstance();
     
-    // 初始化映射数据
+    // Initialize mapping data
     bool initialize();
     
-    // 中文转英文（支持在线翻译）
+    // Chinese to English (supports online translation)
     QString translateToEnglish(const QString& chinese);
     
-    // 异步翻译（使用您的翻译API）
+    // Async translation (using your translation API)
     void translateToEnglishAsync(const QString& chinese, std::function<void(const QString&)> callback);
     
-    // 模糊匹配
+    // Fuzzy matching
     QString fuzzyMatch(const QString& input) const;
     
-    // 检测是否包含中文字符
+    // Detect if text contains Chinese characters
     bool containsChinese(const QString& text) const;
     
-    // 获取所有中文游戏名（用于自动完成）
+    // Get all Chinese game names (for auto-completion)
     QStringList getAllChineseNames() const;
     
-    // 获取所有别名
+    // Get all aliases
     QStringList getAllAliases() const;
     
-    // 添加用户自定义映射
+    // Add user-defined mapping
     void addUserMapping(const QString& chinese, const QString& english);
     
-    // 添加翻译缓存
+    // Add translation cache
     void addTranslationCache(const QString& chinese, const QString& english);
     
-    // 保存用户映射和翻译缓存
+    // Save user mappings and translation cache
     void saveUserMappings();
     void saveTranslationCache();
     
-    // 重新加载配置
+    // Reload configuration
     bool reloadMappings();
 
 signals:
@@ -75,46 +75,43 @@ private:
     GameMappingManager(QObject* parent = nullptr);
     ~GameMappingManager() = default;
     
-    // 禁止拷贝
+    // Disable copy
     GameMappingManager(const GameMappingManager&) = delete;
     GameMappingManager& operator=(const GameMappingManager&) = delete;    
-    // 加载内置映射
+    // Load built-in mappings from JSON resource
     bool loadBuiltinMappings();
     
-    // 加载默认映射（回退方案）
-    bool loadDefaultMappings();
-    
-    // 加载用户自定义映射
+    // Load user-defined mappings
     bool loadUserMappings();
     
-    // 加载翻译缓存
+    // Load translation cache
     bool loadTranslationCache();
     
-    // 计算字符串相似度
+    // Calculate string similarity
     double calculateSimilarity(const QString& str1, const QString& str2) const;
     
-    // 获取配置文件路径
+    // Get configuration file paths
     QString getBuiltinMappingPath() const;
     QString getUserMappingPath() const;
     QString getTranslationCachePath() const;
     
-    // 初始化翻译器
+    // Initialize translator
     void initializeTranslator();
-      // 执行实际翻译
+      // Perform actual translation
     void performTranslation(const QString& chinese);
     
-    // 从JSON响应中解析翻译结果
+    // Parse translation result from JSON response
     QString parseTranslationFromJson(const QString& jsonResponse) const;
 
 private:
     QMap<QString, GameMappingInfo> m_builtinMappings;
     QMap<QString, QString> m_userMappings;
-    QMap<QString, QString> m_translationCache;  // 翻译缓存
-    QMap<QString, QString> m_aliasToEnglish; // 别名到英文的映射
+    QMap<QString, QString> m_translationCache;  // Translation cache
+    QMap<QString, QString> m_aliasToEnglish; // Alias to English mapping
     mutable QMutex m_mutex;
     bool m_initialized;
     
-    // 翻译相关
+    // Translation related
     std::unique_ptr<ITranslator> m_translator;
     QTimer* m_translationTimer;
     QStringList m_pendingTranslations;

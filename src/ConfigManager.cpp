@@ -1,4 +1,4 @@
 #include "ConfigManager.h"
 
-// 由于所有方法都在头文件中实现为内联函数，此文件仅用于编译目的
-// 如果需要添加更多复杂的实现，可以将方法从头文件移到此处 
+// Since all methods are implemented as inline functions in the header file, this file is for compilation purposes only
+// If more complex implementations are needed, methods can be moved from the header file to here 

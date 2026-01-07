@@ -8,42 +8,42 @@
 #include "ConfigManager.h"
 
 /**
- * @brief 语言管理类，负责切换和应用不同的语言
+ * @brief Language manager class responsible for switching and applying different languages
  */
 class LanguageManager {
 public:
-    // 语言类型枚举
+    // Language type enumeration
     enum class Language {
-        Chinese,    // 中文
-        English,    // 英文
-        Japanese,   // 日文
-        Default = Chinese  // 默认使用中文
+        Chinese,    // Chinese
+        English,    // English
+        Japanese,   // Japanese
+        Default = Chinese  // Default to Chinese
     };
     
-    // 获取单例实例
+    // Get singleton instance
     static LanguageManager& getInstance() {
         static LanguageManager instance;
         return instance;
     }
     
-    // 应用当前语言（从配置中读取）
+    // Apply current language (read from configuration)
     void applyCurrentLanguage(QGuiApplication& app) {
         ConfigManager::Language configLang = ConfigManager::getInstance().getCurrentLanguage();
         Language language = convertConfigLanguage(configLang);
         applyLanguage(app, language);
     }
     
-    // 切换到指定语言
+    // Switch to specified language
     void switchLanguage(QGuiApplication& app, Language language) {
-        // 保存语言设置
+        // Save language setting
         ConfigManager::Language configLang = convertToConfigLanguage(language);
         ConfigManager::getInstance().setCurrentLanguage(configLang);
         
-        // 应用语言
+        // Apply language
         applyLanguage(app, language);
     }
     
-    // 获取语言名称
+    // Get language name
     QString getLanguageName(Language language) const {
         switch (language) {
             case Language::Chinese:
@@ -53,11 +53,11 @@ public:
             case Language::Japanese:
                 return "日本語";
             default:
-                return "未知语言";
+                return "Unknown";
         }
     }
     
-    // 获取语言区域码
+    // Get language locale code
     QString getLanguageLocale(Language language) const {
         switch (language) {
             case Language::Chinese:
@@ -71,16 +71,16 @@ public:
         }
     }
     
-    // 获取当前已安装的翻译器
+    // Get current installed translator
     QTranslator* getCurrentTranslator() const {
         return m_currentTranslator;
     }
 
 private:
-    // 私有构造函数，防止外部创建实例
+    // Private constructor, prevent external instantiation
     LanguageManager() : m_currentTranslator(nullptr) {}
     
-    // 私有析构函数
+    // Private destructor
     ~LanguageManager() {
         if (m_currentTranslator) {
             delete m_currentTranslator;
@@ -88,11 +88,11 @@ private:
         }
     }
     
-    // 禁用拷贝构造函数和赋值操作符
+    // Disable copy constructor and assignment operator
     LanguageManager(const LanguageManager&) = delete;
     LanguageManager& operator=(const LanguageManager&) = delete;
     
-    // 将ConfigManager::Language转换为LanguageManager::Language
+    // Convert ConfigManager::Language to LanguageManager::Language
     Language convertConfigLanguage(ConfigManager::Language configLang) const {
         switch (configLang) {
             case ConfigManager::Language::Chinese:
@@ -106,7 +106,7 @@ private:
         }
     }
     
-    // 将LanguageManager::Language转换为ConfigManager::Language
+    // Convert LanguageManager::Language to ConfigManager::Language
     ConfigManager::Language convertToConfigLanguage(Language language) const {
         switch (language) {
             case Language::Chinese:
@@ -120,49 +120,49 @@ private:
         }
     }
     
-    // 应用指定语言
+    // Apply specified language
     void applyLanguage(QGuiApplication& app, Language language) {
-        // 卸载当前翻译器
+        // Unload current translator
         if (m_currentTranslator) {
             app.removeTranslator(m_currentTranslator);
             delete m_currentTranslator;
             m_currentTranslator = nullptr;
         }
         
-        // 如果是默认语言（中文），不需要加载翻译
+        // If default language (Chinese), no need to load translation
         if (language == Language::Chinese) {
-            qDebug() << "已应用默认语言：中文";
+            qDebug() << "Applied default language: Chinese";
             return;
         }
         
-        // 创建新的翻译器
+        // Create new translator
         m_currentTranslator = new QTranslator();
         
-        // 根据语言加载对应的翻译文件
+        // Load translation file for the language
         QString locale = getLanguageLocale(language);
         bool loaded = m_currentTranslator->load(QString(":/translations/downloadintegrator_%1").arg(locale));
         
         if (loaded) {
-            // 安装翻译器
+            // Install translator
             app.installTranslator(m_currentTranslator);
-            qDebug() << "已应用" << getLanguageName(language) << "语言";
+            qDebug() << "Applied language:" << getLanguageName(language);
         } else {
-            qDebug() << "无法加载语言文件:" << locale;
+            qDebug() << "Cannot load language file:" << locale;
             
-            // 如果无法加载翻译文件，回退到中文
+            // If cannot load translation file, fallback to Chinese
             if (language != Language::Chinese) {
-                qDebug() << "回退到中文";
+                qDebug() << "Falling back to Chinese";
                 
-                // 清理之前创建的翻译器
+                // Clean up previously created translator
                 delete m_currentTranslator;
                 m_currentTranslator = nullptr;
                 
-                // 更新配置
+                // Update config
                 ConfigManager::getInstance().setCurrentLanguage(ConfigManager::Language::Chinese);
             }
         }
     }
     
 private:
-    QTranslator* m_currentTranslator;  // 当前使用的翻译器
+    QTranslator* m_currentTranslator;  // Current translator in use
 }; 

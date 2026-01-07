@@ -23,11 +23,8 @@ Backend::Backend(QObject* parent)
     , m_downloadedModifierModel(new DownloadedModifierModel(this))
     , m_coverExtractor(new CoverExtractor(this))
 {
-    qDebug() << "Backend 初始化...";
-    loadGameMappings();  // 加载游戏名称映射数据库
+    loadGameMappings();
     loadDownloadedModifiers();
-    
-    // 初始加载最近更新的修改器
     fetchRecentModifiers();
 }
 
@@ -71,8 +68,8 @@ QVariantList Backend::selectedModifierVersions() const
     QVariantList versions;
     for (const auto& version : m_selectedModifier.versions) {
         QVariantMap versionMap;
-        versionMap["name"] = version.first;  // 版本标识
-        versionMap["url"] = version.second;  // 下载链接
+        versionMap["name"] = version.first;  // Version identifier
+        versionMap["url"] = version.second;  // Download link
         versions.append(versionMap);
     }
     return versions;
@@ -80,47 +77,39 @@ QVariantList Backend::selectedModifierVersions() const
 
 QString Backend::selectedModifierCoverUrl() const
 {
-    // 使用修改器的截图URL作为封面
-    // screenshotUrl 通常是游戏截图，可用于显示
+    // Use modifier's screenshot URL as cover
+    // screenshotUrl is usually a game screenshot that can be displayed
     return m_selectedModifier.screenshotUrl;
 }
 
 void Backend::searchModifiers(const QString& keyword)
 {
-    qDebug() << "搜索修改器:" << keyword;
-    emit statusMessage(tr("正在搜索: %1").arg(keyword));
-    
+    emit statusMessage(tr("Searching: %1").arg(keyword));
     SearchManager::getInstance().searchModifiers(keyword, this, &Backend::onSearchCompleted);
 }
 
 void Backend::fetchRecentModifiers()
 {
-    qDebug() << "获取最近更新的修改器列表...";
-    emit statusMessage(tr("正在加载修改器列表..."));
-    
+    emit statusMessage(tr("Loading modifiers..."));
     SearchManager::getInstance().fetchRecentlyUpdatedModifiers(this, &Backend::onSearchCompleted);
 }
 
 void Backend::setSortOrder(int sortIndex)
 {
-    qDebug() << "设置排序方式:" << sortIndex;
-    // 根据排序索引更新列表
-    // 0: 最近更新, 1: 按名称, 2: 选项数量
-    
     QList<ModifierInfo> modifiers = m_modifierListModel->getAllModifiers();
     
     switch (sortIndex) {
-        case 0: // 最近更新 - 按更新日期降序
+        case 0: // Recently updated
             std::sort(modifiers.begin(), modifiers.end(), [](const ModifierInfo& a, const ModifierInfo& b) {
                 return a.lastUpdate > b.lastUpdate;
             });
             break;
-        case 1: // 按名称 - 按名称升序
+        case 1: // By name
             std::sort(modifiers.begin(), modifiers.end(), [](const ModifierInfo& a, const ModifierInfo& b) {
                 return a.name.toLower() < b.name.toLower();
             });
             break;
-        case 2: // 选项数量 - 按选项数量降序
+        case 2: // By options count
             std::sort(modifiers.begin(), modifiers.end(), [](const ModifierInfo& a, const ModifierInfo& b) {
                 return a.optionsCount > b.optionsCount;
             });
@@ -140,43 +129,32 @@ void Backend::selectModifier(int index)
     m_selectedModifier = m_modifierListModel->getModifier(index);
     m_selectedVersionIndex = 0;
     
-    qDebug() << "选中修改器:" << m_selectedModifier.name;
     emit selectedModifierChanged();
     
-    // 获取修改器详情（选项列表等）
     if (!m_selectedModifier.url.isEmpty()) {
-        emit statusMessage(tr("正在加载修改器详情..."));
+        emit statusMessage(tr("Loading modifier details..."));
         
-        // 使用 ModifierManager 获取详情
         ModifierManager::getInstance().getModifierDetail(
             m_selectedModifier.url,
             [this](ModifierInfo* modifier) {
                 if (modifier) {
-                    qDebug() << "修改器详情获取成功:" << modifier->name 
-                             << "版本数:" << modifier->versions.size()
-                             << "选项数:" << modifier->options.size();
-                    
-                    // 更新选中的修改器详情
                     m_selectedModifier.versions = modifier->versions;
                     m_selectedModifier.options = modifier->options;
                     m_selectedModifier.optionsCount = modifier->optionsCount;
                     m_selectedModifier.screenshotUrl = modifier->screenshotUrl;
                     m_selectedModifier.description = modifier->description;
                     
-                    // 构建选项文本
                     m_selectedOptions = m_selectedModifier.options.join("\n");
                     
                     emit selectedModifierChanged();
                     emit selectedModifierOptionsChanged();
-                    emit statusMessage(tr("修改器详情加载完成"));
+                    emit statusMessage(tr("Details loaded"));
                     
-                    // 自动提取封面
                     extractCover();
                     
                     delete modifier;
                 } else {
-                    qDebug() << "获取修改器详情失败";
-                    emit statusMessage(tr("获取修改器详情失败"));
+                    emit statusMessage(tr("Failed to load details"));
                 }
             }
         );
@@ -186,35 +164,31 @@ void Backend::selectModifier(int index)
 void Backend::selectVersion(int versionIndex)
 {
     m_selectedVersionIndex = versionIndex;
-    qDebug() << "选中版本:" << versionIndex;
 }
 
 void Backend::downloadModifier(int versionIndex)
 {
     if (m_selectedModifier.versions.isEmpty()) {
-        emit statusMessage(tr("无可用下载版本"));
+        emit statusMessage(tr("No download version available"));
         return;
     }
     
     int idx = (versionIndex >= 0 && versionIndex < m_selectedModifier.versions.size()) 
               ? versionIndex : 0;
     
-    QString versionName = m_selectedModifier.versions.at(idx).first;   // first is version name
+    QString versionName = m_selectedModifier.versions.at(idx).first;
     QString downloadDir = ConfigManager::getInstance().getDownloadDirectory();
     QString savePath = downloadDir + "/" + m_selectedModifier.name + "_" + versionName + ".zip";
     
-    qDebug() << "开始下载:" << versionName << "到" << savePath;
     m_isDownloading = true;
     m_downloadProgress = 0.0;
     emit downloadingChanged();
-    emit statusMessage(tr("正在下载: %1").arg(m_selectedModifier.name));
+    emit statusMessage(tr("Downloading: %1").arg(m_selectedModifier.name));
     
-    // 使用 ModifierManager 进行真实下载
     ModifierManager::getInstance().downloadModifier(
         m_selectedModifier,
         versionName,
         savePath,
-        // 完成回调 (bool success, const QString& errorMsg, const QString& filePath, const ModifierInfo& modifier, bool isArchive)
         [this, versionName](bool success, const QString& errorMsg, const QString& filePath, const ModifierInfo& modifier, bool isArchive) {
             Q_UNUSED(modifier)
             Q_UNUSED(isArchive)
@@ -226,9 +200,8 @@ void Backend::downloadModifier(int versionIndex)
                 m_downloadProgress = 1.0;
                 emit downloadProgressChanged();
                 emit downloadCompleted(true);
-                emit statusMessage(tr("下载完成: %1").arg(filePath));
+                emit statusMessage(tr("Download complete: %1").arg(filePath));
                 
-                // 添加到已下载列表
                 DownloadedModifierInfo downloadedInfo;
                 downloadedInfo.name = m_selectedModifier.name;
                 downloadedInfo.version = versionName;
@@ -240,16 +213,13 @@ void Backend::downloadModifier(int versionIndex)
                 m_downloadedList.append(downloadedInfo);
                 m_downloadedModifierModel->setModifiers(m_downloadedList);
                 saveDownloadedModifiers();
-                
-                qDebug() << "已添加到下载列表:" << downloadedInfo.name;
             } else {
                 m_downloadProgress = 0.0;
                 emit downloadProgressChanged();
                 emit downloadCompleted(false);
-                emit statusMessage(tr("下载失败: %1").arg(errorMsg));
+                emit statusMessage(tr("Download failed: %1").arg(errorMsg));
             }
         },
-        // 进度回调 (int percentage)
         [this](int progress) {
             m_downloadProgress = static_cast<qreal>(progress) / 100.0;
             emit downloadProgressChanged();
@@ -257,55 +227,43 @@ void Backend::downloadModifier(int versionIndex)
     );
 }
 
-// 封面提取
+// Cover extraction
 void Backend::extractCover()
 {
     if (m_selectedModifier.screenshotUrl.isEmpty()) {
-        qDebug() << "无修改器截图URL可用";
         return;
     }
     
-    // 生成游戏ID用于缓存
     QString gameId = m_selectedModifier.name;
     gameId.replace(QRegularExpression("[^a-zA-Z0-9]"), "_");
     
-    // 首先检查缓存
     QPixmap cachedCover = CoverExtractor::getCachedCover(gameId);
     if (!cachedCover.isNull()) {
-        // 使用缓存的封面
         QString cachePath = CoverExtractor::getCacheDirectory();
         QString coverFilePath = cachePath + "/" + gameId + ".png";
         m_currentCoverPath = "file:///" + coverFilePath;
         emit coverExtracted();
-        qDebug() << "使用缓存封面:" << m_currentCoverPath;
         return;
     }
     
-    qDebug() << "开始提取封面:" << m_selectedModifier.screenshotUrl;
-    emit statusMessage(tr("正在提取游戏封面..."));
+    emit statusMessage(tr("Extracting cover..."));
     
     m_coverExtractor->extractCoverFromTrainerImage(
         m_selectedModifier.screenshotUrl,
         [this, gameId](const QPixmap& cover, bool success) {
             if (success && !cover.isNull()) {
-                // 保存到缓存
                 if (CoverExtractor::saveCoverToCache(gameId, cover)) {
                     QString cachePath = CoverExtractor::getCacheDirectory();
                     QString coverFilePath = cachePath + "/" + gameId + ".png";
                     
-                    // 使用 file:// URL 格式供 QML Image 使用
                     m_currentCoverPath = "file:///" + coverFilePath;
                     emit coverExtracted();
-                    emit statusMessage(tr("封面提取成功"));
-                    
-                    qDebug() << "封面提取成功，保存到:" << m_currentCoverPath << "尺寸:" << cover.size();
+                    emit statusMessage(tr("Cover extracted"));
                 } else {
-                    qDebug() << "封面保存失败";
-                    emit statusMessage(tr("封面保存失败"));
+                    emit statusMessage(tr("Failed to save cover"));
                 }
             } else {
-                qDebug() << "封面提取失败";
-                emit statusMessage(tr("封面提取失败"));
+                emit statusMessage(tr("Failed to extract cover"));
             }
         }
     );
@@ -324,12 +282,11 @@ void Backend::runModifier(int index)
     }
     
     DownloadedModifierInfo modifier = m_downloadedModifierModel->getModifier(index);
-    qDebug() << "运行修改器:" << modifier.filePath;
     
     if (QFile::exists(modifier.filePath)) {
         QDesktopServices::openUrl(QUrl::fromLocalFile(modifier.filePath));
     } else {
-        emit statusMessage(tr("文件不存在: %1").arg(modifier.filePath));
+        emit statusMessage(tr("File not found: %1").arg(modifier.filePath));
     }
 }
 
@@ -340,32 +297,27 @@ void Backend::deleteModifier(int index)
     }
     
     DownloadedModifierInfo modifier = m_downloadedModifierModel->getModifier(index);
-    qDebug() << "删除修改器:" << modifier.name;
     
-    // 删除文件
     if (QFile::exists(modifier.filePath)) {
         QFile::remove(modifier.filePath);
     }
     
-    // 从模型移除
     m_downloadedModifierModel->removeModifier(index);
     saveDownloadedModifiers();
     
-    emit statusMessage(tr("已删除: %1").arg(modifier.name));
+    emit statusMessage(tr("Deleted: %1").arg(modifier.name));
 }
 
 void Backend::checkForUpdates()
 {
-    qDebug() << "检查更新...";
-    emit statusMessage(tr("正在检查更新..."));
-    // TODO: 实现更新检查逻辑
+    emit statusMessage(tr("Checking for updates..."));
+    // TODO: Implement update check logic
 }
 
 void Backend::setTheme(int themeIndex)
 {
     ConfigManager::Theme theme = static_cast<ConfigManager::Theme>(themeIndex);
     ThemeManager::getInstance().switchTheme(theme);
-    qDebug() << "切换主题:" << themeIndex;
 }
 
 void Backend::setLanguage(int languageIndex)
@@ -375,14 +327,11 @@ void Backend::setLanguage(int languageIndex)
     LanguageManager::Language language = static_cast<LanguageManager::Language>(languageIndex);
     LanguageManager::getInstance().switchLanguage(*m_app, language);
     
-    // 刷新 QML 翻译
     if (m_qmlEngine) {
         m_qmlEngine->retranslate();
-        qDebug() << "已刷新 QML 翻译";
     }
     
     emit languageChanged();
-    qDebug() << "切换语言:" << languageIndex;
 }
 
 QString Backend::downloadPath() const
@@ -395,22 +344,20 @@ void Backend::setDownloadPath(const QString& path)
     if (!path.isEmpty() && path != downloadPath()) {
         ConfigManager::getInstance().setDownloadDirectory(path);
         emit downloadPathChanged();
-        qDebug() << "下载路径已设置为:" << path;
     }
 }
 
 void Backend::requestDownloadFolderSelection()
 {
-    // 发射信号请求QML端显示文件选择对话框
+    // Emit signal to request QML side to show folder selection dialog
     emit downloadFolderSelectionRequested();
 }
 
 void Backend::onSearchCompleted(const QList<ModifierInfo>& modifiers)
 {
-    qDebug() << "搜索完成，结果数量:" << modifiers.size();
     m_modifierListModel->setModifiers(modifiers);
     emit searchCompleted();
-    emit statusMessage(tr("找到 %1 个修改器").arg(modifiers.size()));
+    emit statusMessage(tr("Found %1 modifiers").arg(modifiers.size()));
 }
 
 void Backend::onDownloadProgress(qint64 bytesReceived, qint64 bytesTotal)
@@ -428,9 +375,9 @@ void Backend::onDownloadFinished(bool success)
     emit downloadCompleted(success);
     
     if (success) {
-        emit statusMessage(tr("下载完成"));
+        emit statusMessage(tr("Download complete"));
     } else {
-        emit statusMessage(tr("下载失败"));
+        emit statusMessage(tr("Download failed"));
     }
 }
 
@@ -440,7 +387,6 @@ void Backend::loadDownloadedModifiers()
     QFile file(filePath);
     
     if (!file.open(QIODevice::ReadOnly)) {
-        qDebug() << "无法读取已下载修改器列表";
         return;
     }
     
@@ -467,7 +413,6 @@ void Backend::loadDownloadedModifiers()
     }
     
     m_downloadedModifierModel->setModifiers(list);
-    qDebug() << "已加载" << list.size() << "个已下载修改器";
 }
 
 void Backend::saveDownloadedModifiers()
@@ -476,7 +421,7 @@ void Backend::saveDownloadedModifiers()
     QFile file(filePath);
     
     if (!file.open(QIODevice::WriteOnly)) {
-        qDebug() << "无法保存已下载修改器列表";
+        qWarning() << "Backend: Failed to save downloaded modifiers";
         return;
     }
     
@@ -496,18 +441,16 @@ void Backend::saveDownloadedModifiers()
     QJsonDocument doc(array);
     file.write(doc.toJson());
     file.close();
-    
-    qDebug() << "已保存" << m_downloadedModifierModel->count() << "个已下载修改器";
 }
 
-// 加载游戏名称映射数据库
+// Load game name mapping database
 void Backend::loadGameMappings()
 {
     m_gameMappings.clear();
     
     QFile file(":/game_mappings.json");
     if (!file.open(QIODevice::ReadOnly)) {
-        qDebug() << "无法打开游戏映射文件";
+        qWarning() << "Backend: Cannot open game mappings file";
         return;
     }
     
@@ -515,7 +458,7 @@ void Backend::loadGameMappings()
     file.close();
     
     if (!doc.isObject()) {
-        qDebug() << "游戏映射文件格式错误";
+        qWarning() << "Backend: Invalid game mappings format";
         return;
     }
     
@@ -529,7 +472,6 @@ void Backend::loadGameMappings()
         mapping.chineseName = chineseName;
         mapping.englishName = gameObj["english"].toString();
         
-        // 加载别名
         QJsonArray aliasArray = gameObj["aliases"].toArray();
         for (const QJsonValue& val : aliasArray) {
             mapping.aliases.append(val.toString());
@@ -537,11 +479,9 @@ void Backend::loadGameMappings()
         
         m_gameMappings.append(mapping);
     }
-    
-    qDebug() << "已加载" << m_gameMappings.size() << "个游戏名称映射";
 }
 
-// 获取搜索建议 - 支持中英文模糊匹配
+// Get search suggestions - supports fuzzy matching for Chinese and English
 QStringList Backend::getSuggestions(const QString& keyword, int maxResults)
 {
     QStringList results;
@@ -552,7 +492,7 @@ QStringList Backend::getSuggestions(const QString& keyword, int maxResults)
     
     QString lowerKeyword = keyword.toLower();
     
-    // 记录已添加的游戏名（避免重复）
+    // Track added names to avoid duplicates
     QSet<QString> addedNames;
     
     for (const GameMapping& mapping : m_gameMappings) {
@@ -561,37 +501,33 @@ QStringList Backend::getSuggestions(const QString& keyword, int maxResults)
         bool matched = false;
         QString displayName;
         
-        // 1. 检查中文名称匹配
+        // Check Chinese name match
         if (mapping.chineseName.toLower().contains(lowerKeyword)) {
             matched = true;
             displayName = mapping.chineseName;
-            // 如果中文名匹配，显示中文名（英文名）
             if (!mapping.englishName.isEmpty()) {
                 displayName += " (" + mapping.englishName + ")";
             }
         }
-        // 2. 检查英文名称匹配
+        // Check English name match
         else if (mapping.englishName.toLower().contains(lowerKeyword)) {
             matched = true;
             displayName = mapping.englishName;
-            // 如果英文名匹配，显示英文名（中文名）
             if (!mapping.chineseName.isEmpty()) {
                 displayName += " (" + mapping.chineseName + ")";
             }
         }
-        // 3. 检查别名匹配
+        // Check alias match
         else {
             for (const QString& alias : mapping.aliases) {
                 if (alias.toLower().contains(lowerKeyword)) {
                     matched = true;
-                    // 别名匹配时，显示中文名（匹配的别名）
                     displayName = mapping.chineseName + " (" + alias + ")";
                     break;
                 }
             }
         }
         
-        // 添加到结果（避免重复）
         if (matched && !addedNames.contains(displayName)) {
             results.append(displayName);
             addedNames.insert(displayName);

@@ -40,12 +40,12 @@ ModifierInfo* ModifierInfoManager::cloneModifierInfo(const ModifierInfo& other)
 
 QString ModifierInfoManager::extractNameFromUrl(const QString& url)
 {
-    // 从URL中提取修改器名称
-    // 尝试多种URL格式
+    // Extract modifier name from URL
+    // Try multiple URL formats
     QStringList patterns = {
-        "/([^/]+)-trainer/?$",          // 原有格式: game-name-trainer
-        "/trainer/([^/]+)-trainer/?$",  // FLiNG格式: /trainer/game-name-trainer
-        "/trainer/([^/]+)/?$"           // 简化格式: /trainer/game-name
+        "/([^/]+)-trainer/?$",          // Original format: game-name-trainer
+        "/trainer/([^/]+)-trainer/?$",  // FLiNG format: /trainer/game-name-trainer
+        "/trainer/([^/]+)/?$"           // Simple format: /trainer/game-name
     };
     
     for (const QString& pattern : patterns) {
@@ -57,9 +57,9 @@ QString ModifierInfoManager::extractNameFromUrl(const QString& url)
             name.replace('-', ' ');
             name.replace('_', ' ');
             
-            // 移除可能的 "trainer" 后缀
+            // Remove possible "trainer" suffix
             if (name.endsWith(" trainer", Qt::CaseInsensitive)) {
-                name.chop(8); // 移除 " trainer"
+                name.chop(8); // Remove " trainer"
             }
             
             return formatModifierName(name.trimmed());
@@ -75,7 +75,7 @@ QString ModifierInfoManager::formatModifierName(const QString& name)
         return name;
     }
     
-    // 转换为标题格式（每个单词首字母大写）
+    // Convert to title case (capitalize first letter of each word)
     QStringList words = name.split(' ', Qt::SkipEmptyParts);
     for (QString& word : words) {
         if (!word.isEmpty()) {
@@ -88,13 +88,13 @@ QString ModifierInfoManager::formatModifierName(const QString& name)
 
 QString ModifierInfoManager::formatVersionString(const QString& version)
 {
-    // 确保版本号格式一致
-    // 如果版本号只包含数字，添加 v 前缀
+    // Ensure consistent version number format
+    // If version only contains digits, add 'v' prefix
     if (QRegularExpression("^\\d+\\.?\\d*$").match(version).hasMatch()) {
         return QString("v%1").arg(version);
     }
     
-    // 如果已经有前缀（如 v, ver., version 等），统一为 v
+    // If already has prefix (v, ver., version, etc.), normalize to 'v'
     QString formattedVersion = version;
     QRegularExpression prefixRe("^(v|ver\\.|version|V)\\s*(\\d.*)$");
     QRegularExpressionMatch match = prefixRe.match(version);
@@ -108,19 +108,19 @@ QString ModifierInfoManager::formatVersionString(const QString& version)
 
 void ModifierInfoManager::addVersionToModifier(ModifierInfo& info, const QString& version, const QString& url)
 {
-    // 格式化版本号
+    // Format version number
     QString formattedVersion = formatVersionString(version);
     
-    // 检查是否已存在相同版本
+    // Check if version already exists
     for (int i = 0; i < info.versions.size(); ++i) {
         if (info.versions[i].first == formattedVersion) {
-            // 更新URL
+            // Update URL
             info.versions[i].second = url;
             return;
         }
     }
     
-    // 添加新版本
+    // Add new version
     info.versions.append(qMakePair(formattedVersion, url));
 }
 
@@ -128,24 +128,24 @@ int ModifierInfoManager::compareModifierSimilarity(const ModifierInfo& a, const 
 {
     int similarity = 0;
     
-    // 比较名称 (50%)
+    // Compare name (50%)
     if (a.name.toLower() == b.name.toLower()) {
         similarity += 50;
     } else {
-        // 部分匹配
+        // Partial match
         QString nameLowerA = a.name.toLower();
         QString nameLowerB = b.name.toLower();
         
         if (nameLowerA.contains(nameLowerB) || nameLowerB.contains(nameLowerA)) {
             similarity += 30;
         } else {
-            // 检查单词级别的匹配
+            // Check word-level matching
             QStringList wordsA = nameLowerA.split(' ', Qt::SkipEmptyParts);
             QStringList wordsB = nameLowerB.split(' ', Qt::SkipEmptyParts);
             
             int matchingWords = 0;
             for (const QString& wordA : wordsA) {
-                if (wordA.length() < 3) continue; // 忽略短词
+                if (wordA.length() < 3) continue; // Skip short words
                 
                 for (const QString& wordB : wordsB) {
                     if (wordB.length() < 3) continue;
@@ -163,7 +163,7 @@ int ModifierInfoManager::compareModifierSimilarity(const ModifierInfo& a, const 
         }
     }
     
-    // 比较游戏版本 (20%)
+    // Compare game version (20%)
     if (!a.gameVersion.isEmpty() && !b.gameVersion.isEmpty()) {
         if (a.gameVersion == b.gameVersion) {
             similarity += 20;
@@ -172,12 +172,12 @@ int ModifierInfoManager::compareModifierSimilarity(const ModifierInfo& a, const 
         }
     }
     
-    // 比较URL (30%)
+    // Compare URL (30%)
     if (!a.url.isEmpty() && !b.url.isEmpty()) {
         if (a.url == b.url) {
             similarity += 30;
         } else {
-            // 提取URL中的关键部分进行比较
+            // Extract key parts of URL for comparison
             QString keyPartA = extractNameFromUrl(a.url);
             QString keyPartB = extractNameFromUrl(b.url);
             
@@ -199,14 +199,14 @@ QString ModifierInfoManager::exportToJson(const ModifierInfo& info)
     rootObj["lastUpdate"] = info.lastUpdate;
     rootObj["optionsCount"] = info.optionsCount;
     
-    // 选项列表
+    // Options list
     QJsonArray optionsArray;
     for (const QString& option : info.options) {
         optionsArray.append(option);
     }
     rootObj["options"] = optionsArray;
     
-    // 版本列表
+    // Versions list
     QJsonArray versionsArray;
     for (const auto& version : info.versions) {
         QJsonObject versionObj;
@@ -226,26 +226,26 @@ ModifierInfo ModifierInfoManager::importFromJson(const QString& json)
     
     QJsonDocument doc = QJsonDocument::fromJson(json.toUtf8());
     if (doc.isNull() || !doc.isObject()) {
-        qWarning() << "无效的JSON格式：" << json;
+        qWarning() << "Invalid JSON format:" << json;
         return info;
     }
     
     QJsonObject rootObj = doc.object();
     
-    // 基本信息
+    // Basic info
     info.name = rootObj["name"].toString();
     info.gameVersion = rootObj["gameVersion"].toString();
     info.url = rootObj["url"].toString();
     info.lastUpdate = rootObj["lastUpdate"].toString();
     info.optionsCount = rootObj["optionsCount"].toInt();
     
-    // 选项列表
+    // Options list
     QJsonArray optionsArray = rootObj["options"].toArray();
     for (const QJsonValue& value : optionsArray) {
         info.options.append(value.toString());
     }
     
-    // 版本列表
+    // Versions list
     QJsonArray versionsArray = rootObj["versions"].toArray();
     for (const QJsonValue& value : versionsArray) {
         QJsonObject versionObj = value.toObject();
@@ -262,22 +262,22 @@ QStringList ModifierInfoManager::convertHtmlOptionsToPlainText(const QString& ht
 {
     QStringList result;
     
-    // 使用正则表达式移除HTML标签
+    // Use regex to remove HTML tags
     QRegularExpression htmlTagRe("<.*?>");
     QString plainText = htmlOptions;
     plainText.replace(htmlTagRe, "");
     
-    // 处理HTML实体
+    // Handle HTML entities
     plainText.replace("&nbsp;", " ");
     plainText.replace("&amp;", "&");
     plainText.replace("&lt;", "<");
     plainText.replace("&gt;", ">");
     plainText.replace("&quot;", "\"");
     
-    // 分割为行
+    // Split into lines
     QStringList lines = plainText.split('\n', Qt::SkipEmptyParts);
     
-    // 清理每一行
+    // Clean up each line
     for (QString& line : lines) {
         line = line.trimmed();
         if (!line.isEmpty()) {
@@ -293,25 +293,25 @@ QList<ModifierInfo> ModifierInfoManager::searchModifiersByKeyword(const QList<Mo
     QList<ModifierInfo> results;
     
     if (keyword.isEmpty()) {
-        return modifiers; // 如果关键词为空，返回所有修改器
+        return modifiers; // If keyword is empty, return all modifiers
     }
     
     QString lowerKeyword = keyword.toLower();
     
     for (const ModifierInfo& info : modifiers) {
-        // 在名称中搜索
+        // Search in name
         if (info.name.toLower().contains(lowerKeyword)) {
             results.append(info);
             continue;
         }
         
-        // 在游戏版本中搜索
+        // Search in game version
         if (info.gameVersion.toLower().contains(lowerKeyword)) {
             results.append(info);
             continue;
         }
         
-        // 在选项中搜索
+        // Search in options
         bool foundInOptions = false;
         for (const QString& option : info.options) {
             if (option.toLower().contains(lowerKeyword)) {

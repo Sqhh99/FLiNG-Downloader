@@ -11,7 +11,7 @@
 #include <functional>
 #include "ModifierParser.h"
 
-// 网络响应回调函数类型定义
+// Network response callback function type definition
 using NetworkResponseCallback = std::function<void(const QByteArray&, bool)>;
 using DownloadProgressCallback = std::function<void(qint64, qint64)>;
 
@@ -22,42 +22,42 @@ class NetworkManager : public QObject
 public:
     static NetworkManager& getInstance();
 
-    // 发送GET请求
+    // Send GET request
     void sendGetRequest(const QString& url, 
                         NetworkResponseCallback callback, 
                         const QString& userAgent = QString());
 
-    // 下载文件
+    // Download file
     void downloadFile(const QString& url, 
                       const QString& savePath,
                       DownloadProgressCallback progressCallback,
                       std::function<void(bool, const QString&)> finishedCallback,
                       const QString& userAgent = QString());
 
-    // 中止所有请求
+    // Abort all requests
     void abortAllRequests();
     
-    // 取消当前下载
+    // Cancel current download
     void cancelDownload();
 
-    // 设置全局超时时间(毫秒)
+    // Set global timeout interval (milliseconds)
     void setTimeoutInterval(int msec);
 
-    // 设置全局用户代理
+    // Set global user agent
     void setGlobalUserAgent(const QString& userAgent);
 
-    // 获取全局用户代理
+    // Get global user agent
     QString getGlobalUserAgent() const;
 
 private:
     NetworkManager(QObject* parent = nullptr);
     ~NetworkManager();
 
-    // 禁止拷贝和赋值
+    // Disable copy and assignment
     NetworkManager(const NetworkManager&) = delete;
     NetworkManager& operator=(const NetworkManager&) = delete;
 
-    // 为请求创建定时器
+    // Create timeout timer for request
     QTimer* createTimeoutTimer(QNetworkReply* reply);
 
 private:
