@@ -14,24 +14,6 @@
 #include "GameMappingManager.h"
 #include "ConfigManager.h"
 
-#ifdef _WIN32
-#include <windows.h>
-#endif
-
-// 添加DLL搜索路径
-void addDllSearchPaths() {
-#ifdef _WIN32
-    // 添加vcpkg安装的DLL目录到搜索路径
-    QString vcpkgBinPath = "D:/vcpkg/installed/x64-windows/bin";
-    QByteArray vcpkgPathBytes = vcpkgBinPath.toLocal8Bit();
-    
-    // 使用Windows API添加DLL搜索路径
-    SetDllDirectoryA(vcpkgPathBytes.constData());
-
-    qDebug() << "已添加DLL搜索路径: " << vcpkgBinPath;
-#endif
-}
-
 int main(int argc, char *argv[])
 {
     // 使用 QGuiApplication (纯 QML 应用)
@@ -53,9 +35,6 @@ int main(int argc, char *argv[])
         } else {
             qDebug() << "❌ 资源系统初始化失败!";
         }
-        
-        // 添加DLL搜索路径
-        addDllSearchPaths();
         
         // 应用当前语言
         LanguageManager::getInstance().applyCurrentLanguage(app);

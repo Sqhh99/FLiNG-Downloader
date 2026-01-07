@@ -6,7 +6,7 @@
 
 基于 Qt 的游戏修改器下载管理器，支持中文游戏名智能映射搜索。
 
-[简体中文](./README.md) | [English](./README.en.md) | [日本語](./README.ja.md)
+[简体中文](./README.md) | [English](./docs/README.en.md) | [日本語](./docs/README.ja.md)
 
 ---
 

@@ -96,3 +96,9 @@ local.pri
 .Trashes
 ehthumbs.db
 Thumbs.db 
+
+# vcpkg installed packages
+vcpkg_installed/
+
+# Agents
+agents/
