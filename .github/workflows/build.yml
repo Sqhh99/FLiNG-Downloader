@@ -45,12 +45,7 @@ jobs:
         vcpkgDirectory: '${{ github.workspace }}/vcpkg'
 
     - name: Install vcpkg dependencies
-      run: |
-        vcpkg install curl:x64-windows-static
-        vcpkg install nlohmann-json:x64-windows-static
-        vcpkg install opencv4:x64-windows-static
-        vcpkg install pugixml:x64-windows-static
-        vcpkg install zlib:x64-windows-static
+      run: vcpkg install --triplet x64-windows-static
       env:
         VCPKG_ROOT: ${{ github.workspace }}/vcpkg
 
