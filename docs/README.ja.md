@@ -2,7 +2,7 @@
   <img src="https://github.com/user-attachments/assets/e8aceb6b-2534-4aaf-a757-020b654aa285" alt="Logo" width="120">
 </div>
 
-# DownloadIntegrator
+# FLiNG Downloader
 
 Qt 製のゲームトレーナーダウンロード管理ツール。中国語タイトルの英語マッピング検索に対応。
 
@@ -29,7 +29,7 @@ Qt 製のゲームトレーナーダウンロード管理ツール。中国語�
 
 ## クイックスタート
 
-- [Releases](../../releases) から最新版を取得し、`DownloadIntegrator.exe` を実行
+- [Releases](../../releases) から最新版を取得し、`FLiNG Downloader.exe` を実行
 
 ## 開発・ビルド（Windows）
 
@@ -57,7 +57,7 @@ cmake -S . -B build -G "Visual Studio 17 2022" -A x64 \
 cmake --build build --config Release
 ```
 
-生成物：`build\Release\DownloadIntegrator.exe`
+生成物：`build\Release\FLiNG Downloader.exe`
 
 （任意）CMakePresets を使う場合：
 

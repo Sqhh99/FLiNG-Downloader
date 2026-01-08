@@ -21,7 +21,7 @@ set(VCPKG_INSTALLED_DIR "${CMAKE_SOURCE_DIR}/vcpkg_installed" CACHE PATH "Vcpkg 
 # Project Definition
 # ==============================================================================
 
-project(DownloadIntegrator LANGUAGES CXX)
+project("FLiNGDownloader" LANGUAGES CXX)
 
 # ==============================================================================
 # Build Configuration
@@ -88,7 +88,7 @@ set(PROJECT_SOURCES
     src/DownloadedModifierModel.cpp
 )
 
-set(PROJECT_HEADERS
+set(PROJECT_HEADERS         
     src/include/ConfigManager.h
     src/include/ModifierParser.h
     src/include/NetworkManager.h
@@ -128,6 +128,8 @@ add_executable(${PROJECT_NAME}
     ${PROJECT_RESOURCES}
     ${PROJECT_RC_FILES}
 )
+
+set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "FLiNG Downloader")
 
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}

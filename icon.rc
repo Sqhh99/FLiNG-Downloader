@@ -17,15 +17,15 @@ BEGIN
     BEGIN
         BLOCK "040904b0"
         BEGIN
-            VALUE "CompanyName", "DownloadIntegrator Project"
-            VALUE "FileDescription", "Game Modifier Download Manager with Chinese Search Support"
+            VALUE "CompanyName", "FLiNG Downloader Project"
+            VALUE "FileDescription", "FLiNG Downloader - Game Modifier Download Manager"
             VALUE "FileVersion", "1.0.0.0"
-            VALUE "InternalName", "DownloadIntegrator"
+            VALUE "InternalName", "FLiNG Downloader"
             VALUE "LegalCopyright", "Copyright (C) 2024. Licensed under MIT License."
-            VALUE "OriginalFilename", "DownloadIntegrator.exe"
-            VALUE "ProductName", "DownloadIntegrator"
+            VALUE "OriginalFilename", "FLiNG Downloader.exe"
+            VALUE "ProductName", "FLiNG Downloader"
             VALUE "ProductVersion", "1.0.0.0"
-            VALUE "Comments", "Open source game modifier download manager. Visit https://github.com/Sqhh99/DownloadIntegrator"
+            VALUE "Comments", "Open source game modifier download manager. Visit https://github.com/Sqhh99/FLiNG-Downloader"
         END
     END
     BLOCK "VarFileInfo"

@@ -57,16 +57,16 @@ Item {
                 Layout.preferredWidth: 120
                 Layout.preferredHeight: 160
                 radius: ThemeProvider.radiusMedium
-                color: ThemeProvider.backgroundColor
-                border.width: 1
-                border.color: ThemeProvider.borderColor
+                color: "transparent" // 透明背景，避免显示边框
+                // 移除边框，防止显示空白区域
                 
                 Image {
                     id: coverImage
                     anchors.fill: parent
-                    anchors.margins: 2
+                    anchors.margins: 0 // 移除边距
                     source: coverUrl
                     fillMode: Image.PreserveAspectFit
+                    mipmap: true // 开启mipmap抗锯齿
                     
                     // 加载中提示
                     Text {
@@ -83,24 +83,58 @@ Item {
             ColumnLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+                Layout.alignment: Qt.AlignTop
                 spacing: ThemeProvider.spacingSmall
                 
-                Text {
-                    text: qsTr("游戏版本：") + gameVersion
-                    font.pixelSize: ThemeProvider.fontSizeMedium
-                    color: ThemeProvider.textSecondary
+                // 游戏版本
+                RowLayout {
+                    spacing: ThemeProvider.spacingSmall
+                    Text {
+                        text: qsTr("游戏版本")
+                        font.pixelSize: ThemeProvider.fontSizeMedium
+                        color: ThemeProvider.textSecondary
+                        Layout.preferredWidth: 80
+                    }
+                    Text {
+                        text: gameVersion || "-"
+                        font.pixelSize: ThemeProvider.fontSizeMedium
+                        font.bold: true
+                        color: ThemeProvider.textPrimary
+                    }
                 }
                 
-                Text {
-                    text: qsTr("修改器选项：") + optionsCount + qsTr(" 项")
-                    font.pixelSize: ThemeProvider.fontSizeMedium
-                    color: ThemeProvider.textSecondary
+                // 选项数量
+                RowLayout {
+                    spacing: ThemeProvider.spacingSmall
+                    Text {
+                        text: qsTr("选项数量")
+                        font.pixelSize: ThemeProvider.fontSizeMedium
+                        color: ThemeProvider.textSecondary
+                        Layout.preferredWidth: 100
+                    }
+                    Text {
+                        text: optionsCount + qsTr(" 项")
+                        font.pixelSize: ThemeProvider.fontSizeMedium
+                        font.bold: true
+                        color: ThemeProvider.textPrimary
+                    }
                 }
                 
-                Text {
-                    text: qsTr("最后更新：") + lastUpdate
-                    font.pixelSize: ThemeProvider.fontSizeMedium
-                    color: ThemeProvider.textSecondary
+                // 最后更新
+                RowLayout {
+                    spacing: ThemeProvider.spacingSmall
+                    Text {
+                        text: qsTr("最后更新")
+                        font.pixelSize: ThemeProvider.fontSizeMedium
+                        color: ThemeProvider.textSecondary
+                        Layout.preferredWidth: 100
+                    }
+                    Text {
+                        text: lastUpdate
+                        font.pixelSize: ThemeProvider.fontSizeMedium
+                        font.bold: true
+                        color: ThemeProvider.textPrimary
+                    }
                 }
                 
                 Item { Layout.fillHeight: true }

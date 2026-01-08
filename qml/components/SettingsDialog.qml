@@ -451,7 +451,7 @@ Dialog {
                             color: ThemeProvider.textSecondary
                         }
                         
-                        ComboBox {
+                        StyledComboBox {
                             id: languageComboBox
                             Layout.preferredWidth: 200
                             model: [qsTr("简体中文"), qsTr("English"), qsTr("日本語")]
@@ -461,20 +461,6 @@ Dialog {
                                 console.log("语言切换:", index)
                                 settingsDialog.currentLanguage = index
                                 settingsDialog.languageChangedSignal(index)
-                            }
-                            
-                            background: Rectangle {
-                                color: ThemeProvider.inputBackground
-                                border.color: parent.hovered ? ThemeProvider.primaryColor : ThemeProvider.borderColor
-                                radius: ThemeProvider.radiusSmall
-                            }
-                            
-                            contentItem: Text {
-                                leftPadding: 10
-                                text: languageComboBox.displayText
-                                font.pixelSize: ThemeProvider.fontSizeMedium
-                                color: ThemeProvider.textPrimary
-                                verticalAlignment: Text.AlignVCenter
                             }
                         }
                         
@@ -514,7 +500,7 @@ Dialog {
                         spacing: ThemeProvider.spacingSmall
                         
                         Text {
-                            text: qsTr("游戏修改器下载集成工具")
+                            text: qsTr("FLiNG Downloader")
                             font.pixelSize: ThemeProvider.fontSizeMedium
                             color: ThemeProvider.textSecondary
                         }
@@ -537,7 +523,7 @@ Dialog {
 
                             Text {
                                 Layout.fillWidth: true
-                                text: qsTr("开源地址: https://github.com/Sqhh99/DownloadIntegrator")
+                                text: qsTr("开源地址: https://github.com/Sqhh99/FLiNG-Downloader")
                                 font.pixelSize: ThemeProvider.fontSizeMedium
                                 color: ThemeProvider.primaryColor
                                 font.underline: true
@@ -549,7 +535,7 @@ Dialog {
                             MouseArea {
                                 anchors.fill: parent
                                 cursorShape: Qt.PointingHandCursor
-                                onClicked: Qt.openUrlExternally("https://github.com/Sqhh99/DownloadIntegrator")
+                                onClicked: Qt.openUrlExternally("https://github.com/Sqhh99/FLiNG-Downloader")
                             }
                         }
                     }

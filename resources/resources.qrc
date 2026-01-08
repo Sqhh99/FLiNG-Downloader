@@ -5,8 +5,8 @@
         <file>icons/download.png</file>
         <file>icons/settings.png</file>
         <file>icons/folder.png</file>
-        <file>translations/downloadintegrator_en_US.qm</file>
-        <file>translations/downloadintegrator_ja_JP.qm</file>
+        <file>translations/flingdownloader_en_US.qm</file>
+        <file>translations/flingdownloader_ja_JP.qm</file>
         <file>game_mappings.json</file>
         <file>icons/delete.png</file>
         <file>icons/exit.png</file>

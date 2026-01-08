@@ -169,7 +169,7 @@ public:
 private:
     // Private constructor to prevent external instantiation
     ConfigManager() {
-        m_settings = new QSettings("DownloadIntegrator", "Settings");
+        m_settings = new QSettings("FLiNG Downloader", "Settings");
         qDebug() << "Config file path:" << m_settings->fileName();
     }
     

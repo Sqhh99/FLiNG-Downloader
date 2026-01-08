@@ -110,7 +110,7 @@
 如果按照上述方法仍无法解决：
 
 1. **创建 Issue**：
-   - 访问 [GitHub Issues](https://github.com/Sqhh99/DownloadIntegrator/issues)
+   - 访问 [GitHub Issues](https://github.com/Sqhh99/FLiNG-Downloader/issues)
    - 详细描述问题和使用的杀毒软件
 
 2. **提供信息**：

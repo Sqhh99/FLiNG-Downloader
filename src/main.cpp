@@ -51,8 +51,8 @@ int main(int argc, char *argv[])
         }
         
         // Register QML types
-        qmlRegisterType<ModifierListModel>("DownloadIntegrator", 1, 0, "ModifierListModel");
-        qmlRegisterType<DownloadedModifierModel>("DownloadIntegrator", 1, 0, "DownloadedModifierModel");
+        qmlRegisterType<ModifierListModel>("FLiNGDownloader", 1, 0, "ModifierListModel");
+        qmlRegisterType<DownloadedModifierModel>("FLiNGDownloader", 1, 0, "DownloadedModifierModel");
         
         // Create Backend instance
         Backend* backend = new Backend(&app);

@@ -1,6 +1,6 @@
 # 📖 文档中心
 
-欢迎来到 DownloadIntegrator 的文档中心！这里包含了使用软件时可能遇到的各种问题的解决方案。
+欢迎来到 FLiNG Downloader 的文档中心！这里包含了使用软件时可能遇到的各种问题的解决方案。
 
 ## 📑 文档列表
 
@@ -30,9 +30,9 @@
 
 如果文档中没有找到答案：
 
-1. **搜索现有 Issues**: [GitHub Issues](https://github.com/Sqhh99/DownloadIntegrator/issues)
+1. **搜索现有 Issues**: [GitHub Issues](https://github.com/Sqhh99/FLiNG-Downloader/issues)
 2. **创建新 Issue**: 详细描述问题和环境
-3. **参与讨论**: [GitHub Discussions](https://github.com/Sqhh99/DownloadIntegrator/discussions)
+3. **参与讨论**: [GitHub Discussions](https://github.com/Sqhh99/FLiNG-Downloader/discussions)
 
 ## 🔄 文档贡献
 

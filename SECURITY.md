@@ -53,7 +53,7 @@ signtool sign /f certificate.pfx /p password /t http://timestamp.server.com prog
 #### 2. 优化网络请求
 ```cpp
 // 在 NetworkManager 中使用标准 User-Agent
-request.setRawHeader("User-Agent", "DownloadIntegrator/1.0 (Windows NT 10.0; Win64; x64)");
+request.setRawHeader("User-Agent", "FLiNG Downloader/1.0 (Windows NT 10.0; Win64; x64)");
 
 // 添加延迟避免过于频繁的请求
 QTimer::singleShot(100, [this, request]() {
@@ -92,13 +92,13 @@ BEGIN
     BEGIN
         BLOCK "040904b0"
         BEGIN
-            VALUE "CompanyName", "DownloadIntegrator Project"
+            VALUE "CompanyName", "FLiNG Downloader Project"
             VALUE "FileDescription", "Game Modifier Download Manager"
             VALUE "FileVersion", "1.0.0.0"
-            VALUE "InternalName", "DownloadIntegrator"
-            VALUE "LegalCopyright", "Copyright (C) 2024. Licensed under MIT."
-            VALUE "OriginalFilename", "DownloadIntegrator.exe"
-            VALUE "ProductName", "DownloadIntegrator"
+            VALUE "InternalName", "FLiNG Downloader"
+            VALUE "LegalCopyright", "Copyright (C) 2025. Licensed under MIT."
+            VALUE "OriginalFilename", "FLiNG Downloader.exe"
+            VALUE "ProductName", "FLiNG Downloader"
             VALUE "ProductVersion", "1.0.0.0"
         END
     END

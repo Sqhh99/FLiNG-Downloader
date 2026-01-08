@@ -424,8 +424,8 @@
         <translation type="vanished">更新を確認</translation>
     </message>
     <message>
-        <source>游戏修改器下载集成工具</source>
-        <translation type="vanished">ゲームMODダウンロード統合ツール</translation>
+        <source>FLiNG Downloader</source>
+        <translation type="vanished">FLiNG Downloader</translation>
     </message>
     <message>
         <source>FLiNG修改器下载器</source>
@@ -700,8 +700,8 @@
     <name>Main</name>
     <message>
         <location filename="../../qml/Main.qml" line="23"/>
-        <source>游戏修改器下载集成工具</source>
-        <translation type="unfinished">ゲームMODダウンロード統合ツール</translation>
+        <source>FLiNG Downloader</source>
+        <translation>FLiNG Downloader</translation>
     </message>
     <message>
         <location filename="../../qml/Main.qml" line="100"/>
@@ -968,7 +968,7 @@
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="489"/>
-        <source>游戏修改器下载集成工具</source>
+        <source>FLiNG Downloader</source>
         <translation type="unfinished">ゲームMODダウンロード統合ツール</translation>
     </message>
     <message>

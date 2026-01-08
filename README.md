@@ -2,7 +2,7 @@
   <img src="https://github.com/user-attachments/assets/e8aceb6b-2534-4aaf-a757-020b654aa285" alt="Logo" width="120">
 </div>
 
-# DownloadIntegrator
+# FLiNG Downloader
 
 基于 Qt 的游戏修改器下载管理器，支持中文游戏名智能映射搜索。
 
@@ -29,7 +29,7 @@
 
 ## 快速开始
 
-- 从 [Releases](../../releases) 下载最新版本，解压运行 `DownloadIntegrator.exe`
+- 从 [Releases](../../releases) 下载最新版本，解压运行 `FLiNG Downloader.exe`
 
 ## 开发与构建（Windows）
 
@@ -57,7 +57,7 @@ cmake -S . -B build -G "Visual Studio 17 2022" -A x64 \
 cmake --build build --config Release
 ```
 
-构建完成后，可执行文件位于：`build\Release\DownloadIntegrator.exe`。
+构建完成后，可执行文件位于：`build\Release\FLiNG Downloader.exe`。
 
 （可选）如果你使用 CMakePresets，可运行：
 

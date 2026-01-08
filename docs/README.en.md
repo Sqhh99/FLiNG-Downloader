@@ -2,7 +2,7 @@
   <img src="https://github.com/user-attachments/assets/e8aceb6b-2534-4aaf-a757-020b654aa285" alt="Logo" width="120">
 </div>
 
-# DownloadIntegrator
+# FLiNG Downloader
 
 A Qt-based trainer download manager with intelligent Chinese title mapping.
 
@@ -29,7 +29,7 @@ A Qt-based trainer download manager with intelligent Chinese title mapping.
 
 ## Quick Start
 
-- Download the latest release from [Releases](../../releases), unzip, run `DownloadIntegrator.exe`
+- Download the latest release from [Releases](../../releases), unzip, run `FLiNG Downloader.exe`
 
 ## Development & Build (Windows)
 
@@ -57,7 +57,7 @@ cmake -S . -B build -G "Visual Studio 17 2022" -A x64 \
 cmake --build build --config Release
 ```
 
-Artifact: `build\Release\DownloadIntegrator.exe`
+Artifact: `build\Release\FLiNG Downloader.exe`
 
 Optional with CMakePresets:
 

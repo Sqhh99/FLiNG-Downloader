@@ -21,7 +21,7 @@ ApplicationWindow {
     minimumWidth: 800
     minimumHeight: 600
     visible: true
-    title: qsTr("游戏修改器下载集成工具")
+    title: qsTr("FLiNG Downloader")
     
     // 无边框窗口
     flags: Qt.FramelessWindowHint | Qt.Window

@@ -109,10 +109,7 @@ ComboBox {
             border.width: 1
             border.color: ThemeProvider.borderColor
             
-            layer.enabled: true
-            layer.effect: Item {
-                // 简单阴影效果
-            }
+
         }
     }
 }

@@ -1,9 +1,9 @@
 {
   "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
-  "name": "downloadintegrator",
+  "name": "fling-downloader",
   "version": "1.0.0",
-  "description": "游戏修改器下载集成工具 - Game Modifier Download Integration Tool",
-  "homepage": "https://github.com/yourusername/DownloadIntegrator",
+  "description": "FLiNG Downloader - Game Modifier Download Integration Tool",
+  "homepage": "https://github.com/yourusername/FLiNG-Downloader",
   "license": "MIT",
   "supports": "windows & x64",
   "dependencies": [
