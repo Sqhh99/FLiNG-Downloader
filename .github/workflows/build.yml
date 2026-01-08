@@ -1,0 +1,77 @@
+name: Build
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+env:
+  BUILD_TYPE: Release
+  # install-qt-action supports SimpleSpec: 6.* will get latest 6.x
+  # Use specific version for reproducibility - update as needed
+  QT_VERSION: '6.9.0'
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Setup MSVC
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
+
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v4
+      with:
+        version: ${{ env.QT_VERSION }}
+        host: windows
+        target: desktop
+        arch: win64_msvc2022_64
+        modules: qtnetworkauth
+        cache: true
+
+    - name: Setup vcpkg
+      uses: lukka/run-vcpkg@v11
+      with:
+        vcpkgGitCommitId: '962e5e39f8a25f42522f51fffc574e05a3efd26b'
+        vcpkgDirectory: '${{ github.workspace }}/vcpkg'
+
+    - name: Install vcpkg dependencies
+      run: |
+        vcpkg install curl:x64-windows-static
+        vcpkg install nlohmann-json:x64-windows-static
+        vcpkg install opencv4:x64-windows-static
+        vcpkg install pugixml:x64-windows-static
+        vcpkg install zlib:x64-windows-static
+      env:
+        VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+
+    - name: Configure CMake
+      run: |
+        cmake -B build -G "Ninja" `
+          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} `
+          -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake" `
+          -DVCPKG_TARGET_TRIPLET=x64-windows-static `
+          -DCMAKE_PREFIX_PATH="${{ env.Qt6_DIR }}"
+      env:
+        VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+
+    - name: Build
+      run: cmake --build build --config ${{ env.BUILD_TYPE }}
+
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: FLiNG-Downloader-Windows-x64
+        path: |
+          build/Release/*.exe
+          build/*.exe
+        if-no-files-found: warn
