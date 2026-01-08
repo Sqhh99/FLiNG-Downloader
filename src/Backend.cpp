@@ -178,7 +178,18 @@ void Backend::downloadModifier(int versionIndex)
     
     QString versionName = m_selectedModifier.versions.at(idx).first;
     QString downloadDir = ConfigManager::getInstance().getDownloadDirectory();
-    QString savePath = downloadDir + "/" + m_selectedModifier.name + "_" + versionName + ".zip";
+    
+    // Sanitize filename - remove characters that are illegal in Windows file paths
+    QString sanitizedName = m_selectedModifier.name;
+    // Replace illegal characters: \ / : * ? " < > |
+    sanitizedName.replace(QRegularExpression("[\\\\/:*?\"<>|]"), "_");
+    // Also remove trailing/leading spaces and dots (Windows doesn't like them)
+    sanitizedName = sanitizedName.trimmed();
+    while (sanitizedName.endsWith(".")) {
+        sanitizedName.chop(1);
+    }
+    
+    QString savePath = downloadDir + "/" + sanitizedName + "_" + versionName + ".zip";
     
     m_isDownloading = true;
     m_downloadProgress = 0.0;

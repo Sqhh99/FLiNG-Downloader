@@ -69,6 +69,9 @@ void NetworkManager::downloadFile(const QString& url,
                                   std::function<void(bool, const QString&)> finishedCallback,
                                   const QString& userAgent)
 {
+    qDebug() << "NetworkManager: Starting download from:" << url;
+    qDebug() << "NetworkManager: Save path:" << savePath;
+    
     // Ensure directory exists
     QFileInfo fileInfo(savePath);
     QDir dir = fileInfo.absoluteDir();
@@ -79,7 +82,7 @@ void NetworkManager::downloadFile(const QString& url,
     // Create file
     QFile* file = new QFile(savePath);
     if (!file->open(QIODevice::WriteOnly)) {
-        qDebug() << "Cannot create file:" << file->errorString();
+        qDebug() << "NetworkManager: Cannot create file:" << file->errorString();
         finishedCallback(false, "Cannot create file: " + file->errorString());
         delete file;
         return;
@@ -92,12 +95,19 @@ void NetworkManager::downloadFile(const QString& url,
     QString effectiveUserAgent = userAgent.isEmpty() ? m_globalUserAgent : userAgent;
     request.setHeader(QNetworkRequest::UserAgentHeader, effectiveUserAgent);
     
+    // Enable automatic redirect handling
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, 
+                        QNetworkRequest::NoLessSafeRedirectPolicy);
+    
     // Start download
     QNetworkReply* reply = m_networkManager->get(request);
     m_currentDownloadReply = reply; // Save current download reply
     
     // Set timeout
     QTimer* timer = createTimeoutTimer(reply);
+    
+    // Track bytes written
+    qint64* bytesWritten = new qint64(0);
     
     // Connect progress signal
     connect(reply, &QNetworkReply::downloadProgress, this, [progressCallback, timer](qint64 bytesReceived, qint64 bytesTotal) {
@@ -106,23 +116,75 @@ void NetworkManager::downloadFile(const QString& url,
     });
     
     // Connect data ready signal
-    connect(reply, &QNetworkReply::readyRead, this, [reply, file, timer]() {
+    connect(reply, &QNetworkReply::readyRead, this, [reply, file, timer, bytesWritten]() {
         timer->start(); // Reset timer
-        file->write(reply->readAll());
+        QByteArray data = reply->readAll();
+        *bytesWritten += data.size();
+        file->write(data);
     });
     
     // Connect finished signal
-    connect(reply, &QNetworkReply::finished, this, [this, reply, file, finishedCallback, timer]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, file, finishedCallback, timer, bytesWritten, url, savePath]() {
         timer->stop();
         timer->deleteLater();
         
         file->close();
         
+        // Get HTTP status code
+        int httpStatus = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        QUrl redirectUrl = reply->attribute(QNetworkRequest::RedirectionTargetAttribute).toUrl();
+        
+        qDebug() << "NetworkManager: Download finished for:" << url;
+        qDebug() << "NetworkManager: HTTP status code:" << httpStatus;
+        qDebug() << "NetworkManager: Bytes written:" << *bytesWritten;
+        qDebug() << "NetworkManager: Network error:" << reply->error() << reply->errorString();
+        
+        if (!redirectUrl.isEmpty()) {
+            qDebug() << "NetworkManager: Redirect URL detected:" << redirectUrl;
+        }
+        
         if (reply->error() == QNetworkReply::NoError) {
-            finishedCallback(true, QString());
+            // Check if we actually received data
+            QFileInfo downloadedFile(savePath);
+            qint64 fileSize = downloadedFile.size();
+            
+            qDebug() << "NetworkManager: Final file size:" << fileSize << "bytes";
+            
+            if (fileSize == 0 || *bytesWritten == 0) {
+                qDebug() << "NetworkManager: WARNING - Downloaded file is empty!";
+                qDebug() << "NetworkManager: Response headers:";
+                for (const auto& header : reply->rawHeaderPairs()) {
+                    qDebug() << "  " << header.first << ":" << header.second;
+                }
+                
+                // Check Content-Type to see if it's an error page
+                QString contentType = reply->header(QNetworkRequest::ContentTypeHeader).toString();
+                qDebug() << "NetworkManager: Content-Type:" << contentType;
+                
+                // If we got HTML instead of a file, it's likely an error page
+                if (contentType.contains("text/html", Qt::CaseInsensitive)) {
+                    file->remove();
+                    delete bytesWritten;
+                    finishedCallback(false, "Server returned HTML page instead of file - download link may be invalid");
+                    reply->deleteLater();
+                    file->deleteLater();
+                    if (m_currentDownloadReply == reply) {
+                        m_currentDownloadReply = nullptr;
+                    }
+                    return;
+                }
+                
+                file->remove();
+                delete bytesWritten;
+                finishedCallback(false, "Downloaded file is empty - server may have returned no content");
+            } else {
+                delete bytesWritten;
+                finishedCallback(true, QString());
+            }
         } else {
-            qDebug() << "Download failed:" << reply->errorString();
+            qDebug() << "NetworkManager: Download failed:" << reply->errorString();
             file->remove(); // Delete incomplete file
+            delete bytesWritten;
             finishedCallback(false, reply->errorString());
         }
         
@@ -137,7 +199,8 @@ void NetworkManager::downloadFile(const QString& url,
     });
     
     // Connect error signal
-    connect(reply, &QNetworkReply::errorOccurred, this, [file, timer](QNetworkReply::NetworkError) {
+    connect(reply, &QNetworkReply::errorOccurred, this, [reply, timer](QNetworkReply::NetworkError error) {
+        qDebug() << "NetworkManager: Error occurred during download:" << error << reply->errorString();
         timer->start(); // Reset timer
     });
 }

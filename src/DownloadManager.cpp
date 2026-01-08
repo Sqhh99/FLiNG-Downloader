@@ -74,28 +74,40 @@ void DownloadManager::downloadModifier(const ModifierInfo& modifier,
                                       std::function<void(bool, const QString&, const QString&, const ModifierInfo&, bool)> completedCallback,
                                       DLProgressCallback progressCallback)
 {
+    qDebug() << "DownloadManager: downloadModifier called for:" << modifier.name;
+    qDebug() << "DownloadManager: Requested version:" << version;
+    qDebug() << "DownloadManager: Available versions count:" << modifier.versions.size();
+    
     // Find the selected version link
     QString url;
     for (const auto& ver : modifier.versions) {
+        qDebug() << "DownloadManager: Checking version:" << ver.first << "URL:" << ver.second;
         if (ver.first == version) {
             url = ver.second;
+            qDebug() << "DownloadManager: Found matching version, URL:" << url;
             break;
         }
     }
     
     if (url.isEmpty() && !modifier.versions.isEmpty()) {
         url = modifier.versions.first().second;
+        qDebug() << "DownloadManager: Using first available version, URL:" << url;
     }
     
     if (url.isEmpty()) {
+        qDebug() << "DownloadManager: ERROR - No download URL found!";
         if (completedCallback) {
             completedCallback(false, "Download URL not found", savePath, modifier, false);
         }
         return;
     }
     
+    qDebug() << "DownloadManager: Final download URL:" << url;
+    qDebug() << "DownloadManager: Save path:" << savePath;
+    
     bool isArchive = isArchiveFormat(url) || isArchiveFormat(savePath);
-      // Download file
+    
+    // Download file
     downloadFile(
         url,
         savePath,

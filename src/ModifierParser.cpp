@@ -158,24 +158,10 @@ QList<ModifierInfo> ModifierParser::parseModifierListHTML(const std::string& htm
             QString articleHtml = match.captured(1);
             matchCount++;
             
-            // Extract modifier name
-            QRegularExpression titleRegex("<h[123][^>]*class=\"[^\"]*entry-title[^\"]*\"[^>]*>\\s*<a[^>]*href=\"([^\"]*)\"[^>]*>([^<]+)</a>", 
+            // Extract modifier name and URL from post-title
+            QRegularExpression titleRegex("<h[123][^>]*class=\"[^\"]*post-title[^\"]*\"[^>]*>\\s*<a[^>]*href=\"([^\"]*)\"[^>]*>([^<]+)</a>", 
                                          QRegularExpression::DotMatchesEverythingOption);
             QRegularExpressionMatch titleMatch = titleRegex.match(articleHtml);
-            
-            // If first method didn't match, try alternate title format
-            if (!titleMatch.hasMatch()) {
-                titleRegex = QRegularExpression("<h[123][^>]*>\\s*<a[^>]*href=\"([^\"]*)\"[^>]*>([^<]+)</a>", 
-                                              QRegularExpression::DotMatchesEverythingOption);
-                titleMatch = titleRegex.match(articleHtml);
-            }
-            
-            // Try third format
-            if (!titleMatch.hasMatch()) {
-                titleRegex = QRegularExpression("<a[^>]*href=\"([^\"]*)\"[^>]*>([^<]+)</a>", 
-                                             QRegularExpression::DotMatchesEverythingOption);
-                titleMatch = titleRegex.match(articleHtml);
-            }
             
             if (titleMatch.hasMatch()) {
                 QString url = titleMatch.captured(1);
@@ -253,45 +239,31 @@ QList<ModifierInfo> ModifierParser::parseModifierListHTML(const std::string& htm
                         continue;
                     }
                     
-                    // Extract update date
-                    QRegularExpression dateRegex("<time[^>]*>([^<]+)</time>", QRegularExpression::DotMatchesEverythingOption);
-                    QRegularExpressionMatch dateMatch = dateRegex.match(articleHtml);
-                    if (dateMatch.hasMatch()) {
-                        modifier.lastUpdate = dateMatch.captured(1).trimmed();
+                    // Extract update date from post-details format
+                    QRegularExpression postDateRegex("<div class=\"post-details-day\">(\\d+)</div>\\s*<div class=\"post-details-month\">([^<]+)</div>\\s*<div class=\"post-details-year\">(\\d+)</div>", 
+                                                    QRegularExpression::DotMatchesEverythingOption);
+                    QRegularExpressionMatch postDateMatch = postDateRegex.match(articleHtml);
+                    if (postDateMatch.hasMatch()) {
+                        QString day = postDateMatch.captured(1);
+                        QString month = postDateMatch.captured(2);
+                        QString year = postDateMatch.captured(3);
+                        
+                        static QMap<QString, QString> monthMap = {
+                            {"Jan", "01"}, {"Feb", "02"}, {"Mar", "03"}, {"Apr", "04"},
+                            {"May", "05"}, {"Jun", "06"}, {"Jul", "07"}, {"Aug", "08"},
+                            {"Sep", "09"}, {"Oct", "10"}, {"Nov", "11"}, {"Dec", "12"}
+                        };
+                        
+                        QString monthNum = monthMap.value(month, "01");
+                        modifier.lastUpdate = QString("%1-%2-%3").arg(year, monthNum, day.rightJustified(2, '0'));
                     }
                     
-                    // Extract game version and options count
-                    QRegularExpression metaRegex("<div[^>]*class=\"[^\"]*entry-meta[^\"]*\"[^>]*>(.*?)</div>", 
-                                              QRegularExpression::DotMatchesEverythingOption);
-                    QRegularExpressionMatch metaMatch = metaRegex.match(articleHtml);
-                    if (metaMatch.hasMatch()) {
-                        QString meta = metaMatch.captured(1);
-                        
-                        // Extract options count
-                        QRegularExpression optionsRegex("(\\d+)\\s*Options", QRegularExpression::CaseInsensitiveOption);
-                        QRegularExpressionMatch optionsMatch = optionsRegex.match(meta);
-                        if (optionsMatch.hasMatch()) {
-                            modifier.optionsCount = optionsMatch.captured(1).toInt();
-                        }
-                        
-                        // Extract game version
-                        QRegularExpression versionRegex("Game Version:\\s*([^·<]+)", QRegularExpression::CaseInsensitiveOption);
-                        QRegularExpressionMatch versionMatch = versionRegex.match(meta);
-                        if (versionMatch.hasMatch()) {
-                            modifier.gameVersion = versionMatch.captured(1).trimmed();
-                        }
-                    }
-                    
-                    // Extract modifier description
-                    QRegularExpression descriptionRegex("<p[^>]*class=\"[^\"]*entry-content[^\"]*\"[^>]*>(.*?)</p>", 
-                                                       QRegularExpression::DotMatchesEverythingOption);
-                    QRegularExpressionMatch descriptionMatch = descriptionRegex.match(articleHtml);
-                    QString description = descriptionMatch.captured(1);
+                    // Note: Search results page does NOT contain options count or game version
+                    // These will be fetched from detail pages by SearchManager::enrichSearchResultsWithDetails
                     
                     // Create ModifierInfo and add to result
                     modifier.name = title;
                     modifier.url = url;
-                    modifier.description = description;
                     result.append(modifier);
                 }
             }
@@ -299,115 +271,8 @@ QList<ModifierInfo> ModifierParser::parseModifierListHTML(const std::string& htm
         
         qDebug() << "Parsed" << result.size() << "modifiers from HTML";
         
-        // If no results found via regex, try alternative search method
-        if (result.isEmpty() && !searchTerm.isEmpty()) {
-            // Try generic alternative method
-            qDebug() << "Trying alternative search method";
-                
-            // Try to find search results header
-            QRegularExpression searchHeaderRegex("<h1[^>]*>([^<]*SEARCH[^<]*)</h1>", 
-                                              QRegularExpression::CaseInsensitiveOption);
-            QRegularExpressionMatch headerMatch = searchHeaderRegex.match(htmlQt);
-            
-            if (headerMatch.hasMatch()) {
-                // Try to find search result count
-                QRegularExpression resultCountRegex("<h3[^>]*>(\\d+)\\s+SEARCH\\s+RESULTS</h3>", 
-                                                 QRegularExpression::CaseInsensitiveOption);
-                QRegularExpressionMatch countMatch = resultCountRegex.match(htmlQt);
-                
-                if (countMatch.hasMatch()) {
-                    int resultCount = countMatch.captured(1).toInt();
-                    
-                    // If results exist but weren't parsed, try different method
-                    if (resultCount > 0) {
-                        // Try to find all <article> tags regardless of class
-                        QRegularExpression anyArticleRegex("<article[^>]*>(.*?)</article>", 
-                                                         QRegularExpression::DotMatchesEverythingOption);
-                        QRegularExpressionMatchIterator articleMatches = anyArticleRegex.globalMatch(htmlQt);
-                        
-                        while (articleMatches.hasNext()) {
-                            QRegularExpressionMatch articleMatch = articleMatches.next();
-                            QString articleContent = articleMatch.captured(1);
-                            
-                            // Find title and link within article
-                            QRegularExpression linkRegex("<a[^>]*href=\"([^\"]*)\"[^>]*>([^<]+)</a>", 
-                                                      QRegularExpression::DotMatchesEverythingOption);
-                            QRegularExpressionMatchIterator linkMatches = linkRegex.globalMatch(articleContent);
-                            
-                            while (linkMatches.hasNext()) {
-                                QRegularExpressionMatch linkMatch = linkMatches.next();
-                                QString url = linkMatch.captured(1);
-                                QString title = linkMatch.captured(2).trimmed();
-                                
-                                // If link contains "trainer", it might be what we're looking for
-                                if (url.contains("trainer", Qt::CaseInsensitive)) {
-                                    QString searchTermFormatted = searchTerm;
-                                    // Check if title contains search term or URL contains formatted search term
-                                    if (title.contains(searchTerm, Qt::CaseInsensitive) || 
-                                        url.contains(searchTermFormatted.replace(" ", "-"), Qt::CaseInsensitive)) {
-                                        
-                                        ModifierInfo modifier;
-                                        modifier.name = title;
-                                        modifier.name.replace(QRegularExpression("\\s+Trainer\\s*$", QRegularExpression::CaseInsensitiveOption), "");
-                                        modifier.url = url;
-                                        modifier.optionsCount = 0;
-                                        
-                                        // Check for duplicates
-                                        bool isDuplicate = false;
-                                        for (const ModifierInfo& existing : result) {
-                                            if (existing.url == url) {
-                                                isDuplicate = true;
-                                                break;
-                                            }
-                                        }
-                                        
-                                        if (!isDuplicate) {
-                                            result.append(modifier);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-                
-            // If still no results, try last resort method
-            if (result.isEmpty()) {
-                QString searchTermFormatted = searchTerm;
-                
-                // Try to find all links in the page
-                QRegularExpression allLinksRegex("<a[^>]*href=\"([^\"]*trainer[^\"]*)\"[^>]*>([^<]*" + 
-                                              QRegularExpression::escape(searchTerm) + "[^<]*)</a>",
-                                              QRegularExpression::CaseInsensitiveOption);
-                QRegularExpressionMatchIterator allLinksMatches = allLinksRegex.globalMatch(htmlQt);
-                
-                while (allLinksMatches.hasNext()) {
-                    QRegularExpressionMatch linkMatch = allLinksMatches.next();
-                    QString url = linkMatch.captured(1);
-                    QString title = linkMatch.captured(2).trimmed();
-                    
-                    ModifierInfo modifier;
-                    modifier.name = title;
-                    modifier.name.replace(QRegularExpression("\\s+Trainer\\s*$", QRegularExpression::CaseInsensitiveOption), "");
-                    modifier.url = url;
-                    modifier.optionsCount = 0;
-                    
-                    // Avoid duplicates
-                    bool isDuplicate = false;
-                    for (const ModifierInfo& existing : result) {
-                        if (existing.url == url) {
-                            isDuplicate = true;
-                            break;
-                        }
-                    }
-                    
-                    if (!isDuplicate) {
-                        result.append(modifier);
-                    }
-                }
-            }
-        }
+        // If no results found, return empty list
+        // Do not try alternative search methods
     }
     catch (const std::exception& e) {
         qDebug() << "HTML parsing exception:" << e.what();
@@ -651,22 +516,8 @@ ModifierInfo* ModifierParser::parseModifierDetailHTML(const std::string& html, c
         // Use parseOptionsFromHTML method to extract options
         modifier->options = parseOptionsFromHTML(htmlQt);
         
-        // If no options extracted but options count exists, add generic options as fallback
-        if (modifier->options.isEmpty() && modifier->optionsCount > 0) {
-            
-            // Generic options as fallback
-            modifier->options.append("● Basic Features");
-            modifier->options.append("• Num 1 – Infinite Health");
-            modifier->options.append("• Num 2 – Infinite Ammo/Stamina");
-            modifier->options.append("• Num 3 – Infinite Items");
-            modifier->options.append("• Num 4 – One Hit Kill");
-            modifier->options.append("● Advanced Features");
-            modifier->options.append("• Ctrl+Num 1 – Edit Money");
-            modifier->options.append("• Ctrl+Num 2 – Edit Experience");
-            modifier->options.append("• Ctrl+Num 3 – Super Speed");
-            modifier->options.append("• Ctrl+Num 4 – God Mode");
-            modifier->options.append("• Ctrl+Num 5 – Stealth Mode");
-        }
+        // If no options extracted, leave options empty
+        // Do not provide fake generic options
         
         // If options is empty but options count exists, update options count
         if (modifier->optionsCount <= 0) {
@@ -842,21 +693,8 @@ QStringList ModifierParser::parseOptionsFromHTML(const QString& html) {
             }
         }
         
-        // If still unable to extract options, add generic options as fallback
-        if (options.isEmpty()) {
-            options.append("● Basic Options");
-            options.append("• Num 1 – Infinite Health");
-            options.append("• Num 2 – Infinite Stamina/Mana");
-            options.append("• Num 3 – Infinite Ammo/Items");
-            options.append("• Num 4 – One Hit Kill/Super Damage");
-            options.append("• Num 5 – Items Won't Decrease");
-            options.append("● Advanced Options");
-            options.append("• Ctrl+Num 1 – Edit Money");
-            options.append("• Ctrl+Num 2 – Edit Experience");
-            options.append("• Ctrl+Num 3 – Edit Attribute Points");
-            options.append("• Ctrl+Num 4 – Edit Skill Points");
-            options.append("• Ctrl+Num 5 – Edit Game Speed");
-        }
+        // If options couldn't be extracted, return empty list
+        // Do not provide fake generic options
     } catch (const std::exception& e) {
         qDebug() << "Exception during HTML content parsing:" << e.what();
     }
@@ -951,16 +789,7 @@ QString ModifierParser::detectGameNameFromHTML(const QString& html) {
             }
         }
         
-        // Special handling: check for specific games
-        if (html.contains("Legend of Heroes") && html.contains("Three Kingdoms")) {
-            gameName = "Legend of Heroes: Three Kingdoms";
-        } else if (html.contains("Cyberpunk 2077")) {
-            gameName = "Cyberpunk 2077";
-        } else if (html.contains("Red Dead Redemption 2")) {
-            gameName = "Red Dead Redemption 2";
-        } else if (html.contains("Witcher 3") || html.contains("The Witcher 3")) {
-            gameName = "The Witcher 3: Wild Hunt";
-        }
+        // Do not hardcode specific game names
         
     } catch (const std::exception& e) {
         qDebug() << "Exception during game name detection:" << e.what();

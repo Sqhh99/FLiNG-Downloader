@@ -157,6 +157,10 @@ private:
     // Save and load search history
     void saveSearchHistory();
     void loadSearchHistory();
+    
+    // Enrich search results with data from detail pages (async)
+    void enrichSearchResultsWithDetails(QList<ModifierInfo>& modifiers,
+                                        std::function<void(const QList<ModifierInfo>&)> callback);
 
 private:
     QStringList m_searchHistory;    // Search history

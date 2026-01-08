@@ -237,6 +237,7 @@ QtObject {
     readonly property color successColor: "#4CAF50"
     readonly property color warningColor: "#FF9800"
     readonly property color errorColor: "#F44336"
+    readonly property color dangerColor: "#F44336"  // Same as errorColor, used for delete buttons
     readonly property color infoColor: "#2196F3"
     
     // ========== 尺寸 ==========

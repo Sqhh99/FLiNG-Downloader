@@ -1,10 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
 
-# ==============================================================================
-# Vcpkg Toolchain Configuration
-# Note: Must be set before project() command
-# ==============================================================================
-
 if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
     if(DEFINED ENV{VCPKG_ROOT})
         set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
@@ -17,15 +12,7 @@ endif()
 set(VCPKG_TARGET_TRIPLET "x64-windows-static" CACHE STRING "Vcpkg triplet")
 set(VCPKG_INSTALLED_DIR "${CMAKE_SOURCE_DIR}/vcpkg_installed" CACHE PATH "Vcpkg installed directory")
 
-# ==============================================================================
-# Project Definition
-# ==============================================================================
-
 project("FLiNGDownloader" LANGUAGES CXX)
-
-# ==============================================================================
-# Build Configuration
-# ==============================================================================
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -44,10 +31,6 @@ if(MSVC)
     add_compile_options(/utf-8)
 endif()
 
-# ==============================================================================
-# Dependencies
-# ==============================================================================
-
 find_package(ZLIB REQUIRED)
 find_package(CURL CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
@@ -63,10 +46,6 @@ find_package(Qt6 REQUIRED COMPONENTS
     Quick
     QuickControls2
 )
-
-# ==============================================================================
-# Source Files
-# ==============================================================================
 
 set(PROJECT_SOURCES
     src/main.cpp
@@ -117,12 +96,8 @@ set(PROJECT_RC_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/icon.rc
 )
 
-# ==============================================================================
-# Target Definition
-# ==============================================================================
-
 add_executable(${PROJECT_NAME}
-    WIN32
+    # WIN32
     ${PROJECT_SOURCES}
     ${PROJECT_HEADERS}
     ${PROJECT_RESOURCES}
@@ -135,10 +110,6 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}
     ${CMAKE_SOURCE_DIR}/src/include
 )
-
-# ==============================================================================
-# Link Libraries
-# ==============================================================================
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
     # Qt6 Components
@@ -160,10 +131,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 target_compile_definitions(${PROJECT_NAME} PRIVATE
     CURL_STATICLIB
 )
-
-# ==============================================================================
-# MSVC-Specific Configuration
-# ==============================================================================
 
 if(MSVC)
     # Runtime library
@@ -208,10 +175,6 @@ if(MSVC)
         Advapi32.lib
     )
 endif()
-
-# ==============================================================================
-# Installation (Optional)
-# ==============================================================================
 
 # install(TARGETS ${PROJECT_NAME}
 #     RUNTIME DESTINATION bin

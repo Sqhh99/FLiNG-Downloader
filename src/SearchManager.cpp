@@ -3,7 +3,10 @@
 #include <QDateTime>
 #include <QRegularExpression>
 #include <QDebug>
+#include <QMutex>
+#include <QMutexLocker>
 #include <algorithm>
+#include <memory>
 #include "NetworkManager.h"
 #include "ModifierParser.h"
 #include "ModifierManager.h"
@@ -98,6 +101,27 @@ void SearchManager::performSearch(const QString& searchTerm,
                 // Sort by relevance
                 if (!searchTerm.isEmpty()) {
                     modifierList = sortByRelevance(modifierList, searchTerm);
+                }
+                
+                // Check if any modifier is missing options count or game version
+                // If so, enrich them from detail pages
+                bool needsEnrichment = false;
+                for (const auto& mod : modifierList) {
+                    if (mod.optionsCount == 0 || mod.gameVersion.isEmpty()) {
+                        needsEnrichment = true;
+                        break;
+                    }
+                }
+                
+                if (needsEnrichment && !modifierList.isEmpty()) {
+                    qDebug() << "SearchManager: Search results missing data, fetching from detail pages...";
+                    enrichSearchResultsWithDetails(modifierList, [this, callback](const QList<ModifierInfo>& enrichedList) {
+                        updateModifierManagerList(enrichedList);
+                        if (callback) {
+                            callback(enrichedList);
+                        }
+                    });
+                    return;
                 }
                 
                 updateModifierManagerList(modifierList);
@@ -403,4 +427,99 @@ void SearchManager::fetchRecentlyUpdatedModifiers(std::function<void(const QList
             }
         }
     );
+}
+
+// Enrich search results with data from detail pages
+void SearchManager::enrichSearchResultsWithDetails(QList<ModifierInfo>& modifiers,
+                                                    std::function<void(const QList<ModifierInfo>&)> callback)
+{
+    if (modifiers.isEmpty()) {
+        if (callback) {
+            callback(modifiers);
+        }
+        return;
+    }
+    
+    // Use shared pointer to track progress across async calls
+    auto resultList = std::make_shared<QList<ModifierInfo>>(modifiers);
+    auto pendingCount = std::make_shared<int>(modifiers.size());
+    auto mutex = std::make_shared<QMutex>();
+    
+    for (int i = 0; i < modifiers.size(); ++i) {
+        const ModifierInfo& mod = modifiers[i];
+        
+        // Skip if already has data
+        if (mod.optionsCount > 0 && !mod.gameVersion.isEmpty()) {
+            QMutexLocker locker(mutex.get());
+            (*pendingCount)--;
+            if (*pendingCount == 0) {
+                if (callback) {
+                    callback(*resultList);
+                }
+            }
+            continue;
+        }
+        
+        // Fetch detail page
+        QString detailUrl = mod.url;
+        if (detailUrl.isEmpty()) {
+            QMutexLocker locker(mutex.get());
+            (*pendingCount)--;
+            if (*pendingCount == 0) {
+                if (callback) {
+                    callback(*resultList);
+                }
+            }
+            continue;
+        }
+        
+        int index = i;
+        NetworkManager::getInstance().sendGetRequest(
+            detailUrl,
+            [resultList, pendingCount, mutex, callback, index](const QByteArray& data, bool success) {
+                if (success) {
+                    QString htmlContent = QString::fromUtf8(data);
+                    
+                    // Extract options count from detail page (format: "24 Options")
+                    int optionsCount = 0;
+                    QRegularExpression optionsRegex("(\\d+)\\s*Options", QRegularExpression::CaseInsensitiveOption);
+                    QRegularExpressionMatch optionsMatch = optionsRegex.match(htmlContent);
+                    if (optionsMatch.hasMatch()) {
+                        optionsCount = optionsMatch.captured(1).toInt();
+                    }
+                    
+                    // Extract game version from detail page (format: "Game Version: v1.02-v1.05+")
+                    QString gameVersion;
+                    QRegularExpression versionRegex("Game Version:\\s*([^<\\n·]+)", QRegularExpression::CaseInsensitiveOption);
+                    QRegularExpressionMatch versionMatch = versionRegex.match(htmlContent);
+                    if (versionMatch.hasMatch()) {
+                        gameVersion = versionMatch.captured(1).trimmed();
+                    }
+                    
+                    {
+                        QMutexLocker locker(mutex.get());
+                        if (index < resultList->size()) {
+                            if (optionsCount > 0) {
+                                (*resultList)[index].optionsCount = optionsCount;
+                            }
+                            if (!gameVersion.isEmpty()) {
+                                (*resultList)[index].gameVersion = gameVersion;
+                            }
+                        }
+                    }
+                }
+                
+                {
+                    QMutexLocker locker(mutex.get());
+                    (*pendingCount)--;
+                    if (*pendingCount == 0) {
+                        qDebug() << "SearchManager: Finished enriching search results from detail pages";
+                        if (callback) {
+                            callback(*resultList);
+                        }
+                    }
+                }
+            }
+        );
+    }
 }
