@@ -16,6 +16,8 @@ env:
 jobs:
   build-windows:
     runs-on: windows-latest
+    env:
+      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
     
     steps:
     - name: Checkout repository
@@ -38,31 +40,33 @@ jobs:
         modules: qtnetworkauth
         cache: true
 
-    - name: Setup vcpkg
-      uses: lukka/run-vcpkg@v11
-      with:
-        vcpkgGitCommitId: '962e5e39f8a25f42522f51fffc574e05a3efd26b'
-        vcpkgDirectory: '${{ github.workspace }}/vcpkg'
+    - name: Fetch latest vcpkg
+      run: git clone --depth 1 https://github.com/microsoft/vcpkg.git ${{ env.VCPKG_ROOT }}
+
+    - name: Bootstrap vcpkg
+      run: |
+        ${{ env.VCPKG_ROOT }}\bootstrap-vcpkg.bat -disableMetrics
+
+    - name: Show vcpkg version
+      run: ${{ env.VCPKG_ROOT }}\vcpkg.exe version
 
     - name: Install pkg-config to bypass MSYS2 download
       run: choco install pkgconfiglite --no-progress -y
 
     - name: Install vcpkg dependencies
-      run: vcpkg install --triplet x64-windows-static
+      run: ${{ env.VCPKG_ROOT }}\vcpkg.exe install --triplet x64-windows-static
       env:
-        VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+        PKG_CONFIG: C:\ProgramData\chocolatey\bin\pkg-config.exe
         VCPKG_PKGCONFIG: C:\ProgramData\chocolatey\bin\pkg-config.exe
 
     - name: Configure CMake
       run: |
         cmake -B build -G "Ninja" `
           -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} `
-          -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake" `
+          -DCMAKE_TOOLCHAIN_FILE="${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake" `
           -DVCPKG_TARGET_TRIPLET=x64-windows-static `
           -DCMAKE_POLICY_DEFAULT_CMP0174=NEW `
           -DCMAKE_PREFIX_PATH="${{ env.Qt6_DIR }}"
-      env:
-        VCPKG_ROOT: ${{ github.workspace }}/vcpkg
 
     - name: Build
       run: cmake --build build --config ${{ env.BUILD_TYPE }}
