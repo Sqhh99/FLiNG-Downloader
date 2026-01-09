@@ -16,8 +16,6 @@ env:
 jobs:
   build-windows:
     runs-on: windows-latest
-    env:
-      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
     
     steps:
     - name: Checkout repository
@@ -40,21 +38,21 @@ jobs:
         modules: qtnetworkauth
         cache: true
 
-    - name: Fetch latest vcpkg
-      run: git clone --depth 1 https://github.com/microsoft/vcpkg.git "${{ env.VCPKG_ROOT }}"
-
-    - name: Bootstrap vcpkg
+    # Use pre-installed vcpkg on GitHub Actions runner
+    # VCPKG_INSTALLATION_ROOT is set by the runner automatically
+    - name: Update vcpkg
       run: |
-        ${{ env.VCPKG_ROOT }}\bootstrap-vcpkg.bat -disableMetrics
+        cd $env:VCPKG_INSTALLATION_ROOT
+        git pull
 
     - name: Show vcpkg version
-      run: ${{ env.VCPKG_ROOT }}\vcpkg.exe version
+      run: vcpkg version
 
     - name: Install pkg-config to bypass MSYS2 download
       run: choco install pkgconfiglite --no-progress -y
 
     - name: Install vcpkg dependencies
-      run: ${{ env.VCPKG_ROOT }}\vcpkg.exe install --triplet x64-windows-static
+      run: vcpkg install --triplet x64-windows-static
       env:
         PKG_CONFIG: C:\ProgramData\chocolatey\bin\pkg-config.exe
         VCPKG_PKGCONFIG: C:\ProgramData\chocolatey\bin\pkg-config.exe
@@ -63,10 +61,10 @@ jobs:
       run: |
         cmake -B build -G "Ninja" `
           -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} `
-          -DCMAKE_TOOLCHAIN_FILE="${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake" `
+          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
           -DVCPKG_TARGET_TRIPLET=x64-windows-static `
           -DCMAKE_POLICY_DEFAULT_CMP0174=NEW `
-          -DCMAKE_PREFIX_PATH="${{ env.Qt6_DIR }}"
+          -DCMAKE_PREFIX_PATH="$env:Qt6_DIR"
 
     - name: Build
       run: cmake --build build --config ${{ env.BUILD_TYPE }}
