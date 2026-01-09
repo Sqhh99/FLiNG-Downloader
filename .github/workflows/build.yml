@@ -41,7 +41,7 @@ jobs:
         cache: true
 
     - name: Fetch latest vcpkg
-      run: git clone --depth 1 https://github.com/microsoft/vcpkg.git ${{ env.VCPKG_ROOT }}
+      run: git clone --depth 1 https://github.com/microsoft/vcpkg.git "${{ env.VCPKG_ROOT }}"
 
     - name: Bootstrap vcpkg
       run: |
