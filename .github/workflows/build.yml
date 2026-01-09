@@ -44,6 +44,9 @@ jobs:
         vcpkgGitCommitId: '962e5e39f8a25f42522f51fffc574e05a3efd26b'
         vcpkgDirectory: '${{ github.workspace }}/vcpkg'
 
+    - name: Install pkg-config to bypass MSYS2 download
+      run: choco install pkgconfiglite --no-progress -y
+
     - name: Install vcpkg dependencies
       run: vcpkg install --triplet x64-windows-static
       env:
@@ -55,6 +58,7 @@ jobs:
           -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} `
           -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake" `
           -DVCPKG_TARGET_TRIPLET=x64-windows-static `
+          -DCMAKE_POLICY_DEFAULT_CMP0174=NEW `
           -DCMAKE_PREFIX_PATH="${{ env.Qt6_DIR }}"
       env:
         VCPKG_ROOT: ${{ github.workspace }}/vcpkg
