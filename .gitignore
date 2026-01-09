@@ -82,8 +82,9 @@ GameModMaster/
 # Local configuration files
 local.pri
 
-# Qt translation binary files
+# Qt translation binary files (except those in resources/translations which are needed for build)
 *.qm
+!resources/translations/*.qm
 
 # Temporary files
 *.tmp
