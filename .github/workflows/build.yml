@@ -51,6 +51,7 @@ jobs:
       run: vcpkg install --triplet x64-windows-static
       env:
         VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+        VCPKG_PKGCONFIG: C:\ProgramData\chocolatey\bin\pkg-config.exe
 
     - name: Configure CMake
       run: |
