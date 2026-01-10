@@ -1,6 +1,6 @@
 import QtQuick
 import QtQuick.Controls.Basic
-import "../themes"
+import FLiNGDownloader
 
 /**
  * StyledComboBox - 统一样式下拉框组件

@@ -1,6 +1,6 @@
 import QtQuick
 import QtQuick.Controls.Basic
-import "../themes"
+import FLiNGDownloader
 
 /**
  * StyledTable - 统一样式表格组件

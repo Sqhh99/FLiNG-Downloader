@@ -1,6 +1,6 @@
 import QtQuick
 import QtQuick.Controls.Basic
-import "../themes"
+import FLiNGDownloader
 
 /**
  * IconButton - 可复用的图标按钮组件

@@ -1,8 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls.Basic
-import "../components"
-import "../themes"
+import FLiNGDownloader
 
 /**
  * SearchPage - 搜索标签页
@@ -424,7 +423,7 @@ Item {
                             
                             Image {
                                 anchors.centerIn: parent
-                                source: "qrc:/icons/details.png"
+                                source: ThemeProvider.assetUrl("icons/details.png")
                                 width: 18
                                 height: 18
                                 sourceSize: Qt.size(18, 18)

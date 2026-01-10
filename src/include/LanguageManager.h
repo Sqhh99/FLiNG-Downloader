@@ -140,7 +140,7 @@ private:
         
         // Load translation file for the language
         QString locale = getLanguageLocale(language);
-        bool loaded = m_currentTranslator->load(QString(":/translations/flingdownloader_%1").arg(locale));
+        bool loaded = m_currentTranslator->load(QString(":/resources/translations/flingdownloader_%1").arg(locale));
         
         if (loaded) {
             // Install translator

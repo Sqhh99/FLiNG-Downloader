@@ -1,6 +1,6 @@
 import QtQuick
 import QtQuick.Controls.Basic
-import "../themes"
+import FLiNGDownloader
 
 /**
  * StyledTextField - 统一样式输入框组件

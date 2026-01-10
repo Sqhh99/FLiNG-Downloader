@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls.Basic
-import "../themes"
+import FLiNGDownloader
 
 /**
  * DownloadListPopup - 浏览器式下载列表弹窗
@@ -178,8 +178,8 @@ Popup {
                         IconButton {
                             visible: modelData.status === "downloading" || modelData.status === "paused"
                             iconSource: modelData.status === "paused" 
-                                        ? "qrc:/icons/download.png" 
-                                        : "qrc:/icons/minimize.png"
+                                        ? ThemeProvider.assetUrl("icons/download.png") 
+                                        : ThemeProvider.assetUrl("icons/minimize.png")
                             iconSize: 14
                             tooltip: modelData.status === "paused" ? qsTr("继续") : qsTr("暂停")
                             onClicked: {
@@ -194,7 +194,7 @@ Popup {
                         // 取消按钮
                         IconButton {
                             visible: modelData.status === "downloading" || modelData.status === "paused"
-                            iconSource: "qrc:/icons/exit.png"
+                            iconSource: ThemeProvider.assetUrl("icons/exit.png")
                             iconSize: 14
                             tooltip: qsTr("取消")
                             onClicked: cancelDownload(index)
@@ -203,7 +203,7 @@ Popup {
                         // 打开文件夹按钮
                         IconButton {
                             visible: modelData.status === "completed"
-                            iconSource: "qrc:/icons/folder.png"
+                            iconSource: ThemeProvider.assetUrl("icons/folder.png")
                             iconSize: 14
                             tooltip: qsTr("打开文件夹")
                             onClicked: openFolder(index)
@@ -212,7 +212,7 @@ Popup {
                         // 删除条目按钮
                         IconButton {
                             visible: modelData.status === "completed" || modelData.status === "failed"
-                            iconSource: "qrc:/icons/delete.png"
+                            iconSource: ThemeProvider.assetUrl("icons/delete.png")
                             iconSize: 14
                             tooltip: qsTr("移除")
                             onClicked: removeFromList(index)

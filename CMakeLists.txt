@@ -90,20 +90,14 @@ set(PROJECT_HEADERS
     src/include/ThemeManager.h
 )
 
-set(PROJECT_RESOURCES
-    resources/resources.qrc
-    qml/qml.qrc
-)
-
 set(PROJECT_RC_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/icon.rc
 )
 
 add_executable(${PROJECT_NAME}
-    WIN32
+    # WIN32
     ${PROJECT_SOURCES}
     ${PROJECT_HEADERS}
-    ${PROJECT_RESOURCES}
     ${PROJECT_RC_FILES}
 )
 
@@ -178,6 +172,55 @@ if(MSVC)
         Advapi32.lib
     )
 endif()
+
+# QML Module (Qt 6) replacing qrc/qmldir usage
+set_source_files_properties(qml/themes/ThemeProvider.qml PROPERTIES
+    QT_QML_SINGLETON_TYPE TRUE
+)
+
+qt_add_qml_module(${PROJECT_NAME}
+    URI FLiNGDownloader
+    VERSION 1.0
+    RESOURCE_PREFIX /
+    NO_RESOURCE_TARGET_PATH
+    QML_FILES
+        qml/Main.qml
+        qml/components/StyledButton.qml
+        qml/components/StyledTextField.qml
+        qml/components/StyledComboBox.qml
+        qml/components/StyledTable.qml
+        qml/components/ProgressIndicator.qml
+        qml/components/IconButton.qml
+        qml/components/CustomTitleBar.qml
+        qml/components/DetailDrawer.qml
+        qml/components/DownloadListPopup.qml
+        qml/components/SettingsDialog.qml
+        qml/pages/SearchPage.qml
+        qml/pages/DownloadedPage.qml
+        qml/pages/ModifierDetailPanel.qml
+        qml/layouts/AppMenuBar.qml
+        qml/layouts/AppStatusBar.qml
+        qml/themes/ThemeProvider.qml
+    RESOURCES
+        resources/icons/app_icon.png
+        resources/icons/search.png
+        resources/icons/download.png
+        resources/icons/settings.png
+        resources/icons/folder.png
+        resources/icons/delete.png
+        resources/icons/exit.png
+        resources/icons/app_icon.ico
+        resources/icons/maximize.png
+        resources/icons/maximize_restoration.png
+        resources/icons/minimize.png
+        resources/icons/details.png
+        resources/icons/about.png
+        resources/icons/language.png
+        resources/icons/pause.png
+        resources/game_mappings.json
+        resources/translations/flingdownloader_en_US.qm
+        resources/translations/flingdownloader_ja_JP.qm
+)
 
 # install(TARGETS ${PROJECT_NAME}
 #     RUNTIME DESTINATION bin

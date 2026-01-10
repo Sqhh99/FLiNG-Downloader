@@ -459,7 +459,7 @@ void Backend::loadGameMappings()
 {
     m_gameMappings.clear();
     
-    QFile file(":/game_mappings.json");
+    QFile file(":/resources/game_mappings.json");
     if (!file.open(QIODevice::ReadOnly)) {
         qWarning() << "Backend: Cannot open game mappings file";
         return;

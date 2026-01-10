@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls.Basic
-import "../themes"
+import FLiNGDownloader
 
 /**
  * CustomTitleBar - 自定义无边框窗口标题栏
@@ -73,7 +73,7 @@ Rectangle {
         
         // 应用图标
         Image {
-            source: "qrc:/icons/app_icon.png"
+            source: ThemeProvider.assetUrl("icons/app_icon.png")
             Layout.preferredWidth: 24
             Layout.preferredHeight: 24
             sourceSize: Qt.size(24, 24)
@@ -98,7 +98,7 @@ Rectangle {
             
             IconButton {
                 anchors.centerIn: parent
-                iconSource: "qrc:/icons/download.png"
+                iconSource: ThemeProvider.assetUrl("icons/download.png")
                 tooltip: qsTr("下载列表")
                 iconSize: 16
                 onClicked: downloadClicked()
@@ -128,7 +128,7 @@ Rectangle {
         
         // 设置按钮
         IconButton {
-            iconSource: "qrc:/icons/settings.png"
+            iconSource: ThemeProvider.assetUrl("icons/settings.png")
             tooltip: qsTr("设置")
             iconSize: 16
             onClicked: settingsClicked()
@@ -148,7 +148,7 @@ Rectangle {
                 
                 Image {
                     anchors.centerIn: parent
-                    source: "qrc:/icons/minimize.png"
+                    source: ThemeProvider.assetUrl("icons/minimize.png")
                     width: 16
                     height: 16
                     sourceSize: Qt.size(16, 16)
@@ -174,7 +174,7 @@ Rectangle {
                 
                 Image {
                     anchors.centerIn: parent
-                    source: maximized ? "qrc:/icons/maximize_restoration.png" : "qrc:/icons/maximize.png"
+                    source: maximized ? ThemeProvider.assetUrl("icons/maximize_restoration.png") : ThemeProvider.assetUrl("icons/maximize.png")
                     width: 16
                     height: 16
                     sourceSize: Qt.size(16, 16)
@@ -206,7 +206,7 @@ Rectangle {
                 
                 Image {
                     anchors.centerIn: parent
-                    source: "qrc:/icons/exit.png"
+                    source: ThemeProvider.assetUrl("icons/exit.png")
                     width: 16
                     height: 16
                     sourceSize: Qt.size(16, 16)

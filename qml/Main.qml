@@ -4,10 +4,7 @@ import QtQuick.Controls.Basic
 import QtQuick.Layouts
 import QtQuick.Dialogs
 
-import "themes"
-import "components"
-import "pages"
-import "layouts"
+import FLiNGDownloader
 
 /**
  * Main.qml - 主窗口

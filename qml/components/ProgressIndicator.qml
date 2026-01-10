@@ -1,6 +1,6 @@
 import QtQuick
 import QtQuick.Controls.Basic
-import "../themes"
+import FLiNGDownloader
 
 /**
  * ProgressIndicator - 下载进度条组件

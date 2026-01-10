@@ -1,8 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls.Basic
-import "../components"
-import "../themes"
+import FLiNGDownloader
 
 /**
  * DownloadedPage - 已下载修改器标签页
@@ -156,7 +155,7 @@ Item {
                         
                         Image {
                             anchors.centerIn: parent
-                            source: "qrc:/icons/folder.png"
+                            source: ThemeProvider.assetUrl("icons/folder.png")
                             width: 18
                             height: 18
                             sourceSize: Qt.size(18, 18)
@@ -186,7 +185,7 @@ Item {
                         
                         Image {
                             anchors.centerIn: parent
-                            source: "qrc:/icons/delete.png"
+                            source: ThemeProvider.assetUrl("icons/delete.png")
                             width: 18
                             height: 18
                             sourceSize: Qt.size(18, 18)

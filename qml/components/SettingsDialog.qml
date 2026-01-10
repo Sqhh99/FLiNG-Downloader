@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls.Basic
-import "../themes"
+import FLiNGDownloader
 
 /**
  * SettingsDialog - 设置对话框
@@ -110,7 +110,7 @@ Dialog {
                         spacing: 8
                         
                         Image {
-                            source: "qrc:/icons/settings.png"
+                            source: ThemeProvider.assetUrl("icons/settings.png")
                             width: 18
                             height: 18
                             sourceSize: Qt.size(18, 18)
@@ -144,7 +144,7 @@ Dialog {
                         spacing: 8
                         
                         Image {
-                            source: "qrc:/icons/download.png"
+                            source: ThemeProvider.assetUrl("icons/download.png")
                             width: 18
                             height: 18
                             sourceSize: Qt.size(18, 18)
@@ -178,7 +178,7 @@ Dialog {
                         spacing: 8
                         
                         Image {
-                            source: "qrc:/icons/language.png"
+                            source: ThemeProvider.assetUrl("icons/language.png")
                             width: 18
                             height: 18
                             sourceSize: Qt.size(18, 18)
@@ -212,7 +212,7 @@ Dialog {
                         spacing: 8
                         
                         Image {
-                            source: "qrc:/icons/about.png"
+                            source: ThemeProvider.assetUrl("icons/about.png")
                             width: 18
                             height: 18
                             sourceSize: Qt.size(18, 18)

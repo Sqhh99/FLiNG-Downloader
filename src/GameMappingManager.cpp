@@ -456,7 +456,7 @@ QString GameMappingManager::getTranslationCachePath() const
 
 QString GameMappingManager::getBuiltinMappingPath() const
 {
-    return ":/game_mappings.json";
+    return ":/resources/game_mappings.json";
 }
 
 void GameMappingManager::initializeTranslator()

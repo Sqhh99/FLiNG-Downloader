@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls.Basic
-import "../themes"
+import FLiNGDownloader
 
 /**
  * DetailDrawer - 右侧弹出式详情面板
@@ -122,7 +122,7 @@ Drawer {
             
             // 关闭按钮
             IconButton {
-                iconSource: "qrc:/icons/exit.png"
+                iconSource: ThemeProvider.assetUrl("icons/exit.png")
                 iconSize: 14
                 tooltip: qsTr("关闭")
                 onClicked: detailDrawer.close()
@@ -284,7 +284,7 @@ Drawer {
                     
                     Image {
                         anchors.centerIn: parent
-                        source: "qrc:/icons/download.png"
+                        source: ThemeProvider.assetUrl("icons/download.png")
                         width: 20
                         height: 20
                         sourceSize: Qt.size(20, 20)

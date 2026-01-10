@@ -267,6 +267,11 @@ QtObject {
         qsTr("摩卡")
     ]
     
+    // Resource helper: build absolute qrc path inside module
+    function assetUrl(path) {
+        return "qrc:/resources/" + path
+    }
+
     function getThemeName(index) {
         return themeNames[index] || themeNames[0]
     }

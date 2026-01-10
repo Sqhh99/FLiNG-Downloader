@@ -1,6 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
-import "../themes"
+import FLiNGDownloader
 
 /**
  * AppStatusBar - 应用状态栏

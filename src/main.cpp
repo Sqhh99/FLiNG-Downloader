@@ -22,10 +22,8 @@ int main(int argc, char *argv[])
     try {
         qDebug() << "Application initializing...";
         
-        // Initialize resource system
-        Q_INIT_RESOURCE(resources);
-        Q_INIT_RESOURCE(qml);
-        qDebug() << "Resources initialized";
+        // Qt 6 QML module handles resources; no manual Q_INIT_RESOURCE needed
+        qDebug() << "Resources handled by QML module";
         
         // Verify resource system
         QDir resourceRoot(":/");
@@ -64,18 +62,18 @@ int main(int argc, char *argv[])
         // Set QQmlEngine reference (for language switch refresh)
         backend->setQmlEngine(&engine);
         
-        // Add QML import path
-        engine.addImportPath("qrc:/qml");
+        // Add import path for QML module
+        engine.addImportPath("qrc:/");
         
         // Expose theme index to QML (for ThemeProvider initialization)
         int currentTheme = static_cast<int>(ConfigManager::getInstance().getCurrentTheme());
         engine.rootContext()->setContextProperty("initialTheme", currentTheme);
         
-        // Load main QML file with setInitialProperties for required property
-        const QUrl url(QStringLiteral("qrc:/qml/Main.qml"));
-        
         // Set required property initial values
         engine.setInitialProperties({{"backend", QVariant::fromValue(backend)}});
+        
+        // Load main QML file
+        const QUrl url(QStringLiteral("qrc:/qml/Main.qml"));
         
         QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,
                          &app, [url](QObject *obj, const QUrl &objUrl) {
@@ -84,7 +82,7 @@ int main(int argc, char *argv[])
                 QCoreApplication::exit(-1);
             }
         }, Qt::QueuedConnection);
-        
+
         engine.load(url);
         
         if (engine.rootObjects().isEmpty()) {

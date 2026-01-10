@@ -1,8 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls.Basic
-import "../components"
-import "../themes"
+import FLiNGDownloader
 
 /**
  * ModifierDetailPanel - 修改器详情面板
@@ -219,7 +218,7 @@ Item {
                 
                 Image {
                     anchors.centerIn: parent
-                    source: "qrc:/icons/download.png"
+                    source: ThemeProvider.assetUrl("icons/download.png")
                     width: 20
                     height: 20
                     sourceSize: Qt.size(20, 20)
@@ -243,7 +242,7 @@ Item {
                 
                 Image {
                     anchors.centerIn: parent
-                    source: "qrc:/icons/folder.png"
+                    source: ThemeProvider.assetUrl("icons/folder.png")
                     width: 20
                     height: 20
                     sourceSize: Qt.size(20, 20)
@@ -267,7 +266,7 @@ Item {
                 
                 Image {
                     anchors.centerIn: parent
-                    source: "qrc:/icons/settings.png"
+                    source: ThemeProvider.assetUrl("icons/settings.png")
                     width: 20
                     height: 20
                     sourceSize: Qt.size(20, 20)
