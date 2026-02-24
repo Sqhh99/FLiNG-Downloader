@@ -5,6 +5,7 @@
     "minor": 25,
     "patch": 0
   },
+  
   "configurePresets": [
     {
       "name": "vcpkg-base",
@@ -12,21 +13,21 @@
       "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
       "cacheVariables": {
         "VCPKG_TARGET_TRIPLET": "x64-windows-static",
-        "VCPKG_INSTALLED_DIR": "${sourceDir}/vcpkg_installed",
+        "VCPKG_INSTALLED_DIR": "${sourceDir}/third_party",
         "CMAKE_MSVC_RUNTIME_LIBRARY": "MultiThreaded$<$<CONFIG:Debug>:Debug>"
       }
     },
     {
       "name": "windows-x64-debug",
       "displayName": "Windows x64 Debug",
-      "description": "Windows x64 Debug 配置 (静态链接)",
+      "description": "Windows x64 Debug configuration (static linking)",
       "inherits": "vcpkg-base",
       "generator": "Visual Studio 17 2022",
       "architecture": {
         "value": "x64",
         "strategy": "set"
       },
-      "binaryDir": "${sourceDir}/build",
+      "binaryDir": "${sourceDir}/build/vs-debug",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug"
       }
@@ -34,25 +35,36 @@
     {
       "name": "windows-x64-release",
       "displayName": "Windows x64 Release",
-      "description": "Windows x64 Release 配置 (静态链接)",
+      "description": "Windows x64 Release configuration (static linking)",
       "inherits": "vcpkg-base",
       "generator": "Visual Studio 17 2022",
       "architecture": {
         "value": "x64",
         "strategy": "set"
       },
-      "binaryDir": "${sourceDir}/build",
+      "binaryDir": "${sourceDir}/build/vs-release",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release"
       }
     },
     {
-      "name": "ninja-release",
-      "displayName": "Ninja Release",
-      "description": "使用 Ninja 构建 Release 版本",
+      "name": "ninja-debug",
+      "displayName": "Ninja Debug",
+      "description": "Ninja Debug build",
       "inherits": "vcpkg-base",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build",
+      "binaryDir": "${sourceDir}/build/ninja-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "ninja-release",
+      "displayName": "Ninja Release",
+      "description": "Ninja Release build",
+      "inherits": "vcpkg-base",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/ninja-release",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release"
       }
@@ -68,6 +80,11 @@
       "name": "windows-x64-release",
       "configurePreset": "windows-x64-release",
       "configuration": "Release"
+    },
+    {
+      "name": "ninja-debug",
+      "configurePreset": "ninja-debug",
+      "configuration": "Debug"
     },
     {
       "name": "ninja-release",

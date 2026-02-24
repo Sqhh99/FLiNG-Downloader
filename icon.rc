@@ -1,4 +1,7 @@
-#include <windows.h>
+// RC constants (avoid dependency on windows.h / winres.h for Ninja builds)
+#ifndef VS_VERSION_INFO
+#define VS_VERSION_INFO 1
+#endif
 
 // 应用程序图标
 IDI_ICON1 ICON "resources/icons/app_icon.ico"

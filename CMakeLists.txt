@@ -10,7 +10,7 @@ if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
 endif()
 
 set(VCPKG_TARGET_TRIPLET "x64-windows-static" CACHE STRING "Vcpkg triplet")
-set(VCPKG_INSTALLED_DIR "${CMAKE_SOURCE_DIR}/vcpkg_installed" CACHE PATH "Vcpkg installed directory")
+set(VCPKG_INSTALLED_DIR "${CMAKE_SOURCE_DIR}/third_party" CACHE PATH "Vcpkg installed directory")
 
 project("FLiNGDownloader" LANGUAGES CXX)
 
@@ -95,7 +95,7 @@ set(PROJECT_RC_FILES
 )
 
 add_executable(${PROJECT_NAME}
-    # WIN32
+    WIN32
     ${PROJECT_SOURCES}
     ${PROJECT_HEADERS}
     ${PROJECT_RC_FILES}
