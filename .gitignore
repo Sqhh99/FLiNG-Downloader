@@ -100,7 +100,7 @@ ehthumbs.db
 Thumbs.db 
 
 # vcpkg installed packages
-vcpkg_installed/
+third_party/
 
 # Agents
 agents/
