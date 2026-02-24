@@ -47,13 +47,16 @@ jobs:
     - name: Show vcpkg version
       run: vcpkg version
 
-    - name: Install pkg-config to bypass MSYS2 download
-      run: choco install pkgconfiglite --no-progress -y
+    - name: Install build tools
+      run: |
+        choco install ninja --no-progress -y
+        choco install pkgconfiglite --no-progress -y
 
     - name: Build
-      run: .\build.cmd release
+      run: |
+        $env:VCPKG_ROOT = $env:VCPKG_INSTALLATION_ROOT
+        .\build.cmd release
       env:
-        VCPKG_ROOT: ${{ env.VCPKG_INSTALLATION_ROOT }}
         PKG_CONFIG: C:\ProgramData\chocolatey\bin\pkg-config.exe
         VCPKG_PKGCONFIG: C:\ProgramData\chocolatey\bin\pkg-config.exe
 
@@ -61,5 +64,5 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: FLiNG-Downloader-Windows-x64
-        path: build/FLiNG Downloader.exe
+        path: build/ninja-release/FLiNG Downloader.exe
         if-no-files-found: warn
