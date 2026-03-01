@@ -105,4 +105,5 @@ third_party/
 # Agents
 agents/
 
-tools
+tools/qt6-qml-module-migration.md
+tools/game-mappings-updater

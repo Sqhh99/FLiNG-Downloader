@@ -12,6 +12,7 @@ setlocal enabledelayedexpansion
 ::   configure  - Configure only (default: release)
 ::   rebuild    - Clean + rebuild (default: release)
 ::   clean      - Remove build directory
+::   i18n       - Update/check translation files
 ::   run        - Build and run (default: release)
 ::   help       - Show help
 ::
@@ -24,6 +25,8 @@ setlocal enabledelayedexpansion
 ::   build.cmd release      Build Release
 ::   build.cmd rebuild      Clean + rebuild Release
 ::   build.cmd rebuild debug  Clean + rebuild Debug
+::   build.cmd i18n         Update TS and QM translation files
+::   build.cmd i18n check   Verify translation files are in sync
 ::   build.cmd run debug    Build Debug and launch
 ::   build.cmd clean        Remove build directory
 :: ============================================================
@@ -35,6 +38,7 @@ set "BUILD_DIR=%BUILD_ROOT%\ninja-release"
 :: Defaults
 set "COMMAND=build"
 set "BUILD_CONFIG=release"
+set "I18N_ACTION=all"
 set "JOBS="
 
 :: Parse arguments
@@ -46,6 +50,7 @@ if /i "%~1"=="debug"     ( set "BUILD_CONFIG=debug"   & shift & goto :parse_args
 if /i "%~1"=="configure" ( set "COMMAND=configure"     & shift & goto :parse_args )
 if /i "%~1"=="rebuild"   ( set "COMMAND=rebuild"        & shift & goto :parse_args )
 if /i "%~1"=="clean"     ( set "COMMAND=clean"          & shift & goto :parse_args )
+if /i "%~1"=="i18n"      ( set "COMMAND=i18n" & shift & goto :parse_i18n )
 if /i "%~1"=="run"       ( set "COMMAND=run"            & shift & goto :parse_args )
 if /i "%~1"=="help"      ( goto :show_help )
 if /i "%~1"=="-h"        ( goto :show_help )
@@ -71,6 +76,19 @@ echo [ERROR] Unknown argument: %~1
 echo Run "build.cmd help" for usage.
 exit /b 1
 
+:parse_i18n
+if "%~1"=="" goto :done_args
+if /i "%~1"=="update"  ( set "I18N_ACTION=update"  & shift & goto :parse_i18n )
+if /i "%~1"=="release" ( set "I18N_ACTION=release" & shift & goto :parse_i18n )
+if /i "%~1"=="all"     ( set "I18N_ACTION=all"     & shift & goto :parse_i18n )
+if /i "%~1"=="check"   ( set "I18N_ACTION=check"   & shift & goto :parse_i18n )
+if /i "%~1"=="help"    ( set "I18N_ACTION=help"    & shift & goto :parse_i18n )
+if /i "%~1"=="-h"      ( set "I18N_ACTION=help"    & shift & goto :parse_i18n )
+if /i "%~1"=="--help"  ( set "I18N_ACTION=help"    & shift & goto :parse_i18n )
+echo [ERROR] Unknown i18n action: %~1
+echo Run "build.cmd i18n help" for usage.
+exit /b 1
+
 :done_args
 
 :: Map config to CMake preset names
@@ -80,6 +98,8 @@ if /i "%BUILD_CONFIG%"=="release" ( set "CONFIGURE_PRESET=ninja-release" & set "
 :: ============================================================
 :: Validate environment
 :: ============================================================
+if /i "%COMMAND%"=="i18n" goto :execute_command
+
 where cmake >nul 2>&1
 if errorlevel 1 (
     echo [ERROR] cmake not found in PATH.
@@ -112,10 +132,12 @@ if not defined VCPKG_ROOT (
 :: ============================================================
 :: Execute command
 :: ============================================================
+:execute_command
 if /i "%COMMAND%"=="clean"     goto :do_clean
 if /i "%COMMAND%"=="configure" goto :do_configure
 if /i "%COMMAND%"=="build"     goto :do_build
 if /i "%COMMAND%"=="rebuild"   goto :do_rebuild
+if /i "%COMMAND%"=="i18n"      goto :do_i18n
 if /i "%COMMAND%"=="run"       goto :do_run
 goto :eof
 
@@ -197,6 +219,28 @@ call :do_build
 exit /b %errorlevel%
 
 :: ------------------------------------------------------------
+:do_i18n
+:: ------------------------------------------------------------
+echo.
+echo ========================================
+echo  Running i18n [%I18N_ACTION%]
+echo ========================================
+
+if not exist "%SOURCE_DIR%tools\i18n.cmd" (
+    echo [ERROR] i18n script not found: %SOURCE_DIR%tools\i18n.cmd
+    exit /b 1
+)
+
+call "%SOURCE_DIR%tools\i18n.cmd" %I18N_ACTION%
+if errorlevel 1 (
+    echo [ERROR] i18n step failed.
+    exit /b 1
+)
+
+echo [OK] i18n step complete.
+exit /b 0
+
+:: ------------------------------------------------------------
 :do_run
 :: ------------------------------------------------------------
 call :do_build
@@ -232,6 +276,7 @@ echo    debug       Build Debug
 echo    configure   Configure only
 echo    rebuild     Clean, configure, and build
 echo    clean       Remove build directory
+echo    i18n        Update/check translation files
 echo    run         Build and launch the executable
 echo    help        Show this help message
 echo.
@@ -243,6 +288,8 @@ echo    build.cmd                Build Release
 echo    build.cmd debug          Build Debug
 echo    build.cmd rebuild        Clean + rebuild Release
 echo    build.cmd rebuild debug  Clean + rebuild Debug
+echo    build.cmd i18n           Update TS and QM translation files
+echo    build.cmd i18n check     Verify translation files are in sync
 echo    build.cmd run debug      Build Debug ^& run
 echo    build.cmd clean          Remove build directory
 echo.
