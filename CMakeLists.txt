@@ -9,7 +9,7 @@ if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
     endif()
 endif()
 
-set(VCPKG_TARGET_TRIPLET "x64-windows-static" CACHE STRING "Vcpkg triplet")
+set(VCPKG_TARGET_TRIPLET "x64-windows-static-md" CACHE STRING "Vcpkg triplet")
 set(VCPKG_INSTALLED_DIR "${CMAKE_SOURCE_DIR}/third_party" CACHE PATH "Vcpkg installed directory")
 
 project("FLiNGDownloader" LANGUAGES CXX)
@@ -27,8 +27,8 @@ set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
-# Static runtime library for MSVC (MT/MTd)
-set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+# Dynamic runtime library for MSVC (MD/MDd) - must match Qt's pre-built DLLs
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 
 # UTF-8 encoding for MSVC
 if(MSVC)
@@ -96,7 +96,7 @@ set(PROJECT_RC_FILES
 )
 
 add_executable(${PROJECT_NAME}
-    WIN32
+    # WIN32
     ${PROJECT_SOURCES}
     ${PROJECT_HEADERS}
     ${PROJECT_RC_FILES}
@@ -131,9 +131,9 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
 )
 
 if(MSVC)
-    # Runtime library
+    # Runtime library (MD/MDd) - must match Qt's pre-built DLLs
     set_property(TARGET ${PROJECT_NAME} PROPERTY
-        MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
+        MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL"
     )
     
     # Compiler optimizations
@@ -146,12 +146,6 @@ if(MSVC)
     
     # Linker options
     target_link_options(${PROJECT_NAME} PRIVATE
-        # Exclude dynamic runtime libraries
-        /NODEFAULTLIB:msvcrt.lib
-        /NODEFAULTLIB:msvcrtd.lib
-        /NODEFAULTLIB:msvcprt.lib
-        /NODEFAULTLIB:msvcprtd.lib
-        
         # Optimization
         /INCREMENTAL:NO
         $<$<CONFIG:Release>:/LTCG>  # Link-time code generation
