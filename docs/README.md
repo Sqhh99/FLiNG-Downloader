@@ -15,7 +15,7 @@
 
 ### 🔧 开发相关
 - **[构建说明](../CMakeLists.txt)** - CMake 构建配置
-- **[许可证](../LICENSE)** - MIT 开源许可证
+- **[许可证](../LICENSE)** - GNU AGPL v3 开源许可证
 
 ## 🚨 常见问题快速索引
 
@@ -23,7 +23,7 @@
 |---------|---------|---------|
 | Windows Defender 误报 | 添加排除项 | [FAQ](./ANTIVIRUS_FAQ.md#方法一添加-windows-defender-排除项推荐) |
 | 其他杀毒软件误报 | 各软件设置方法 | [FAQ](./ANTIVIRUS_FAQ.md#其他杀毒软件) |
-| 软件安全性疑问 | 安全保障说明 | [安全政策](../SECURITY.md#隐私保护声明) |
+| 软件安全性疑问 | 安全保障说明 | [安全政策](../SECURITY.md) |
 | 下载和安装 | 快速开始指南 | [主 README](../README.md#快速开始-quick-start) |
 
 ## 🆘 获取帮助

@@ -24,7 +24,7 @@ BEGIN
             VALUE "FileDescription", "FLiNG Downloader - Game Modifier Download Manager"
             VALUE "FileVersion", "1.0.0.0"
             VALUE "InternalName", "FLiNG Downloader"
-            VALUE "LegalCopyright", "Copyright (C) 2024. Licensed under MIT License."
+            VALUE "LegalCopyright", "Copyright (C) 2024. Licensed under GNU AGPL v3."
             VALUE "OriginalFilename", "FLiNG Downloader.exe"
             VALUE "ProductName", "FLiNG Downloader"
             VALUE "ProductVersion", "1.0.0.0"

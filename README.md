@@ -74,5 +74,5 @@ cmake --build --preset <build-preset>
 
 ## 许可与反馈
 
-- 许可：MIT，详见 [LICENSE](LICENSE)
+- 许可：GNU AGPL v3，详见 [LICENSE](LICENSE)
 - 反馈：请在 GitHub 提交 [Issues](../../issues)

@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "FLiNG Downloader - Game Modifier Download Integration Tool",
   "homepage": "https://github.com/yourusername/FLiNG-Downloader",
-  "license": "MIT",
+  "license": "AGPL-3.0-only",
   "supports": "windows & x64",
   "dependencies": [
     {
