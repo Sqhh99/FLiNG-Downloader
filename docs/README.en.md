@@ -74,5 +74,5 @@ cmake --build --preset <build-preset>
 
 ## License & Feedback
 
-- License: MIT, see [LICENSE](LICENSE)
+- License: GNU AGPL v3, see [LICENSE](../LICENSE)
 - Feedback: open [Issues](../../issues) on GitHub

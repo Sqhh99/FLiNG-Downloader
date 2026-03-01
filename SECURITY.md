@@ -1,193 +1,67 @@
-# 安全政策 (Security Policy)
+# 安全策略 (Security Policy)
 
-## 支持的版本 (Supported Versions)
+## 支持版本
 
-当前维护的版本：
+| 版本 | 状态 |
+| --- | --- |
+| 最新稳定版 | 支持 |
+| `main` 开发分支 | 尽力支持 |
+| 历史旧版本 | 不支持 |
 
-| 版本   | 支持状态    |
-| ------ | ---------- |
-| 最新版 | ✅ 支持     |
-| 开发版 | ⚠️ 测试版   |
+## 漏洞报告
 
-## 报告安全漏洞 (Reporting a Vulnerability)
+优先使用私密渠道：
 
-如果您发现安全漏洞，请通过以下方式报告：
+1. GitHub Security Advisory（私密）：
+   https://github.com/Sqhh99/FLiNG-Downloader/security/advisories/new
+2. 如果私密通道不可用，请创建 Issue 并标记 `security`。
 
-1. **GitHub Issues**: 创建安全相关的 Issue
-2. **邮件联系**: 通过项目维护者邮箱私密报告
-3. **负责任披露**: 我们承诺在合理时间内响应和修复
+提交时请尽量提供：
 
-## Windows Defender 误报处理
+- 受影响版本与运行环境（OS / 构建信息）
+- 最小复现步骤（PoC）
+- 预期行为与实际行为
+- 影响评估（攻击者可获得什么能力）
+- 可选的修复建议
 
-### 常见误报类型
+## 响应时效 (SLA)
 
-- `Win32/Wacapew.C!ml` - 启发式检测误报
-- `Trojan:Win32/Zpevdo.B` - 网络行为误报  
-- `PUA:Win32/Presenoker` - 潜在不需要应用误报
+- 48 小时内确认收到报告
+- 7 天内完成初步分级与复现判断
+- 30 天内给出修复或缓解计划（高危/严重问题优先）
 
-### 技术原因分析
+## 披露规则
 
-1. **网络请求模式**
-   - 软件使用 CURL 库进行 HTTP/HTTPS 请求
-   - 用户代理字符串可能触发检测
-   - 并发下载行为模式
+- 在修复或缓解发布前，请勿公开漏洞细节。
+- 采用协调披露（Coordinated Disclosure）。
+- 修复发布后可在公告中致谢报告者（如报告者同意）。
 
-2. **文件操作行为**
-   - 自动创建下载目录
-   - 解压缩档案文件
-   - 修改文件权限和属性
+## 范围说明
 
-3. **静态链接特征**
-   - 包含完整的依赖库
-   - 可执行文件体积较大
-   - 代码熵值可能异常
+受理：
 
-### 减少误报的技术措施
+- 远程代码执行 / 命令注入
+- 任意文件读写 / 路径遍历
+- 权限绕过或提权
+- 具有实际影响的依赖漏洞
 
-#### 1. 代码签名
-```bash
-# 使用代码签名证书对可执行文件签名
-signtool sign /f certificate.pfx /p password /t http://timestamp.server.com program.exe
-```
+不受理：
 
-#### 2. 优化网络请求
-```cpp
-// 在 NetworkManager 中使用标准 User-Agent
-request.setRawHeader("User-Agent", "FLiNG Downloader/1.0 (Windows NT 10.0; Win64; x64)");
+- 无可利用链路的杀软误报
+- 无安全影响的崩溃
+- UI/UX 问题或功能请求
+- 仅在本地管理员或物理接触前提下成立的问题
 
-// 添加延迟避免过于频繁的请求
-QTimer::singleShot(100, [this, request]() {
-    manager->get(request);
-});
-```
+## 隐私说明
 
-#### 3. 文件操作优化
-```cpp
-// 使用 Windows API 进行文件操作，提高兼容性
-#ifdef _WIN32
-#include <windows.h>
-#include <fileapi.h>
+- 不收集个人身份信息。
+- 网络请求仅用于搜索与下载。
+- 配置、缓存、日志仅本地存储。
+- 用户可自行控制下载文件与存储路径。
 
-bool createDirectorySecurely(const QString& path) {
-    std::wstring wpath = path.toStdWString();
-    return CreateDirectoryW(wpath.c_str(), nullptr) || GetLastError() == ERROR_ALREADY_EXISTS;
-}
-#endif
-```
+## 联系方式
 
-#### 4. 添加元数据信息
-在 `icon.rc` 中添加详细的版本信息：
+- 安全问题：GitHub Security Advisory（优先）
+- 一般反馈：https://github.com/Sqhh99/FLiNG-Downloader/issues
 
-```rc
-VS_VERSION_INFO VERSIONINFO
-FILEVERSION 1,0,0,0
-PRODUCTVERSION 1,0,0,0
-FILEFLAGSMASK 0x3fL
-FILEFLAGS 0x0L
-FILEOS 0x40004L
-FILETYPE 0x1L
-FILESUBTYPE 0x0L
-BEGIN
-    BLOCK "StringFileInfo"
-    BEGIN
-        BLOCK "040904b0"
-        BEGIN
-            VALUE "CompanyName", "FLiNG Downloader Project"
-            VALUE "FileDescription", "Game Modifier Download Manager"
-            VALUE "FileVersion", "1.0.0.0"
-            VALUE "InternalName", "FLiNG Downloader"
-            VALUE "LegalCopyright", "Copyright (C) 2025. Licensed under MIT."
-            VALUE "OriginalFilename", "FLiNG Downloader.exe"
-            VALUE "ProductName", "FLiNG Downloader"
-            VALUE "ProductVersion", "1.0.0.0"
-        END
-    END
-    BLOCK "VarFileInfo"
-    BEGIN
-        VALUE "Translation", 0x409, 1200
-    END
-END
-```
-
-## 隐私保护声明
-
-### 数据收集
-- ✅ **不收集**个人身份信息
-- ✅ **不收集**浏览历史或使用习惯
-- ✅ **不上传**任何用户文件
-- ✅ **仅本地存储**配置和缓存
-
-### 网络通信
-- 🌐 仅用于修改器搜索和下载
-- 🔒 支持 HTTPS 安全连接
-- 📝 所有请求记录仅存储在本地日志
-
-### 第三方服务
-- 🔍 **搜索服务**: 仅发送游戏名查询
-- 📥 **下载服务**: 仅下载用户选择的文件
-- 🌍 **翻译服务**: 仅翻译游戏名称（可选）
-
-## 源码审计
-
-### 关键安全检查点
-
-1. **网络请求处理** (`src/NetworkManager.cpp`)
-   - SSL/TLS 证书验证
-   - 请求超时设置
-   - 错误处理机制
-
-2. **文件下载逻辑** (`src/DownloadManager.cpp`)
-   - 文件完整性验证
-   - 安全的文件路径处理
-   - 防止目录遍历攻击
-
-3. **配置文件处理** (`src/ConfigManager.cpp`)
-   - 输入验证和清理
-   - 防止注入攻击
-   - 安全的序列化/反序列化
-
-### 编译时安全选项
-
-```cmake
-# 启用安全编译选项
-if(MSVC)
-    target_compile_options(${PROJECT_NAME} PRIVATE
-        /GS      # 栈保护
-        /DYNAMICBASE  # ASLR 支持
-        /NXCOMPAT     # DEP 支持
-        /guard:cf     # 控制流保护
-    )
-    
-    target_link_options(${PROJECT_NAME} PRIVATE
-        /SAFESEH      # 安全异常处理
-        /LARGEADDRESSAWARE  # 大地址感知
-    )
-endif()
-```
-
-## 漏洞报告模板
-
-```markdown
-### 漏洞描述
-简要描述发现的安全问题
-
-### 影响范围
-- 受影响的版本
-- 潜在的安全风险级别
-
-### 复现步骤
-1. 步骤一
-2. 步骤二
-3. ...
-
-### 建议修复方案
-如有建议的修复方法，请提供
-
-### 联系信息
-如需私密沟通，请提供联系方式
-```
-
----
-
-**最后更新**: 2024年
-**联系方式**: 通过 GitHub Issues 或项目维护者 
+最后更新：2026-03-01
