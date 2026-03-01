@@ -67,6 +67,22 @@ cmake --preset <configure-preset>
 cmake --build --preset <build-preset>
 ```
 
+### 翻译文件（i18n）
+
+```powershell
+# 更新 TS + 生成 QM（推荐）
+build.cmd i18n
+
+# 仅更新 TS
+build.cmd i18n update
+
+# 仅生成 QM
+build.cmd i18n release
+
+# 检查翻译文件是否已同步（CI 同款）
+build.cmd i18n check
+```
+
 ## 安全与隐私
 
 - 可能被 Windows Defender 误报（如 `Win32/Wacapew.C!ml`），属误报，程序安全。

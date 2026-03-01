@@ -67,6 +67,22 @@ cmake --preset <configure-preset>
 cmake --build --preset <build-preset>
 ```
 
+### Translation files (i18n)
+
+```powershell
+# Update TS + build QM (recommended)
+build.cmd i18n
+
+# Update TS only
+build.cmd i18n update
+
+# Build QM only
+build.cmd i18n release
+
+# Verify translations are in sync (same as CI)
+build.cmd i18n check
+```
+
 ## Security & Privacy
 
 - Windows Defender may flag a false positive (e.g. `Win32/Wacapew.C!ml`); the app is safe.
