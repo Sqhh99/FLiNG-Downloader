@@ -92,8 +92,8 @@ exit /b 1
 :done_args
 
 :: Map config to CMake preset names
-if /i "%BUILD_CONFIG%"=="debug"   ( set "CONFIGURE_PRESET=ninja-debug"   & set "BUILD_PRESET=ninja-debug"   & set "CONFIG_LABEL=Debug" & set "BUILD_DIR=%BUILD_ROOT%\ninja-debug" )
-if /i "%BUILD_CONFIG%"=="release" ( set "CONFIGURE_PRESET=ninja-release" & set "BUILD_PRESET=ninja-release" & set "CONFIG_LABEL=Release" & set "BUILD_DIR=%BUILD_ROOT%\ninja-release" )
+if /i "%BUILD_CONFIG%"=="debug"   ( set "CONFIGURE_PRESET=debug"   & set "BUILD_PRESET=debug"   & set "CONFIG_LABEL=Debug" & set "BUILD_DIR=%BUILD_ROOT%\ninja-debug" )
+if /i "%BUILD_CONFIG%"=="release" ( set "CONFIGURE_PRESET=release" & set "BUILD_PRESET=release" & set "CONFIG_LABEL=Release" & set "BUILD_DIR=%BUILD_ROOT%\ninja-release" )
 
 :: ============================================================
 :: Validate environment
