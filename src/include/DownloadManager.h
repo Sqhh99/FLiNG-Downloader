@@ -2,13 +2,14 @@
 
 #include <QObject>
 #include <QString>
+#include <QtGlobal>
 #include <functional>
 #include "ModifierParser.h"
 #include "NetworkManager.h"
 #include "FileSystem.h"
 
 // Callback function types - using different names to avoid conflicts
-using DLProgressCallback = std::function<void(int)>; // Download progress callback (percentage)
+using DLProgressCallback = std::function<void(qint64, qint64)>; // Download progress callback (received bytes, total bytes)
 using DLCompletedCallback = std::function<void(bool, const QString&, const QString&)>; // Download completed callback (success status, error message, actual file path)
 
 /**
@@ -38,7 +39,10 @@ public:
     void downloadFile(const QString& url, 
                      const QString& savePath,
                      DLProgressCallback progressCallback,
-                     DLCompletedCallback completedCallback);    /**
+                     DLCompletedCallback completedCallback,
+                     qint64 resumeFrom = 0,
+                     bool keepPartialOnAbort = false);
+    /**
      * @brief Download modifier
      * @param modifier Modifier information
      * @param version Selected version
@@ -50,7 +54,9 @@ public:
                          const QString& version,
                          const QString& savePath,
                          std::function<void(bool, const QString&, const QString&, const ModifierInfo&, bool)> completedCallback,
-                         DLProgressCallback progressCallback);
+                         DLProgressCallback progressCallback,
+                         qint64 resumeFrom = 0,
+                         bool keepPartialOnAbort = false);
     
     /**
      * @brief Cancel current download
@@ -62,7 +68,8 @@ public:
      * @return Whether a download is in progress
      */
     bool isDownloading() const;
-      /**
+    
+    /**
      * @brief Clean invalid URL, remove trailing commas etc.
      * @param url Original URL
      * @return Cleaned URL
@@ -75,7 +82,8 @@ public:
      * @return Whether it is an archive format
      */
     bool isArchiveFormat(const QString& filePath) const;
-      /**
+    
+    /**
      * @brief Get file extension
      * @param filePath File path or URL
      * @return File extension (lowercase)

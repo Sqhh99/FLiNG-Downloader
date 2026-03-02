@@ -13,8 +13,8 @@ import FLiNGDownloader
 ApplicationWindow {
     id: mainWindow
     
-    width: 1200
-    height: 800
+    width: 950
+    height: 650
     minimumWidth: 800
     minimumHeight: 600
     visible: true
@@ -241,21 +241,7 @@ ApplicationWindow {
             console.log("从详情面板下载, 修改器:", gameName, "版本索引:", versionIndex)
             
             if (backend) {
-                // 添加到下载列表
-                var newItem = {
-                    fileName: gameName,
-                    progress: 0,
-                    status: "downloading",
-                    downloadIndex: versionIndex
-                }
-                var items = downloadListPopup.downloadItems.slice()
-                items.push(newItem)
-                downloadListPopup.downloadItems = items
-                downloadListPopup.activeDownloads = downloadListPopup.downloadItems.filter(function(item) { 
-                    return item.status === "downloading" 
-                }).length
-                
-                // 开始下载
+                // 添加任务并开始下载（由后端队列调度）
                 backend.downloadModifier(versionIndex)
                 downloadListPopup.open()
             }
@@ -300,56 +286,44 @@ ApplicationWindow {
         parent: Overlay.overlay
         
         // 下载列表数据
-        downloadItems: []
-        activeDownloads: 0
+        downloadItems: backend ? backend.downloadTasks : []
+        activeDownloads: {
+            var count = 0
+            var items = downloadItems || []
+            for (var i = 0; i < items.length; i++) {
+                if (items[i].status === "downloading") {
+                    count++
+                }
+            }
+            return count
+        }
+        
+        onPauseDownload: function(index) {
+            if (backend && index >= 0 && index < downloadItems.length) {
+                backend.pauseDownload(downloadItems[index].taskId)
+            }
+        }
+        
+        onResumeDownload: function(index) {
+            if (backend && index >= 0 && index < downloadItems.length) {
+                backend.resumeDownload(downloadItems[index].taskId)
+            }
+        }
+        
+        onCancelDownload: function(index) {
+            if (backend && index >= 0 && index < downloadItems.length) {
+                backend.cancelDownload(downloadItems[index].taskId)
+            }
+        }
         
         onOpenFolder: function(index) {
             if (backend) backend.openDownloadFolder()
         }
         
         onRemoveFromList: function(index) {
-            var items = downloadItems.slice()
-            items.splice(index, 1)
-            downloadItems = items
-        }
-    }
-    
-    // 后端下载进度连接
-    Connections {
-        target: backend
-        
-        function onDownloadProgressChanged() {
-            // 更新最后一个下载任务的进度（从backend属性获取进度值）
-            if (downloadListPopup.downloadItems.length > 0 && backend) {
-                var progress = backend.downloadProgress * 100  // 转换为百分比
-                var items = downloadListPopup.downloadItems.slice()
-                for (var i = items.length - 1; i >= 0; i--) {
-                    if (items[i].status === "downloading") {
-                        items[i].progress = progress
-                        break
-                    }
-                }
-                downloadListPopup.downloadItems = items
+            if (backend && index >= 0 && index < downloadItems.length) {
+                backend.removeDownloadTask(downloadItems[index].taskId)
             }
-        }
-        
-        function onDownloadCompleted(success) {
-            // 更新最后一个下载任务的状态
-            if (downloadListPopup.downloadItems.length > 0) {
-                var items = downloadListPopup.downloadItems.slice()
-                for (var i = items.length - 1; i >= 0; i--) {
-                    if (items[i].status === "downloading") {
-                        items[i].status = success ? "completed" : "failed"
-                        items[i].progress = success ? 100 : items[i].progress
-                        break
-                    }
-                }
-                downloadListPopup.downloadItems = items
-                downloadListPopup.activeDownloads = items.filter(function(item) { 
-                    return item.status === "downloading" 
-                }).length
-            }
-            // 下载完成通知已由列表处理
         }
     }
     

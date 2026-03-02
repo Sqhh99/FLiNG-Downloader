@@ -14,6 +14,7 @@
 // Network response callback function type definition
 using NetworkResponseCallback = std::function<void(const QByteArray&, bool)>;
 using DownloadProgressCallback = std::function<void(qint64, qint64)>;
+using DownloadFinishedCallback = std::function<void(bool, const QString&, int)>;
 
 class NetworkManager : public QObject
 {
@@ -32,7 +33,18 @@ public:
                       const QString& savePath,
                       DownloadProgressCallback progressCallback,
                       std::function<void(bool, const QString&)> finishedCallback,
-                      const QString& userAgent = QString());
+                      const QString& userAgent = QString(),
+                      qint64 resumeFrom = 0,
+                      bool keepPartialOnAbort = false);
+
+    // Download file with HTTP metadata callback.
+    void downloadFileWithStatus(const QString& url,
+                                const QString& savePath,
+                                DownloadProgressCallback progressCallback,
+                                DownloadFinishedCallback finishedCallback,
+                                const QString& userAgent = QString(),
+                                qint64 resumeFrom = 0,
+                                bool keepPartialOnAbort = false);
 
     // Abort all requests
     void abortAllRequests();

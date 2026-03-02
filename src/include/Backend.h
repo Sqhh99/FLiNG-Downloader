@@ -1,8 +1,12 @@
 #pragma once
 
 #include <QObject>
+#include <QHash>
 #include <QQmlEngine>
 #include <QVariantList>
+#include <QVariantMap>
+#include <QElapsedTimer>
+#include <functional>
 #include "ModifierListModel.h"
 #include "DownloadedModifierModel.h"
 #include "ModifierParser.h"
@@ -45,6 +49,7 @@ class Backend : public QObject
     Q_PROPERTY(bool isDownloading READ isDownloading NOTIFY downloadingChanged)
     Q_PROPERTY(qreal downloadProgress READ downloadProgress NOTIFY downloadProgressChanged)
     Q_PROPERTY(bool searchLoading READ searchLoading NOTIFY searchLoadingChanged)
+    Q_PROPERTY(QVariantList downloadTasks READ downloadTasks NOTIFY downloadTasksChanged)
     
     // Download directory
     Q_PROPERTY(QString downloadPath READ downloadPath WRITE setDownloadPath NOTIFY downloadPathChanged)
@@ -80,6 +85,7 @@ public:
     bool isDownloading() const { return m_isDownloading; }
     qreal downloadProgress() const { return m_downloadProgress; }
     bool searchLoading() const { return m_searchLoading; }
+    QVariantList downloadTasks() const;
     
     // Download directory
     QString downloadPath() const;
@@ -98,6 +104,10 @@ public slots:
 
     // Download functionality
     Q_INVOKABLE void downloadModifier(int versionIndex);
+    Q_INVOKABLE void pauseDownload(const QString& taskId);
+    Q_INVOKABLE void resumeDownload(const QString& taskId);
+    Q_INVOKABLE void cancelDownload(const QString& taskId);
+    Q_INVOKABLE void removeDownloadTask(const QString& taskId);
     Q_INVOKABLE void openDownloadFolder();
 
     // Downloaded management
@@ -125,6 +135,7 @@ signals:
     void coverExtracted();
     void downloadPathChanged();
     void searchLoadingChanged();
+    void downloadTasksChanged();
     void downloadFolderSelectionRequested();  // Request to show folder selection dialog
 
 private slots:
@@ -132,6 +143,22 @@ private slots:
     void onDownloadFinished(bool success);
 
 private:
+    struct DownloadTaskMeta {
+        QString taskId;
+        ModifierInfo modifier;
+        QString versionName;
+        QString savePath;
+        QString tempPath;  // .crdownload temporary file path
+    };
+
+    QString createDownloadTask(const ModifierInfo& modifier,
+                               const QString& versionName,
+                               const QString& savePath);
+    void processNextDownloadTask();
+    void startDownloadTask(const QString& taskId);
+    int findDownloadTaskIndex(const QString& taskId) const;
+    void updateDownloadTask(const QString& taskId, const std::function<void(QVariantMap&)>& updater);
+    void updateDownloadTaskDeferred(const QString& taskId, const std::function<void(QVariantMap&)>& updater);
     quint64 beginSearchRequest();
     void finishSearchRequest(quint64 requestId, const QList<ModifierInfo>& modifiers);
     void loadDownloadedModifiers();
@@ -155,6 +182,19 @@ private:
     bool m_searchLoading = false;
     quint64 m_nextSearchRequestId = 0;
     quint64 m_activeSearchRequestId = 0;
+    quint64 m_nextDownloadTaskId = 0;
+    QString m_activeDownloadTaskId;
+    QList<QVariantMap> m_downloadTasks;
+    QHash<QString, DownloadTaskMeta> m_downloadTaskMeta;
+    
+    // Speed calculation
+    QElapsedTimer m_speedTimer;
+    qint64 m_lastSpeedBytes = 0;
+    QTimer* m_speedUpdateTimer = nullptr;
+    
+    // Throttled download task update (prevents QML delegate rebuild flooding)
+    bool m_downloadTasksDirty = false;
+    QTimer* m_taskUpdateTimer = nullptr;
     
     // Temporary storage for downloaded modifiers list
     QList<DownloadedModifierInfo> m_downloadedList;

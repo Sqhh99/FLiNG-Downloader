@@ -69,7 +69,29 @@ void NetworkManager::downloadFile(const QString& url,
                                   const QString& savePath,
                                   DownloadProgressCallback progressCallback,
                                   std::function<void(bool, const QString&)> finishedCallback,
-                                  const QString& userAgent)
+                                  const QString& userAgent,
+                                  qint64 resumeFrom,
+                                  bool keepPartialOnAbort)
+{
+    downloadFileWithStatus(
+        url,
+        savePath,
+        progressCallback,
+        [finishedCallback](bool success, const QString& errorMsg, int) {
+            finishedCallback(success, errorMsg);
+        },
+        userAgent,
+        resumeFrom,
+        keepPartialOnAbort);
+}
+
+void NetworkManager::downloadFileWithStatus(const QString& url,
+                                            const QString& savePath,
+                                            DownloadProgressCallback progressCallback,
+                                            DownloadFinishedCallback finishedCallback,
+                                            const QString& userAgent,
+                                            qint64 resumeFrom,
+                                            bool keepPartialOnAbort)
 {
     qDebug() << "NetworkManager: Starting download from:" << url;
     qDebug() << "NetworkManager: Save path:" << savePath;
@@ -83,9 +105,12 @@ void NetworkManager::downloadFile(const QString& url,
     
     // Create file
     QFile* file = new QFile(savePath);
-    if (!file->open(QIODevice::WriteOnly)) {
+    const QIODeviceBase::OpenMode openMode = (resumeFrom > 0)
+        ? (QIODevice::WriteOnly | QIODevice::Append)
+        : (QIODevice::WriteOnly | QIODevice::Truncate);
+    if (!file->open(openMode)) {
         qDebug() << "NetworkManager: Cannot create file:" << file->errorString();
-        finishedCallback(false, "Cannot create file: " + file->errorString());
+        finishedCallback(false, "Cannot create file: " + file->errorString(), 0);
         delete file;
         return;
     }
@@ -96,10 +121,16 @@ void NetworkManager::downloadFile(const QString& url,
     // Set user agent
     QString effectiveUserAgent = userAgent.isEmpty() ? m_globalUserAgent : userAgent;
     request.setHeader(QNetworkRequest::UserAgentHeader, effectiveUserAgent);
+    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
     
     // Enable automatic redirect handling
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, 
                         QNetworkRequest::NoLessSafeRedirectPolicy);
+    
+    // Resume partial download with HTTP Range when possible.
+    if (resumeFrom > 0) {
+        request.setRawHeader("Range", QString("bytes=%1-").arg(resumeFrom).toUtf8());
+    }
     
     // Start download
     QNetworkReply* reply = m_networkManager->get(request);
@@ -110,23 +141,54 @@ void NetworkManager::downloadFile(const QString& url,
     
     // Track bytes written
     qint64* bytesWritten = new qint64(0);
+    qint64* effectiveResumeFrom = new qint64(resumeFrom);
+    bool* responseModeChecked = new bool(false);
+    
+    auto normalizeResponseMode = [reply, file, resumeFrom, effectiveResumeFrom, responseModeChecked, bytesWritten]() {
+        if (*responseModeChecked || resumeFrom <= 0) {
+            return;
+        }
+        
+        int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (statusCode == 200) {
+            // Server ignored Range; restart from zero with current response body.
+            file->resize(0);
+            file->seek(0);
+            *effectiveResumeFrom = 0;
+            *bytesWritten = 0;
+            qDebug() << "NetworkManager: Range not supported, restarting current response from byte 0";
+        } else if (statusCode == 206) {
+            *effectiveResumeFrom = resumeFrom;
+            qDebug() << "NetworkManager: Resuming from byte offset:" << resumeFrom;
+        }
+        
+        *responseModeChecked = true;
+    };
+    
+    connect(reply, &QNetworkReply::metaDataChanged, this, normalizeResponseMode);
     
     // Connect progress signal
-    connect(reply, &QNetworkReply::downloadProgress, this, [progressCallback, timer](qint64 bytesReceived, qint64 bytesTotal) {
+    connect(reply, &QNetworkReply::downloadProgress, this, [progressCallback, timer, effectiveResumeFrom](qint64 bytesReceived, qint64 bytesTotal) {
         timer->start(); // Reset timer
-        progressCallback(bytesReceived, bytesTotal);
+        const qint64 logicalReceived = *effectiveResumeFrom + bytesReceived;
+        const qint64 logicalTotal = (bytesTotal > 0) ? (*effectiveResumeFrom + bytesTotal) : 0;
+        if (progressCallback) {
+            progressCallback(logicalReceived, logicalTotal);
+        }
     });
     
     // Connect data ready signal
-    connect(reply, &QNetworkReply::readyRead, this, [reply, file, timer, bytesWritten]() {
+    connect(reply, &QNetworkReply::readyRead, this, [reply, file, timer, bytesWritten, normalizeResponseMode]() {
         timer->start(); // Reset timer
+        normalizeResponseMode();
         QByteArray data = reply->readAll();
         *bytesWritten += data.size();
         file->write(data);
     });
     
     // Connect finished signal
-    connect(reply, &QNetworkReply::finished, this, [this, reply, file, finishedCallback, timer, bytesWritten, url, savePath]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, file, finishedCallback, timer, bytesWritten, effectiveResumeFrom, responseModeChecked, normalizeResponseMode, url, savePath, keepPartialOnAbort]() {
+        normalizeResponseMode();
         timer->stop();
         timer->deleteLater();
         
@@ -167,7 +229,9 @@ void NetworkManager::downloadFile(const QString& url,
                 if (contentType.contains("text/html", Qt::CaseInsensitive)) {
                     file->remove();
                     delete bytesWritten;
-                    finishedCallback(false, "Server returned HTML page instead of file - download link may be invalid");
+                    delete effectiveResumeFrom;
+                    delete responseModeChecked;
+                    finishedCallback(false, "Server returned HTML page instead of file - download link may be invalid", httpStatus);
                     reply->deleteLater();
                     file->deleteLater();
                     if (m_currentDownloadReply == reply) {
@@ -178,16 +242,41 @@ void NetworkManager::downloadFile(const QString& url,
                 
                 file->remove();
                 delete bytesWritten;
-                finishedCallback(false, "Downloaded file is empty - server may have returned no content");
+                delete effectiveResumeFrom;
+                delete responseModeChecked;
+                finishedCallback(false, "Downloaded file is empty - server may have returned no content", httpStatus);
             } else {
                 delete bytesWritten;
-                finishedCallback(true, QString());
+                delete effectiveResumeFrom;
+                delete responseModeChecked;
+                finishedCallback(true, QString(), httpStatus);
             }
         } else {
             qDebug() << "NetworkManager: Download failed:" << reply->errorString();
-            file->remove(); // Delete incomplete file
+            if (httpStatus == 416) {
+                QFileInfo existingFile(savePath);
+                if (existingFile.exists() && existingFile.size() > 0) {
+                    delete bytesWritten;
+                    delete effectiveResumeFrom;
+                    delete responseModeChecked;
+                    finishedCallback(true, QString(), httpStatus);
+                    file->deleteLater();
+                    reply->deleteLater();
+                    if (m_currentDownloadReply == reply) {
+                        m_currentDownloadReply = nullptr;
+                    }
+                    return;
+                }
+            }
+            
+            const bool isCanceled = (reply->error() == QNetworkReply::OperationCanceledError);
+            if (!(keepPartialOnAbort && isCanceled)) {
+                file->remove(); // Delete incomplete file
+            }
             delete bytesWritten;
-            finishedCallback(false, reply->errorString());
+            delete effectiveResumeFrom;
+            delete responseModeChecked;
+            finishedCallback(false, reply->errorString(), httpStatus);
         }
         
         // Clean up resources

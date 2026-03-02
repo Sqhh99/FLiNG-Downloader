@@ -5,6 +5,7 @@
 #include <QProcess>
 #include <QDebug>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QJsonObject>
@@ -23,6 +24,42 @@ Backend::Backend(QObject* parent)
     , m_downloadedModifierModel(new DownloadedModifierModel(this))
     , m_coverExtractor(new CoverExtractor(this))
 {
+    // Speed calculation timer - fires every second
+    m_speedUpdateTimer = new QTimer(this);
+    m_speedUpdateTimer->setInterval(1000);
+    connect(m_speedUpdateTimer, &QTimer::timeout, this, [this]() {
+        if (m_activeDownloadTaskId.isEmpty()) {
+            m_speedUpdateTimer->stop();
+            return;
+        }
+        const int idx = findDownloadTaskIndex(m_activeDownloadTaskId);
+        if (idx < 0) return;
+        
+        const qint64 currentBytes = m_downloadTasks[idx].value("bytesReceived").toLongLong();
+        const qint64 elapsed = m_speedTimer.elapsed();
+        
+        qint64 speed = 0;
+        if (elapsed > 0) {
+            speed = qMax(0LL, (currentBytes - m_lastSpeedBytes) * 1000 / elapsed);
+        }
+        m_lastSpeedBytes = currentBytes;
+        m_speedTimer.restart();
+        
+        updateDownloadTaskDeferred(m_activeDownloadTaskId, [speed](QVariantMap& task) {
+            task["speed"] = speed;
+        });
+    });
+
+    // Throttle timer for download task UI updates (prevents QML delegate rebuild flooding)
+    m_taskUpdateTimer = new QTimer(this);
+    m_taskUpdateTimer->setInterval(200);
+    connect(m_taskUpdateTimer, &QTimer::timeout, this, [this]() {
+        if (m_downloadTasksDirty) {
+            m_downloadTasksDirty = false;
+            emit downloadTasksChanged();
+        }
+    });
+
     loadGameMappings();
     loadDownloadedModifiers();
     fetchRecentModifiers();
@@ -80,6 +117,15 @@ QString Backend::selectedModifierCoverUrl() const
     // Use modifier's screenshot URL as cover
     // screenshotUrl is usually a game screenshot that can be displayed
     return m_selectedModifier.screenshotUrl;
+}
+
+QVariantList Backend::downloadTasks() const
+{
+    QVariantList list;
+    for (const QVariantMap& task : m_downloadTasks) {
+        list.append(task);
+    }
+    return list;
 }
 
 void Backend::searchModifiers(const QString& keyword)
@@ -198,53 +244,123 @@ void Backend::downloadModifier(int versionIndex)
         sanitizedName.chop(1);
     }
     
-    QString savePath = downloadDir + "/" + sanitizedName + "_" + versionName + ".zip";
+    const QString savePath = downloadDir + "/" + sanitizedName + "_" + versionName + ".zip";
+    const QString taskId = createDownloadTask(m_selectedModifier, versionName, savePath);
+    emit statusMessage(tr("Added to download queue: %1").arg(m_selectedModifier.name));
+    qDebug() << "Backend: queued download task:" << taskId << "for" << m_selectedModifier.name;
+    processNextDownloadTask();
+}
+
+void Backend::pauseDownload(const QString& taskId)
+{
+    const int index = findDownloadTaskIndex(taskId);
+    if (index < 0) {
+        return;
+    }
     
-    m_isDownloading = true;
-    m_downloadProgress = 0.0;
-    emit downloadingChanged();
-    emit statusMessage(tr("Downloading: %1").arg(m_selectedModifier.name));
+    const QString status = m_downloadTasks[index].value("status").toString();
+    if (status == "queued") {
+        updateDownloadTask(taskId, [](QVariantMap& task) {
+            task["status"] = "paused";
+            task["resumeRequested"] = true;
+        });
+        return;
+    }
     
-    ModifierManager::getInstance().downloadModifier(
-        m_selectedModifier,
-        versionName,
-        savePath,
-        [this, versionName](bool success, const QString& errorMsg, const QString& filePath, const ModifierInfo& modifier, bool isArchive) {
-            Q_UNUSED(modifier)
-            Q_UNUSED(isArchive)
-            
-            m_isDownloading = false;
-            emit downloadingChanged();
-            
-            if (success) {
-                m_downloadProgress = 1.0;
-                emit downloadProgressChanged();
-                emit downloadCompleted(true);
-                emit statusMessage(tr("Download complete: %1").arg(filePath));
-                
-                DownloadedModifierInfo downloadedInfo;
-                downloadedInfo.name = m_selectedModifier.name;
-                downloadedInfo.version = versionName;
-                downloadedInfo.gameVersion = m_selectedModifier.gameVersion;
-                downloadedInfo.downloadDate = QDateTime::currentDateTime();
-                downloadedInfo.filePath = filePath;
-                downloadedInfo.url = m_selectedModifier.url;
-                
-                m_downloadedList.append(downloadedInfo);
-                m_downloadedModifierModel->setModifiers(m_downloadedList);
-                saveDownloadedModifiers();
-            } else {
-                m_downloadProgress = 0.0;
-                emit downloadProgressChanged();
-                emit downloadCompleted(false);
-                emit statusMessage(tr("Download failed: %1").arg(errorMsg));
-            }
-        },
-        [this](int progress) {
-            m_downloadProgress = static_cast<qreal>(progress) / 100.0;
-            emit downloadProgressChanged();
+    if (status != "downloading") {
+        return;
+    }
+    
+    updateDownloadTask(taskId, [](QVariantMap& task) {
+        task["status"] = "paused";
+        task["resumeRequested"] = true;
+    });
+    DownloadManager::getInstance().cancelDownload();
+}
+
+void Backend::resumeDownload(const QString& taskId)
+{
+    const int index = findDownloadTaskIndex(taskId);
+    if (index < 0) {
+        return;
+    }
+    
+    const QString status = m_downloadTasks[index].value("status").toString();
+    if (status != "paused" && status != "failed") {
+        return;
+    }
+    
+    const bool canResumeFromFile = m_downloadTaskMeta.contains(taskId) && QFile::exists(m_downloadTaskMeta.value(taskId).tempPath);
+    if (status == "failed") {
+        updateDownloadTask(taskId, [canResumeFromFile](QVariantMap& task) {
+            task["status"] = "queued";
+            task["resumeRequested"] = canResumeFromFile;
+            task["errorMessage"] = QString();
+        });
+    }
+    
+    if (m_activeDownloadTaskId.isEmpty()) {
+        if (status == "paused") {
+            startDownloadTask(taskId);
+        } else {
+            processNextDownloadTask();
         }
-    );
+        return;
+    }
+    
+    if (status == "paused") {
+        updateDownloadTask(taskId, [](QVariantMap& task) {
+            task["status"] = "queued";
+            task["resumeRequested"] = true;
+            task["errorMessage"] = QString();
+        });
+    }
+}
+
+void Backend::cancelDownload(const QString& taskId)
+{
+    const int index = findDownloadTaskIndex(taskId);
+    if (index < 0) {
+        return;
+    }
+    
+    const QString status = m_downloadTasks[index].value("status").toString();
+    if (status == "completed" || status == "failed" || status == "canceled") {
+        return;
+    }
+    
+    updateDownloadTask(taskId, [](QVariantMap& task) {
+        task["status"] = "canceled";
+    });
+    
+    if (taskId == m_activeDownloadTaskId) {
+        DownloadManager::getInstance().cancelDownload();
+        return;
+    }
+    
+    const DownloadTaskMeta meta = m_downloadTaskMeta.value(taskId);
+    if (QFile::exists(meta.tempPath)) {
+        QFile::remove(meta.tempPath);
+    }
+    
+    processNextDownloadTask();
+}
+
+void Backend::removeDownloadTask(const QString& taskId)
+{
+    const int index = findDownloadTaskIndex(taskId);
+    if (index < 0) {
+        return;
+    }
+    
+    const QString status = m_downloadTasks[index].value("status").toString();
+    if (status == "downloading") {
+        return;
+    }
+    
+    m_downloadTasks.removeAt(index);
+    m_downloadTaskMeta.remove(taskId);
+    emit downloadTasksChanged();
 }
 
 // Cover extraction
@@ -323,6 +439,10 @@ void Backend::deleteModifier(int index)
     }
     
     m_downloadedModifierModel->removeModifier(index);
+    // Keep m_downloadedList in sync with the model
+    if (index >= 0 && index < m_downloadedList.size()) {
+        m_downloadedList.removeAt(index);
+    }
     saveDownloadedModifiers();
     
     emit statusMessage(tr("Deleted: %1").arg(modifier.name));
@@ -371,6 +491,308 @@ void Backend::requestDownloadFolderSelection()
 {
     // Emit signal to request QML side to show folder selection dialog
     emit downloadFolderSelectionRequested();
+}
+
+QString Backend::createDownloadTask(const ModifierInfo& modifier,
+                                    const QString& versionName,
+                                    const QString& savePath)
+{
+    m_nextDownloadTaskId++;
+    const QString taskId = QString("task_%1").arg(m_nextDownloadTaskId);
+    
+    QVariantMap task;
+    task["taskId"] = taskId;
+    task["fileName"] = modifier.name;
+    task["status"] = "queued";
+    task["progress"] = 0.0;
+    task["bytesReceived"] = 0;
+    task["bytesTotal"] = 0;
+    task["version"] = versionName;
+    task["savePath"] = savePath;
+    task["errorMessage"] = QString();
+    task["resumeRequested"] = false;
+    task["createdAt"] = QDateTime::currentDateTime().toString(Qt::ISODate);
+    
+    m_downloadTasks.append(task);
+    
+    DownloadTaskMeta meta;
+    meta.taskId = taskId;
+    meta.modifier = modifier;
+    meta.versionName = versionName;
+    meta.savePath = savePath;
+    meta.tempPath = savePath + ".crdownload";
+    m_downloadTaskMeta.insert(taskId, meta);
+    
+    emit downloadTasksChanged();
+    return taskId;
+}
+
+void Backend::processNextDownloadTask()
+{
+    if (!m_activeDownloadTaskId.isEmpty()) {
+        return;
+    }
+    
+    int nextIndex = -1;
+    for (int i = 0; i < m_downloadTasks.size(); ++i) {
+        if (m_downloadTasks[i].value("status").toString() == "queued") {
+            nextIndex = i;
+            break;
+        }
+    }
+    
+    if (nextIndex < 0) {
+        if (m_isDownloading) {
+            m_isDownloading = false;
+            emit downloadingChanged();
+        }
+        return;
+    }
+    
+    startDownloadTask(m_downloadTasks[nextIndex].value("taskId").toString());
+}
+
+void Backend::startDownloadTask(const QString& taskId)
+{
+    const int index = findDownloadTaskIndex(taskId);
+    if (index < 0 || !m_downloadTaskMeta.contains(taskId)) {
+        return;
+    }
+    
+    const QString status = m_downloadTasks[index].value("status").toString();
+    const bool resumeRequested = m_downloadTasks[index].value("resumeRequested").toBool();
+    if (status != "queued" && status != "paused") {
+        return;
+    }
+    
+    DownloadTaskMeta meta = m_downloadTaskMeta.value(taskId);
+    qint64 resumeFrom = 0;
+    
+    // Use .crdownload temp file for resume
+    if ((status == "paused" || resumeRequested) && QFile::exists(meta.tempPath)) {
+        resumeFrom = QFileInfo(meta.tempPath).size();
+    } else {
+        QFile::remove(meta.tempPath);
+        QFile::remove(meta.savePath);
+    }
+    
+    m_activeDownloadTaskId = taskId;
+    if (!m_isDownloading) {
+        m_isDownloading = true;
+        emit downloadingChanged();
+    }
+    m_downloadProgress = 0.0;
+    emit downloadProgressChanged();
+    
+    // Start speed tracking
+    m_lastSpeedBytes = resumeFrom;
+    m_speedTimer.start();
+    m_speedUpdateTimer->start();
+    m_taskUpdateTimer->start();
+    
+    updateDownloadTask(taskId, [resumeFrom](QVariantMap& task) {
+        task["status"] = "downloading";
+        task["bytesReceived"] = resumeFrom;
+        task["errorMessage"] = QString();
+        task["resumeRequested"] = false;
+        task["speed"] = 0;
+    });
+    
+    // Download to .crdownload temp file
+    ModifierManager::getInstance().downloadModifier(
+        meta.modifier,
+        meta.versionName,
+        meta.tempPath,
+        [this, taskId, versionName = meta.versionName](bool success, const QString& errorMsg, const QString& filePath, const ModifierInfo& modifier, bool isArchive) {
+            Q_UNUSED(isArchive)
+            const int taskIndex = findDownloadTaskIndex(taskId);
+            if (taskIndex < 0) {
+                m_activeDownloadTaskId.clear();
+                processNextDownloadTask();
+                return;
+            }
+            
+            const QString currentStatus = m_downloadTasks[taskIndex].value("status").toString();
+            
+            if (currentStatus == "paused") {
+                m_speedUpdateTimer->stop();
+                m_taskUpdateTimer->stop();
+                if (m_downloadTasksDirty) {
+                    m_downloadTasksDirty = false;
+                    emit downloadTasksChanged();
+                }
+                updateDownloadTask(taskId, [](QVariantMap& task) {
+                    task["speed"] = 0;
+                });
+                m_activeDownloadTaskId.clear();
+                m_isDownloading = false;
+                emit downloadingChanged();
+                m_downloadProgress = 0.0;
+                emit downloadProgressChanged();
+                processNextDownloadTask();
+                return;
+            }
+            
+            if (currentStatus == "canceled") {
+                m_speedUpdateTimer->stop();
+                m_taskUpdateTimer->stop();
+                if (m_downloadTasksDirty) {
+                    m_downloadTasksDirty = false;
+                    emit downloadTasksChanged();
+                }
+                const DownloadTaskMeta taskMeta = m_downloadTaskMeta.value(taskId);
+                // Delete .crdownload temp file on cancel
+                if (QFile::exists(taskMeta.tempPath)) {
+                    QFile::remove(taskMeta.tempPath);
+                }
+                m_activeDownloadTaskId.clear();
+                m_isDownloading = false;
+                emit downloadingChanged();
+                m_downloadProgress = 0.0;
+                emit downloadProgressChanged();
+                processNextDownloadTask();
+                return;
+            }
+            
+            if (success) {
+                // Rename .crdownload to final file
+                const DownloadTaskMeta taskMeta = m_downloadTaskMeta.value(taskId);
+                QString finalPath = taskMeta.savePath;
+                
+                // filePath may have been corrected by DownloadManager (extension fix)
+                // In that case the temp file was already renamed by DownloadManager,
+                // so we need to check if the temp-based corrected path exists
+                QString correctedTempPath = filePath; // This is the path after correctFileExtension
+                
+                // If the corrected path is the temp path itself, rename to final
+                if (correctedTempPath.endsWith(".crdownload")) {
+                    // Remove .crdownload suffix to get the actual final path
+                    finalPath = correctedTempPath.left(correctedTempPath.length() - 11);
+                    QFile::remove(finalPath); // Remove existing file if any
+                    QFile::rename(correctedTempPath, finalPath);
+                } else {
+                    // DownloadManager already renamed it (extension correction),
+                    // just use the returned path
+                    finalPath = correctedTempPath;
+                }
+                
+                if (m_downloadTaskMeta.contains(taskId)) {
+                    DownloadTaskMeta updatedMeta = m_downloadTaskMeta.value(taskId);
+                    updatedMeta.savePath = finalPath;
+                    m_downloadTaskMeta.insert(taskId, updatedMeta);
+                }
+                
+                updateDownloadTask(taskId, [finalPath](QVariantMap& task) {
+                    task["status"] = "completed";
+                    task["progress"] = 1.0;
+                    const qint64 fileSize = QFileInfo(finalPath).size();
+                    task["bytesReceived"] = fileSize;
+                    if (task.value("bytesTotal").toLongLong() <= 0) {
+                        task["bytesTotal"] = fileSize;
+                    }
+                    task["savePath"] = finalPath;
+                    task["speed"] = 0;
+                });
+                
+                DownloadedModifierInfo downloadedInfo;
+                downloadedInfo.name = modifier.name;
+                downloadedInfo.version = versionName;
+                downloadedInfo.gameVersion = modifier.gameVersion;
+                downloadedInfo.downloadDate = QDateTime::currentDateTime();
+                downloadedInfo.filePath = filePath;
+                downloadedInfo.url = modifier.url;
+                
+                m_downloadedList.append(downloadedInfo);
+                m_downloadedModifierModel->setModifiers(m_downloadedList);
+                saveDownloadedModifiers();
+                
+                m_downloadProgress = 1.0;
+                emit downloadProgressChanged();
+                emit downloadCompleted(true);
+                emit statusMessage(tr("Download complete: %1").arg(filePath));
+            } else {
+                updateDownloadTask(taskId, [errorMsg](QVariantMap& task) {
+                    task["status"] = "failed";
+                    task["errorMessage"] = errorMsg;
+                });
+                m_downloadProgress = 0.0;
+                emit downloadProgressChanged();
+                emit downloadCompleted(false);
+                emit statusMessage(tr("Download failed: %1").arg(errorMsg));
+            }
+            
+            m_speedUpdateTimer->stop();
+            m_taskUpdateTimer->stop();
+            if (m_downloadTasksDirty) {
+                m_downloadTasksDirty = false;
+                emit downloadTasksChanged();
+            }
+            m_activeDownloadTaskId.clear();
+            m_isDownloading = false;
+            emit downloadingChanged();
+            processNextDownloadTask();
+        },
+        [this, taskId](qint64 bytesReceived, qint64 bytesTotal) {
+            // Always update progress even when bytesTotal is unknown
+            qreal progress;
+            if (bytesTotal > 0) {
+                progress = qBound<qreal>(0.0, static_cast<qreal>(bytesReceived) / bytesTotal, 1.0);
+            } else {
+                progress = -1.0; // Indeterminate: total size unknown
+            }
+            
+            updateDownloadTaskDeferred(taskId, [progress, bytesReceived, bytesTotal](QVariantMap& task) {
+                task["progress"] = progress;
+                task["bytesReceived"] = bytesReceived;
+                if (bytesTotal > 0) {
+                    task["bytesTotal"] = bytesTotal;
+                }
+            });
+            
+            if (taskId == m_activeDownloadTaskId) {
+                m_downloadProgress = (progress >= 0) ? progress : 0.0;
+                emit downloadProgressChanged();
+            }
+        },
+        resumeFrom,
+        true
+    );
+}
+
+int Backend::findDownloadTaskIndex(const QString& taskId) const
+{
+    for (int i = 0; i < m_downloadTasks.size(); ++i) {
+        if (m_downloadTasks[i].value("taskId").toString() == taskId) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+void Backend::updateDownloadTask(const QString& taskId, const std::function<void(QVariantMap&)>& updater)
+{
+    const int index = findDownloadTaskIndex(taskId);
+    if (index < 0) {
+        return;
+    }
+    
+    QVariantMap task = m_downloadTasks[index];
+    updater(task);
+    m_downloadTasks[index] = task;
+    emit downloadTasksChanged();
+}
+
+void Backend::updateDownloadTaskDeferred(const QString& taskId, const std::function<void(QVariantMap&)>& updater)
+{
+    const int index = findDownloadTaskIndex(taskId);
+    if (index < 0) {
+        return;
+    }
+    
+    QVariantMap task = m_downloadTasks[index];
+    updater(task);
+    m_downloadTasks[index] = task;
+    m_downloadTasksDirty = true;  // Will be flushed by m_taskUpdateTimer
 }
 
 quint64 Backend::beginSearchRequest()
@@ -453,6 +875,7 @@ void Backend::loadDownloadedModifiers()
         list.append(info);
     }
     
+    m_downloadedList = list;
     m_downloadedModifierModel->setModifiers(list);
 }
 

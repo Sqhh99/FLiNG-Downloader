@@ -59,7 +59,9 @@ public:
                          const QString& version, 
                          const QString& savePath,
                          ModifierDownloadFinishedCallback callback,
-                         DLProgressCallback progressCallback);
+                         DLProgressCallback progressCallback,
+                         qint64 resumeFrom = 0,
+                         bool keepPartialOnAbort = false);
     
     // Downloaded modifier management
     QList<DownloadedModifierInfo> getDownloadedModifiers() const;
