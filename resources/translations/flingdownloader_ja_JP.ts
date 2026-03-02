@@ -217,7 +217,7 @@
         <translation type="obsolete">ダウンロード</translation>
     </message>
     <message>
-        <location filename="../../qml/components/DetailDrawer.qml" line="311"/>
+        <location filename="../../qml/components/DetailDrawer.qml" line="296"/>
         <source>修改器选项</source>
         <translation type="unfinished"></translation>
     </message>
