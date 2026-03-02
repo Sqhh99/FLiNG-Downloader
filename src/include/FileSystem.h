@@ -125,6 +125,36 @@ public:
         ensureDirectoryExists(appDataPath);
         return appDataPath;
     }
+
+    /**
+     * @brief Get application configuration directory
+     * @return Path to the application configuration directory
+     */
+    QString getConfigDirectory() {
+        QString configPath = QDir(getAppDataDirectory()).filePath("config");
+        ensureDirectoryExists(configPath);
+        return configPath;
+    }
+
+    /**
+     * @brief Get application data directory for persistent business data
+     * @return Path to the application data subdirectory
+     */
+    QString getDataDirectory() {
+        QString dataPath = QDir(getAppDataDirectory()).filePath("data");
+        ensureDirectoryExists(dataPath);
+        return dataPath;
+    }
+
+    /**
+     * @brief Get application cache root directory
+     * @return Path to the application cache directory
+     */
+    QString getCacheDirectory() {
+        QString cachePath = QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
+        ensureDirectoryExists(cachePath);
+        return cachePath;
+    }
     
     /**
      * @brief Get temporary directory
@@ -179,4 +209,4 @@ private:
     // Disable copy constructor and assignment operator
     FileSystem(const FileSystem&) = delete;
     FileSystem& operator=(const FileSystem&) = delete;
-}; 
+};

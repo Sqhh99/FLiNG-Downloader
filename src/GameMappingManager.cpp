@@ -5,13 +5,12 @@
 #include <QJsonArray>
 #include <QFile>
 #include <QDir>
-#include <QStandardPaths>
-#include <QCoreApplication>
 #include <QDebug>
 #include <QMutexLocker>
 #include <QTimer>
 #include <QtConcurrent>
 #include <QFuture>
+#include "FileSystem.h"
 
 GameMappingManager& GameMappingManager::getInstance()
 {
@@ -444,14 +443,14 @@ double GameMappingManager::calculateSimilarity(const QString& str1, const QStrin
 
 QString GameMappingManager::getUserMappingPath() const
 {
-    QString appDataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-    return QDir(appDataPath).filePath("user_game_mappings.json");
+    QString dataPath = FileSystem::getInstance().getDataDirectory();
+    return QDir(dataPath).filePath("user_game_mappings.json");
 }
 
 QString GameMappingManager::getTranslationCachePath() const
 {
-    QString appDataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-    return QDir(appDataPath).filePath("translation_cache.json");
+    QString dataPath = FileSystem::getInstance().getDataDirectory();
+    return QDir(dataPath).filePath("translation_cache.json");
 }
 
 QString GameMappingManager::getBuiltinMappingPath() const

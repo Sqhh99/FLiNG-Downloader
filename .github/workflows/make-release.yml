@@ -1,0 +1,169 @@
+name: Make Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (without v), optional for manual runs"
+        required: false
+        type: string
+
+env:
+  QT_VERSION: "6.9.0"
+  DIST_DIR: "dist/FLiNG Downloader"
+  INSTALLER_DIR: "dist/installer"
+
+jobs:
+  make-release-windows:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: windows
+          target: desktop
+          arch: win64_msvc2022_64
+          modules: qtnetworkauth
+          cache: true
+
+      - name: Update vcpkg
+        shell: pwsh
+        run: |
+          cd $env:VCPKG_INSTALLATION_ROOT
+          git pull
+
+      - name: Install build and packaging tools
+        shell: pwsh
+        run: |
+          choco install ninja --no-progress -y
+          choco install pkgconfiglite --no-progress -y
+          choco install innosetup --no-progress -y
+
+      - name: Resolve version
+        id: version
+        shell: pwsh
+        run: |
+          $version = ""
+          if ("${{ github.ref_type }}" -eq "tag") {
+            $version = "${{ github.ref_name }}"
+            if ($version.StartsWith("v")) {
+              $version = $version.Substring(1)
+            }
+          } elseif ("${{ inputs.version }}" -ne "") {
+            $version = "${{ inputs.version }}"
+          } else {
+            $version = "0.0.0-dev.${{ github.run_number }}"
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          Write-Host "Resolved version: $version"
+
+      - name: Build release binary
+        shell: pwsh
+        run: |
+          $env:VCPKG_ROOT = $env:VCPKG_INSTALLATION_ROOT
+          .\build.cmd release
+        env:
+          PKG_CONFIG: C:\ProgramData\chocolatey\bin\pkg-config.exe
+          VCPKG_PKGCONFIG: C:\ProgramData\chocolatey\bin\pkg-config.exe
+
+      - name: Prepare Qt runtime package
+        id: package
+        shell: pwsh
+        run: |
+          $workspace = $env:GITHUB_WORKSPACE
+          $distDir = Join-Path $workspace $env:DIST_DIR
+          $exePath = Join-Path $workspace "build\ninja-release\FLiNG Downloader.exe"
+          if (!(Test-Path $exePath)) {
+            throw "Executable not found: $exePath"
+          }
+
+          New-Item -ItemType Directory -Force -Path $distDir | Out-Null
+          $distExePath = Join-Path $distDir "FLiNG Downloader.exe"
+          Copy-Item -Path $exePath -Destination $distExePath -Force
+
+          & windeployqt.exe --release --compiler-runtime --no-translations --no-opengl-sw --dir "$distDir" "$distExePath"
+          if ($LASTEXITCODE -ne 0) {
+            throw "windeployqt failed with exit code $LASTEXITCODE"
+          }
+
+          Get-ChildItem -Path $distDir -Recurse -File -Include *.pdb,*.ilk,*.exp,*.lib |
+            Remove-Item -Force -ErrorAction SilentlyContinue
+
+          $portableZip = Join-Path $workspace ("dist\FLiNG-Downloader-v{0}-win-x64-portable.zip" -f "${{ steps.version.outputs.version }}")
+          if (Test-Path $portableZip) {
+            Remove-Item -Force $portableZip
+          }
+          Compress-Archive -Path (Join-Path $distDir "*") -DestinationPath $portableZip -CompressionLevel Optimal
+
+          "portable_zip=$portableZip" >> $env:GITHUB_OUTPUT
+          "dist_dir=$distDir" >> $env:GITHUB_OUTPUT
+
+      - name: Build Inno Setup installer
+        id: installer
+        shell: pwsh
+        run: |
+          $workspace = $env:GITHUB_WORKSPACE
+          $scriptPath = Join-Path $workspace "tools\FLiNG Downloader-Setup.iss"
+          $distDir = "${{ steps.package.outputs.dist_dir }}"
+          $outputDir = Join-Path $workspace $env:INSTALLER_DIR
+          $isccPath = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+
+          if (!(Test-Path $isccPath)) {
+            throw "ISCC not found: $isccPath"
+          }
+
+          New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
+
+          & $isccPath "/DSourceRoot=$workspace" "/DDistDir=$distDir" "/DOutputDir=$outputDir" "/DAppVersion=${{ steps.version.outputs.version }}" "$scriptPath"
+          if ($LASTEXITCODE -ne 0) {
+            throw "ISCC failed with exit code $LASTEXITCODE"
+          }
+
+          $installerFile = Get-ChildItem -Path $outputDir -File -Filter "*.exe" |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+          if ($null -eq $installerFile) {
+            throw "No installer generated in $outputDir"
+          }
+
+          "installer_exe=$($installerFile.FullName)" >> $env:GITHUB_OUTPUT
+
+      - name: Upload portable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FLiNG-Downloader-Windows-x64-portable
+          path: ${{ steps.package.outputs.portable_zip }}
+          if-no-files-found: error
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FLiNG-Downloader-Windows-x64-setup
+          path: ${{ steps.installer.outputs.installer_exe }}
+          if-no-files-found: error
+
+      - name: Upload assets to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ${{ steps.package.outputs.portable_zip }}
+            ${{ steps.installer.outputs.installer_exe }}
+          generate_release_notes: true
