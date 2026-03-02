@@ -162,7 +162,17 @@ private:
     void enrichSearchResultsWithDetails(QList<ModifierInfo>& modifiers,
                                         std::function<void(const QList<ModifierInfo>&)> callback);
 
+    // Parse recently updated modifiers from homepage HTML.
+    QList<ModifierInfo> parseRecentlyUpdatedModifiersFromHtml(const QString& html) const;
+    void fetchRecentlyUpdatedModifiersInternal(int attempt,
+                                               int maxAttempts,
+                                               std::function<void(const QList<ModifierInfo>&)> callback);
+
+    // Read/write startup list cache for network fallback.
+    QList<ModifierInfo> loadRecentModifiersCache() const;
+    void saveRecentModifiersCache(const QList<ModifierInfo>& modifiers) const;
+
 private:
     QStringList m_searchHistory;    // Search history
     int m_maxHistoryItems;          // Maximum history items count
-}; 
+};

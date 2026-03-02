@@ -27,11 +27,13 @@ NetworkManager& NetworkManager::getInstance()
 void NetworkManager::sendGetRequest(const QString& url, NetworkResponseCallback callback, const QString& userAgent)
 {
     QNetworkRequest request((QUrl(url)));
-    
+
     // Set user agent
     QString effectiveUserAgent = userAgent.isEmpty() ? m_globalUserAgent : userAgent;
     request.setHeader(QNetworkRequest::UserAgentHeader, effectiveUserAgent);
-    
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
+
     // Send GET request
     QNetworkReply* reply = m_networkManager->get(request);
     
@@ -256,4 +258,4 @@ void NetworkManager::cancelDownload()
         qDebug() << "Cancelling download";
         m_currentDownloadReply->abort();
     }
-} 
+}

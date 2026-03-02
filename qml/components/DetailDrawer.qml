@@ -27,7 +27,6 @@ Drawer {
     // 信号
     signal versionChanged(int index)
     signal startDownload(int versionIndex)  // 开始下载信号
-    signal closed()
     
     edge: Qt.RightEdge
     width: Math.min(400, parent.width * 0.4)
@@ -46,8 +45,6 @@ Drawer {
             color: ThemeProvider.borderColor
         }
     }
-    
-    onClosed: detailDrawer.closed()
     
     // 加载中遮罩层
     Rectangle {

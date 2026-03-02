@@ -5,12 +5,19 @@
 #include <QDebug>
 #include <QMutex>
 #include <QMutexLocker>
+#include <QMap>
+#include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QSet>
 #include <algorithm>
 #include <memory>
 #include "NetworkManager.h"
 #include "ModifierParser.h"
 #include "ModifierManager.h"
 #include "ConfigManager.h"
+#include "FileSystem.h"
 
 // Constructor
 SearchManager::SearchManager(QObject* parent)
@@ -342,95 +349,236 @@ void SearchManager::loadFeaturedModifiers(std::function<void(const QList<Modifie
     );
 }
 
-// Fetch recently updated modifiers from flingtrainer.com homepage
+// Fetch recently updated modifiers from flingtrainer.com homepage.
+// Uses retries + local cache fallback to avoid empty startup list from transient network errors.
 void SearchManager::fetchRecentlyUpdatedModifiers(std::function<void(const QList<ModifierInfo>&)> callback)
 {
-    QString url = "https://flingtrainer.com/";
-    
+    const int maxAttempts = 3;
+    fetchRecentlyUpdatedModifiersInternal(1, maxAttempts, callback);
+}
+
+void SearchManager::fetchRecentlyUpdatedModifiersInternal(
+    int attempt,
+    int maxAttempts,
+    std::function<void(const QList<ModifierInfo>&)> callback)
+{
+    const QString url = "https://flingtrainer.com/";
     NetworkManager::getInstance().sendGetRequest(
         url,
-        [this, callback](const QByteArray& data, bool success) {
+        [this, callback, attempt, maxAttempts](const QByteArray& data, bool success) {
             QList<ModifierInfo> modifierList;
-            
+            bool fromNetwork = false;
+
             if (success) {
-                QString htmlQt = QString::fromUtf8(data);
-                
-                // Find Recently Updated section
-                int recentlyUpdatedStart = htmlQt.indexOf("<div class=\"page-title group\">");
-                if (recentlyUpdatedStart != -1) {
-                    // Match each article block
-                    QRegularExpression articleRegex("<article[^>]*class=\"[^\"]*post-standard[^\"]*\"[^>]*>(.*?)</article>", 
-                                                 QRegularExpression::DotMatchesEverythingOption);
-                    QRegularExpressionMatchIterator matches = articleRegex.globalMatch(htmlQt, recentlyUpdatedStart);
-                    
-                    while (matches.hasNext()) {
-                        QRegularExpressionMatch match = matches.next();
-                        QString articleHtml = match.captured(1);
-                        
-                        ModifierInfo modifier;
-                        
-                        // Extract title and URL
-                        QRegularExpression titleRegex("<h2[^>]*class=\"post-title\"[^>]*>\\s*<a[^>]*href=\"([^\"]*)\"[^>]*>([^<]+)</a>", 
-                                                   QRegularExpression::DotMatchesEverythingOption);
-                        QRegularExpressionMatch titleMatch = titleRegex.match(articleHtml);
-                        
-                        if (titleMatch.hasMatch()) {
-                            modifier.url = titleMatch.captured(1);
-                            QString title = titleMatch.captured(2).trimmed();
-                            modifier.name = title.replace(QRegularExpression("\\s+Trainer\\s*$", QRegularExpression::CaseInsensitiveOption), "");
-                            
-                            // Extract date
-                            QRegularExpression dateRegex("<div class=\"post-details-day\">(\\d+)</div>\\s*<div class=\"post-details-month\">([^<]+)</div>\\s*<div class=\"post-details-year\">(\\d+)</div>", 
-                                                      QRegularExpression::DotMatchesEverythingOption);
-                            QRegularExpressionMatch dateMatch = dateRegex.match(articleHtml);
-                            
-                            if (dateMatch.hasMatch()) {
-                                QString day = dateMatch.captured(1);
-                                QString month = dateMatch.captured(2);
-                                QString year = dateMatch.captured(3);
-                                
-                                static QMap<QString, QString> monthMap = {
-                                    {"Jan", "01"}, {"Feb", "02"}, {"Mar", "03"}, {"Apr", "04"},
-                                    {"May", "05"}, {"Jun", "06"}, {"Jul", "07"}, {"Aug", "08"},
-                                    {"Sep", "09"}, {"Oct", "10"}, {"Nov", "11"}, {"Dec", "12"}
-                                };
-                                
-                                QString monthNum = monthMap.value(month, "01");
-                                modifier.lastUpdate = QString("%1-%2-%3").arg(year, monthNum, day.rightJustified(2, '0'));
-                            }
-                            
-                            // Extract options count
-                            QRegularExpression optionsRegex("(\\d+)\\s*Options", QRegularExpression::CaseInsensitiveOption);
-                            QRegularExpressionMatch optionsMatch = optionsRegex.match(articleHtml);
-                            modifier.optionsCount = optionsMatch.hasMatch() ? optionsMatch.captured(1).toInt() : 0;
-                            
-                            // Extract game version
-                            QRegularExpression versionRegex("Game Version:\\s*([^·<]+)", QRegularExpression::CaseInsensitiveOption);
-                            QRegularExpressionMatch versionMatch = versionRegex.match(articleHtml);
-                            
-                            if (versionMatch.hasMatch()) {
-                                modifier.gameVersion = versionMatch.captured(1).trimmed();
-                            } else {
-                                versionRegex = QRegularExpression("v([0-9\\.]+)\\+?", QRegularExpression::CaseInsensitiveOption);
-                                versionMatch = versionRegex.match(articleHtml);
-                                modifier.gameVersion = versionMatch.hasMatch() ? "v" + versionMatch.captured(1) + "+" : "Latest";
-                            }
-                            
-                            modifierList.append(modifier);
-                        }
-                    }
+                modifierList = parseRecentlyUpdatedModifiersFromHtml(QString::fromUtf8(data));
+                if (!modifierList.isEmpty()) {
+                    fromNetwork = true;
+                    saveRecentModifiersCache(modifierList);
+                } else {
+                    qWarning() << "SearchManager: Empty recently updated parse result";
                 }
             } else {
                 qWarning() << "SearchManager: Failed to fetch recently updated modifiers";
             }
-            
+
+            if (modifierList.isEmpty() && attempt < maxAttempts) {
+                qWarning() << "SearchManager: Retrying recently updated fetch, attempt"
+                           << (attempt + 1) << "of" << maxAttempts;
+                fetchRecentlyUpdatedModifiersInternal(attempt + 1, maxAttempts, callback);
+                return;
+            }
+
+            if (modifierList.isEmpty()) {
+                modifierList = loadRecentModifiersCache();
+                if (!modifierList.isEmpty()) {
+                    qWarning() << "SearchManager: Using cached recently updated list";
+                }
+            }
+
+            if (!fromNetwork && modifierList.isEmpty()) {
+                qWarning() << "SearchManager: Recently updated list unavailable after retries and cache fallback";
+            }
+
             updateModifierManagerList(modifierList);
-            
+
             if (callback) {
                 callback(modifierList);
             }
         }
     );
+}
+
+QList<ModifierInfo> SearchManager::parseRecentlyUpdatedModifiersFromHtml(const QString& html) const
+{
+    QList<ModifierInfo> modifierList;
+    QSet<QString> seenUrls;
+
+    QRegularExpression articleRegex(
+        "<article[^>]*class=\"[^\"]*post-standard[^\"]*\"[^>]*>(.*?)</article>",
+        QRegularExpression::DotMatchesEverythingOption | QRegularExpression::CaseInsensitiveOption);
+    QRegularExpressionMatchIterator matches = articleRegex.globalMatch(html);
+
+    while (matches.hasNext()) {
+        QRegularExpressionMatch match = matches.next();
+        const QString articleHtml = match.captured(1);
+
+        QRegularExpression titleRegex(
+            "<h[123][^>]*class=\"[^\"]*post-title[^\"]*\"[^>]*>\\s*<a[^>]*href=\"([^\"]*)\"[^>]*>([^<]+)</a>",
+            QRegularExpression::DotMatchesEverythingOption | QRegularExpression::CaseInsensitiveOption);
+        QRegularExpressionMatch titleMatch = titleRegex.match(articleHtml);
+
+        if (!titleMatch.hasMatch()) {
+            continue;
+        }
+
+        const QString url = titleMatch.captured(1).trimmed();
+        if (url.isEmpty() || seenUrls.contains(url)) {
+            continue;
+        }
+        seenUrls.insert(url);
+
+        ModifierInfo modifier;
+        modifier.url = url;
+        modifier.name = ModifierInfoManager::getInstance().formatModifierName(titleMatch.captured(2).trimmed());
+
+        QRegularExpression dateRegex(
+            "<div class=\"post-details-day\">(\\d+)</div>\\s*<div class=\"post-details-month\">([^<]+)</div>\\s*<div class=\"post-details-year\">(\\d+)</div>",
+            QRegularExpression::DotMatchesEverythingOption | QRegularExpression::CaseInsensitiveOption);
+        QRegularExpressionMatch dateMatch = dateRegex.match(articleHtml);
+
+        if (dateMatch.hasMatch()) {
+            const QString day = dateMatch.captured(1).rightJustified(2, '0');
+            QString month = dateMatch.captured(2).trimmed().toLower();
+            if (month.length() >= 3) {
+                month = month.left(3);
+            }
+            const QString year = dateMatch.captured(3).trimmed();
+
+            static const QMap<QString, QString> monthMap = {
+                {"jan", "01"}, {"feb", "02"}, {"mar", "03"}, {"apr", "04"},
+                {"may", "05"}, {"jun", "06"}, {"jul", "07"}, {"aug", "08"},
+                {"sep", "09"}, {"oct", "10"}, {"nov", "11"}, {"dec", "12"}
+            };
+
+            modifier.lastUpdate = QString("%1-%2-%3").arg(year, monthMap.value(month, "01"), day);
+        }
+
+        QRegularExpression optionsRegex("(\\d+)\\s*Options", QRegularExpression::CaseInsensitiveOption);
+        QRegularExpressionMatch optionsMatch = optionsRegex.match(articleHtml);
+        modifier.optionsCount = optionsMatch.hasMatch() ? optionsMatch.captured(1).toInt() : 0;
+
+        QRegularExpression versionRegex("Game Version:\\s*([^·<]+)", QRegularExpression::CaseInsensitiveOption);
+        QRegularExpressionMatch versionMatch = versionRegex.match(articleHtml);
+        if (versionMatch.hasMatch()) {
+            modifier.gameVersion = versionMatch.captured(1).trimmed();
+        } else {
+            versionRegex = QRegularExpression("v([0-9\\.]+)\\+?", QRegularExpression::CaseInsensitiveOption);
+            versionMatch = versionRegex.match(articleHtml);
+            modifier.gameVersion = versionMatch.hasMatch() ? "v" + versionMatch.captured(1) + "+" : "Latest";
+        }
+
+        modifierList.append(modifier);
+    }
+
+    // If page structure changed, fall back to generic parser to keep startup list usable.
+    if (modifierList.isEmpty()) {
+        QList<ModifierInfo> fallbackList = ModifierParser::parseModifierListHTML(html.toStdString(), "");
+        for (ModifierInfo& modifier : fallbackList) {
+            if (modifier.url.isEmpty() || seenUrls.contains(modifier.url)) {
+                continue;
+            }
+            seenUrls.insert(modifier.url);
+            modifier.name = ModifierInfoManager::getInstance().formatModifierName(modifier.name);
+            modifierList.append(modifier);
+            if (modifierList.size() >= 30) {
+                break;
+            }
+        }
+    }
+
+    return modifierList;
+}
+
+QList<ModifierInfo> SearchManager::loadRecentModifiersCache() const
+{
+    QList<ModifierInfo> cachedList;
+    const QString cachePath = FileSystem::getInstance().getDataDirectory() + "/recent_modifiers_cache.json";
+    QFile file(cachePath);
+
+    if (!file.open(QIODevice::ReadOnly)) {
+        return cachedList;
+    }
+
+    const QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+    file.close();
+
+    if (!doc.isArray()) {
+        return cachedList;
+    }
+
+    const QJsonArray array = doc.array();
+    for (const QJsonValue& value : array) {
+        if (!value.isObject()) {
+            continue;
+        }
+
+        const QJsonObject obj = value.toObject();
+        ModifierInfo modifier;
+        modifier.name = obj.value("name").toString();
+        modifier.url = obj.value("url").toString();
+        modifier.lastUpdate = obj.value("lastUpdate").toString();
+        modifier.gameVersion = obj.value("gameVersion").toString();
+        modifier.optionsCount = obj.value("optionsCount").toInt(0);
+        modifier.screenshotUrl = obj.value("screenshotUrl").toString();
+
+        if (!modifier.name.isEmpty() && !modifier.url.isEmpty()) {
+            cachedList.append(modifier);
+        }
+    }
+
+    return cachedList;
+}
+
+void SearchManager::saveRecentModifiersCache(const QList<ModifierInfo>& modifiers) const
+{
+    if (modifiers.isEmpty()) {
+        return;
+    }
+
+    QJsonArray array;
+    const int maxCachedItems = 80;
+    int count = 0;
+
+    for (const ModifierInfo& modifier : modifiers) {
+        if (modifier.name.isEmpty() || modifier.url.isEmpty()) {
+            continue;
+        }
+
+        QJsonObject obj;
+        obj["name"] = modifier.name;
+        obj["url"] = modifier.url;
+        obj["lastUpdate"] = modifier.lastUpdate;
+        obj["gameVersion"] = modifier.gameVersion;
+        obj["optionsCount"] = modifier.optionsCount;
+        obj["screenshotUrl"] = modifier.screenshotUrl;
+        array.append(obj);
+
+        count++;
+        if (count >= maxCachedItems) {
+            break;
+        }
+    }
+
+    const QString cachePath = FileSystem::getInstance().getDataDirectory() + "/recent_modifiers_cache.json";
+    QFile file(cachePath);
+
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        qWarning() << "SearchManager: Failed to save recent modifiers cache:" << cachePath;
+        return;
+    }
+
+    file.write(QJsonDocument(array).toJson(QJsonDocument::Indented));
+    file.close();
 }
 
 // Enrich search results with data from detail pages
