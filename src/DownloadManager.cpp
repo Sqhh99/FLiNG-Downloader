@@ -47,7 +47,13 @@ void DownloadManager::downloadFile(const QString& url,
             m_isDownloading = false;
             
             if (success) {
-                QString correctedPath = correctFileExtension(savePath);
+                // Skip extension correction for .crdownload temp files;
+                // the caller (Backend) handles rename + correction after
+                // moving the temp file to its final path.
+                QString correctedPath = savePath;
+                if (!savePath.endsWith(QLatin1String(".crdownload"))) {
+                    correctedPath = correctFileExtension(savePath);
+                }
                 bool pathChanged = (correctedPath != savePath);
                 
                 if (completedCallback) {

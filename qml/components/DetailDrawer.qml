@@ -245,28 +245,13 @@ Drawer {
                 width: parent.width
                 spacing: ThemeProvider.spacingSmall
                 
-                ComboBox {
+                StyledComboBox {
                     id: versionComboBox
                     Layout.fillWidth: true
                     enabled: versions.length > 0
                     model: versions.length > 0 ? versions.map(function(v) { return v.name || v; }) : [qsTr("加载中...")]
                     currentIndex: selectedVersionIndex
                     onCurrentIndexChanged: versionChanged(currentIndex)
-                    
-                    background: Rectangle {
-                        color: ThemeProvider.inputBackground
-                        border.color: parent.hovered ? ThemeProvider.primaryColor : ThemeProvider.borderColor
-                        radius: ThemeProvider.radiusSmall
-                    }
-                    
-                    contentItem: Text {
-                        leftPadding: 10
-                        text: parent.displayText
-                        font.pixelSize: ThemeProvider.fontSizeMedium
-                        color: versions.length > 0 ? ThemeProvider.textPrimary : ThemeProvider.textDisabled
-                        verticalAlignment: Text.AlignVCenter
-                        elide: Text.ElideMiddle
-                    }
                 }
                 
                 // 下载按钮 - 仅图标
