@@ -96,7 +96,7 @@ set(PROJECT_RC_FILES
 )
 
 add_executable(${PROJECT_NAME}
-    # WIN32
+    WIN32
     ${PROJECT_SOURCES}
     ${PROJECT_HEADERS}
     ${PROJECT_RC_FILES}
@@ -215,6 +215,39 @@ qt_add_qml_module(${PROJECT_NAME}
         resources/game_mappings.json
         resources/translations/flingdownloader_en_US.qm
         resources/translations/flingdownloader_ja_JP.qm
+)
+
+set(LAUNCHER_TARGET "FLiNGLauncher")
+add_executable(${LAUNCHER_TARGET}
+    WIN32
+    src/launcher/main.cpp
+    ${PROJECT_RC_FILES}
+)
+
+set_target_properties(${LAUNCHER_TARGET} PROPERTIES OUTPUT_NAME "FLiNG Launcher")
+
+if(MSVC)
+    set_property(TARGET ${LAUNCHER_TARGET} PROPERTY
+        # Keep launcher self-contained on clean Windows hosts.
+        # Main app remains /MD for Qt compatibility, launcher can safely use /MT.
+        MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
+    )
+    target_compile_options(${LAUNCHER_TARGET} PRIVATE
+        $<$<CONFIG:Release>:/GL>
+        /GS
+        /guard:cf
+    )
+    target_link_options(${LAUNCHER_TARGET} PRIVATE
+        /INCREMENTAL:NO
+        $<$<CONFIG:Release>:/LTCG>
+        /DYNAMICBASE
+        /NXCOMPAT
+        /LARGEADDRESSAWARE
+    )
+endif()
+
+target_link_libraries(${LAUNCHER_TARGET} PRIVATE
+    shell32.lib
 )
 
 # install(TARGETS ${PROJECT_NAME}
