@@ -1,8 +1,12 @@
 #include "ConfigManager.h"
 #include <QDir>
 #include <QDebug>
+#include <QFile>
+#include <QFileInfo>
 
 namespace {
+constexpr const char* kLegacySettingsMigratedFlag = "meta/legacySettingsMigrated";
+constexpr const char* kLegacyDataMigratedFlag = "meta/legacyDataMigrated";
 constexpr const char* kDefaultUserAgent =
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
@@ -13,6 +17,8 @@ ConfigManager::ConfigManager()
 {
     const QString path = settingsFilePath();
     m_settings = new QSettings(path, QSettings::IniFormat);
+    migrateLegacySettingsIfNeeded();
+    migrateLegacyDataFilesIfNeeded();
     qDebug() << "Config file path:" << m_settings->fileName();
 }
 
@@ -145,6 +151,94 @@ void ConfigManager::setCurrentLanguage(Language language)
 void ConfigManager::resetToDefaults()
 {
     m_settings->clear();
+    // Avoid importing legacy settings/data again after a user-initiated reset.
+    m_settings->setValue(kLegacySettingsMigratedFlag, true);
+    m_settings->setValue(kLegacyDataMigratedFlag, true);
     m_settings->sync();
     qDebug() << "Settings reset to defaults";
+}
+
+void ConfigManager::migrateLegacySettingsIfNeeded()
+{
+    if (m_settings->value(kLegacySettingsMigratedFlag, false).toBool()) {
+        return;
+    }
+
+    QSettings legacySettings("FLiNG Downloader", "Settings");
+    const bool migrated = copyMissingSettings(legacySettings, *m_settings);
+
+    m_settings->setValue(kLegacySettingsMigratedFlag, true);
+    m_settings->sync();
+
+    if (migrated) {
+        qDebug() << "Legacy registry settings migrated to:" << m_settings->fileName();
+    }
+}
+
+void ConfigManager::migrateLegacyDataFilesIfNeeded()
+{
+    if (m_settings->value(kLegacyDataMigratedFlag, false).toBool()) {
+        return;
+    }
+
+    const QString sourceDir = FileSystem::getInstance().getAppDataDirectory();
+    const QString targetDir = FileSystem::getInstance().getDataDirectory();
+    const QStringList filesToMigrate = {
+        "downloaded_modifiers.json",
+        "downloaded_modifiers.ini",
+        "user_game_mappings.json",
+        "translation_cache.json"
+    };
+
+    bool migratedAny = false;
+    for (const QString& fileName : filesToMigrate) {
+        migratedAny = migrateDataFileIfNeeded(fileName, sourceDir, targetDir) || migratedAny;
+    }
+
+    m_settings->setValue(kLegacyDataMigratedFlag, true);
+    m_settings->sync();
+
+    if (migratedAny) {
+        qDebug() << "Legacy data files migrated to:" << targetDir;
+    }
+}
+
+bool ConfigManager::copyMissingSettings(QSettings& source, QSettings& target)
+{
+    bool migrated = false;
+    const QStringList sourceKeys = source.allKeys();
+    for (const QString& key : sourceKeys) {
+        if (key.startsWith("meta/")) {
+            continue;
+        }
+        if (!target.contains(key)) {
+            target.setValue(key, source.value(key));
+            migrated = true;
+        }
+    }
+    return migrated;
+}
+
+bool ConfigManager::migrateDataFileIfNeeded(const QString& fileName,
+                                            const QString& sourceDir,
+                                            const QString& targetDir)
+{
+    const QString sourcePath = QDir(sourceDir).filePath(fileName);
+    const QString targetPath = QDir(targetDir).filePath(fileName);
+
+    if (!QFileInfo::exists(sourcePath) || QFileInfo::exists(targetPath)) {
+        return false;
+    }
+
+    if (QFile::rename(sourcePath, targetPath)) {
+        return true;
+    }
+
+    if (QFile::copy(sourcePath, targetPath)) {
+        QFile::remove(sourcePath);
+        return true;
+    }
+
+    qWarning() << "Failed to migrate legacy data file:" << sourcePath << "->" << targetPath;
+    return false;
 }

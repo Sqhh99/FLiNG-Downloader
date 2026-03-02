@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QString>
+#include <QStringList>
 #include <QSettings>
 #include "FileSystem.h"
 
@@ -111,6 +112,11 @@ private:
     // Disable copy constructor and assignment operator
     ConfigManager(const ConfigManager&) = delete;
     ConfigManager& operator=(const ConfigManager&) = delete;
+
+    void migrateLegacySettingsIfNeeded();
+    void migrateLegacyDataFilesIfNeeded();
+    bool copyMissingSettings(QSettings& source, QSettings& target);
+    bool migrateDataFileIfNeeded(const QString& fileName, const QString& sourceDir, const QString& targetDir);
 
     // Settings object
     QSettings* m_settings;
