@@ -15,6 +15,7 @@ env:
   QT_VERSION: "6.9.0"
   DIST_DIR: "dist/FLiNG Downloader"
   INSTALLER_DIR: "dist/installer"
+  APP_SUBDIR: "app"
 
 jobs:
   make-release-windows:
@@ -89,22 +90,66 @@ jobs:
         run: |
           $workspace = $env:GITHUB_WORKSPACE
           $distDir = Join-Path $workspace $env:DIST_DIR
+          $appDir = Join-Path $distDir $env:APP_SUBDIR
           $exePath = Join-Path $workspace "build\ninja-release\FLiNG Downloader.exe"
+          $launcherPath = Join-Path $workspace "build\ninja-release\FLiNG Launcher.exe"
           $qmlSourceDir = Join-Path $workspace "qml"
+
           if (!(Test-Path $exePath)) {
             throw "Executable not found: $exePath"
+          }
+          if (!(Test-Path $launcherPath)) {
+            throw "Launcher executable not found: $launcherPath"
           }
           if (!(Test-Path $qmlSourceDir)) {
             throw "QML source dir not found: $qmlSourceDir"
           }
 
           New-Item -ItemType Directory -Force -Path $distDir | Out-Null
-          $distExePath = Join-Path $distDir "FLiNG Downloader.exe"
-          Copy-Item -Path $exePath -Destination $distExePath -Force
+          New-Item -ItemType Directory -Force -Path $appDir | Out-Null
 
-          & windeployqt.exe --release --compiler-runtime --no-translations --no-opengl-sw --qmldir "$qmlSourceDir" --dir "$distDir" "$distExePath"
+          $rootLauncherPath = Join-Path $distDir "FLiNG Downloader.exe"
+          $appExePath = Join-Path $appDir "FLiNG Downloader.exe"
+
+          Copy-Item -Path $launcherPath -Destination $rootLauncherPath -Force
+          Copy-Item -Path $exePath -Destination $appExePath -Force
+
+          & windeployqt.exe --release --compiler-runtime --no-translations --no-opengl-sw --qmldir "$qmlSourceDir" --dir "$appDir" "$appExePath"
           if ($LASTEXITCODE -ne 0) {
             throw "windeployqt failed with exit code $LASTEXITCODE"
+          }
+
+          $sizeBeforeBytes = (Get-ChildItem -Path $distDir -Recurse -File | Measure-Object -Property Length -Sum).Sum
+
+          $qtConfPath = Join-Path $appDir "qt.conf"
+          @(
+            "[Paths]",
+            "Prefix=.",
+            "Plugins=plugins",
+            "Qml2Imports=qml",
+            "Imports=qml"
+          ) | Set-Content -Path $qtConfPath -Encoding Ascii
+
+          $prunePluginDirs = @(
+            "plugins\generic",
+            "plugins\networkinformation",
+            "plugins\sceneparsers",
+            "plugins\assetimporters",
+            "plugins\geometryloaders",
+            "plugins\renderers"
+          )
+          foreach ($relativeDir in $prunePluginDirs) {
+            $fullDir = Join-Path $appDir $relativeDir
+            if (Test-Path $fullDir) {
+              Remove-Item -Path $fullDir -Recurse -Force
+            }
+          }
+
+          $imageFormatsDir = Join-Path $appDir "plugins\imageformats"
+          if (Test-Path $imageFormatsDir) {
+            Get-ChildItem -Path $imageFormatsDir -File -Filter "*.dll" | Where-Object {
+              $_.Name -notin @("qjpeg.dll", "qpng.dll", "qico.dll", "qgif.dll")
+            } | Remove-Item -Force
           }
 
           $requiredQmlModules = @(
@@ -114,16 +159,73 @@ jobs:
             "qml\QtQuick\Controls\Basic\qmldir"
           )
           foreach ($relativePath in $requiredQmlModules) {
-            $modulePath = Join-Path $distDir $relativePath
+            $modulePath = Join-Path $appDir $relativePath
             if (!(Test-Path $modulePath)) {
               throw "Missing deployed QML module: $modulePath"
             }
           }
 
-          Get-ChildItem -Path $distDir -Recurse -File -Include *.pdb,*.ilk,*.exp,*.lib |
+          $requiredRuntimeFiles = @(
+            "Qt6Core.dll",
+            "Qt6Qml.dll",
+            "Qt6Quick.dll",
+            "plugins\platforms\qwindows.dll"
+          )
+          foreach ($relativePath in $requiredRuntimeFiles) {
+            $runtimePath = Join-Path $appDir $relativePath
+            if (!(Test-Path $runtimePath)) {
+              throw "Missing deployed runtime file: $runtimePath"
+            }
+          }
+
+          if (!(Test-Path $rootLauncherPath)) {
+            throw "Root launcher missing after packaging: $rootLauncherPath"
+          }
+
+          Get-ChildItem -Path $distDir -Recurse -File -Include *.pdb,*.ilk,*.exp,*.lib,*.ipdb,*.iobj |
             Remove-Item -Force -ErrorAction SilentlyContinue
 
+          $sizeAfterBytes = (Get-ChildItem -Path $distDir -Recurse -File | Measure-Object -Property Length -Sum).Sum
+          if ($null -eq $sizeBeforeBytes) { $sizeBeforeBytes = 0 }
+          if ($null -eq $sizeAfterBytes) { $sizeAfterBytes = 0 }
+
+          $sizeBeforeMB = [Math]::Round($sizeBeforeBytes / 1MB, 2)
+          $sizeAfterMB = [Math]::Round($sizeAfterBytes / 1MB, 2)
+          $sizeSavedMB = [Math]::Round(($sizeBeforeBytes - $sizeAfterBytes) / 1MB, 2)
+
           "dist_dir=$distDir" >> $env:GITHUB_OUTPUT
+          "size_before_mb=$sizeBeforeMB" >> $env:GITHUB_OUTPUT
+          "size_after_mb=$sizeAfterMB" >> $env:GITHUB_OUTPUT
+          "size_saved_mb=$sizeSavedMB" >> $env:GITHUB_OUTPUT
+
+      - name: Smoke test packaged app startup
+        shell: pwsh
+        run: |
+          $launcherExe = Join-Path "${{ steps.package.outputs.dist_dir }}" "FLiNG Downloader.exe"
+          if (!(Test-Path $launcherExe)) {
+            throw "Packaged launcher not found: $launcherExe"
+          }
+
+          $proc = Start-Process -FilePath $launcherExe -PassThru
+          Start-Sleep -Seconds 8
+
+          if ($proc.HasExited) {
+            if ($proc.ExitCode -ne 0) {
+              throw "Smoke test failed: process exited early with code $($proc.ExitCode)"
+            }
+          } else {
+            Stop-Process -Id $proc.Id -Force
+          }
+
+      - name: Publish packaging size report
+        shell: pwsh
+        run: |
+          @"
+          ### Packaging Size Report
+          - Before prune: ${{ steps.package.outputs.size_before_mb }} MB
+          - After prune: ${{ steps.package.outputs.size_after_mb }} MB
+          - Saved: ${{ steps.package.outputs.size_saved_mb }} MB
+          "@ | Add-Content -Path $env:GITHUB_STEP_SUMMARY
 
       - name: Create portable release zip
         id: portable
@@ -132,12 +234,21 @@ jobs:
         run: |
           $workspace = $env:GITHUB_WORKSPACE
           $distDir = "${{ steps.package.outputs.dist_dir }}"
+          $distRootDir = Split-Path -Parent $distDir
+          $distTopFolder = Split-Path -Leaf $distDir
           $portableZip = Join-Path $workspace ("dist\FLiNG-Downloader-v{0}-win-x64-portable.zip" -f "${{ steps.version.outputs.version }}")
 
           if (Test-Path $portableZip) {
             Remove-Item -Force $portableZip
           }
-          Compress-Archive -Path (Join-Path $distDir "*") -DestinationPath $portableZip -CompressionLevel Optimal
+
+          Push-Location $distRootDir
+          try {
+            Compress-Archive -Path $distTopFolder -DestinationPath $portableZip -CompressionLevel Optimal
+          } finally {
+            Pop-Location
+          }
+
           "portable_zip=$portableZip" >> $env:GITHUB_OUTPUT
 
       - name: Build Inno Setup installer
