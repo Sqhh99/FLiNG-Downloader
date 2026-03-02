@@ -212,6 +212,7 @@ qt_add_qml_module(${PROJECT_NAME}
         resources/icons/about.png
         resources/icons/language.png
         resources/icons/pause.png
+        resources/icons/step-forward.png
         resources/game_mappings.json
         resources/translations/flingdownloader_en_US.qm
         resources/translations/flingdownloader_ja_JP.qm

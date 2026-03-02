@@ -12,7 +12,9 @@ DownloadManager::DownloadManager(QObject* parent)
 void DownloadManager::downloadFile(const QString& url, 
                                   const QString& savePath,
                                   DLProgressCallback progressCallback,
-                                  DLCompletedCallback completedCallback)
+                                  DLCompletedCallback completedCallback,
+                                  qint64 resumeFrom,
+                                  bool keepPartialOnAbort)
 {
     if (m_isDownloading) {
         if (completedCallback) {
@@ -36,14 +38,12 @@ void DownloadManager::downloadFile(const QString& url,
     NetworkManager::getInstance().downloadFile(
         cleanedUrl,
         savePath,
-        [this, progressCallback](qint64 bytesReceived, qint64 bytesTotal) {
-            if (bytesTotal > 0) {
-                int progress = static_cast<int>((bytesReceived * 100) / bytesTotal);
-                if (progressCallback) {
-                    progressCallback(progress);
-                }
+        [progressCallback](qint64 bytesReceived, qint64 bytesTotal) {
+            if (progressCallback) {
+                progressCallback(bytesReceived, bytesTotal);
             }
-        },        [this, completedCallback, savePath](bool success, const QString& errorMsg) {
+        },
+        [this, completedCallback, savePath](bool success, const QString& errorMsg) {
             m_isDownloading = false;
             
             if (success) {
@@ -64,7 +64,10 @@ void DownloadManager::downloadFile(const QString& url,
                     completedCallback(false, errorMsg, savePath);
                 }
             }
-        }
+        },
+        QString(),
+        resumeFrom,
+        keepPartialOnAbort
     );
 }
 
@@ -72,7 +75,9 @@ void DownloadManager::downloadModifier(const ModifierInfo& modifier,
                                       const QString& version,
                                       const QString& savePath,
                                       std::function<void(bool, const QString&, const QString&, const ModifierInfo&, bool)> completedCallback,
-                                      DLProgressCallback progressCallback)
+                                      DLProgressCallback progressCallback,
+                                      qint64 resumeFrom,
+                                      bool keepPartialOnAbort)
 {
     qDebug() << "DownloadManager: downloadModifier called for:" << modifier.name;
     qDebug() << "DownloadManager: Requested version:" << version;
@@ -116,7 +121,9 @@ void DownloadManager::downloadModifier(const ModifierInfo& modifier,
             if (completedCallback) {
                 completedCallback(success, errorMsg, actualPath, modifier, isArchive);
             }
-        }
+        },
+        resumeFrom,
+        keepPartialOnAbort
     );
 }
 

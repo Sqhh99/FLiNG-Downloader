@@ -142,7 +142,9 @@ jobs:
             "sceneparsers",
             "assetimporters",
             "geometryloaders",
-            "renderers"
+            "renderers",
+            "iconengines",
+            "qmltooling"
           )
           foreach ($relativeDir in $prunePluginDirs) {
             $fullDir = Join-Path $pluginRoot $relativeDir
@@ -156,6 +158,56 @@ jobs:
             Get-ChildItem -Path $imageFormatsDir -File -Filter "*.dll" | Where-Object {
               $_.Name -notin @("qjpeg.dll", "qpng.dll", "qico.dll", "qgif.dll")
             } | Remove-Item -Force
+          }
+
+          # Remove unused top-level DLLs (verified by runtime loading analysis)
+          $pruneDlls = @(
+            "d3dcompiler_47.dll",
+            "dxcompiler.dll",
+            "dxil.dll",
+            "Qt6Svg.dll",
+            "Qt6QuickEffects.dll",
+            "Qt6QuickShapes.dll",
+            "Qt6LabsFolderListModel.dll",
+            "Qt6LabsQmlModels.dll",
+            "Qt6QuickControls2FluentWinUI3StyleImpl.dll",
+            "Qt6QuickControls2Fusion.dll",
+            "Qt6QuickControls2FusionStyleImpl.dll",
+            "Qt6QuickControls2Imagine.dll",
+            "Qt6QuickControls2ImagineStyleImpl.dll",
+            "Qt6QuickControls2Material.dll",
+            "Qt6QuickControls2MaterialStyleImpl.dll",
+            "Qt6QuickControls2Universal.dll",
+            "Qt6QuickControls2UniversalStyleImpl.dll",
+            "Qt6QuickControls2WindowsStyleImpl.dll"
+          )
+          foreach ($dll in $pruneDlls) {
+            $dllPath = Join-Path $appDir $dll
+            if (Test-Path $dllPath) {
+              Remove-Item -Path $dllPath -Force
+            }
+          }
+
+          # Remove unused QML style modules (only Basic + FluentWinUI3 are needed)
+          $pruneQmlStyleDirs = @(
+            "qml\QtQuick\Controls\Fusion",
+            "qml\QtQuick\Controls\Imagine",
+            "qml\QtQuick\Controls\Material",
+            "qml\QtQuick\Controls\Universal",
+            "qml\QtQuick\Controls\Windows",
+            "qml\QtQuick\NativeStyle",
+            "qml\QtQuick\Effects",
+            "qml\QtQuick\Shapes",
+            "qml\QtQuick\Particles",
+            "qml\QtQuick\LocalStorage",
+            "qml\QtQuick\tooling",
+            "qml\QtQuick\VectorImage"
+          )
+          foreach ($relativeDir in $pruneQmlStyleDirs) {
+            $fullDir = Join-Path $appDir $relativeDir
+            if (Test-Path $fullDir) {
+              Remove-Item -Path $fullDir -Recurse -Force
+            }
           }
 
           $requiredQmlModules = @(
@@ -181,6 +233,19 @@ jobs:
             if (!(Test-Path $runtimePath)) {
               throw "Missing deployed runtime file: $runtimePath"
             }
+          }
+
+          # Ensure MSVC runtime is present for /MD-built main app.
+          $hasVCRuntime = $false
+          $hasMSVCP = $false
+          if (Get-ChildItem -Path $appDir -File -Filter "vcruntime*.dll" -ErrorAction SilentlyContinue) {
+            $hasVCRuntime = $true
+          }
+          if (Get-ChildItem -Path $appDir -File -Filter "msvcp*.dll" -ErrorAction SilentlyContinue) {
+            $hasMSVCP = $true
+          }
+          if (-not ($hasVCRuntime -and $hasMSVCP)) {
+            throw "Missing MSVC runtime deployment in $appDir (expected vcruntime*.dll and msvcp*.dll)"
           }
 
           $qwindowsPath = Join-Path (Join-Path $pluginRoot "platforms") "qwindows.dll"

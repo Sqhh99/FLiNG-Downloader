@@ -14,6 +14,7 @@ Item {
     // 后端接口和模型
     property var backend: null  // 后端对象 (getSuggestions 等方法)
     property var modifierModel: null
+    property bool loading: backend ? backend.searchLoading : false
     
     // 信号
     signal modifierSelected(int index)
@@ -65,6 +66,13 @@ Item {
             console.log("SearchPage: 模型行数:", modifierModel.rowCount())
         }
     }
+
+    onLoadingChanged: {
+        if (loading) {
+            suggestionsPopup.close()
+            suggestionsList.currentIndex = -1
+        }
+    }
     
     ColumnLayout {
         anchors.fill: parent
@@ -90,6 +98,9 @@ Item {
                     
                     // 键盘导航支持
                     Keys.onReturnPressed: {
+                        if (searchPage.loading) {
+                            return
+                        }
                         if (suggestionsPopup.opened && suggestionsList.currentIndex >= 0) {
                             // 如果建议列表可见且有选中项，选择该项
                             suggestionsList.currentItem.selectSuggestion()
@@ -99,6 +110,9 @@ Item {
                         }
                     }
                     Keys.onEnterPressed: {
+                        if (searchPage.loading) {
+                            return
+                        }
                         if (suggestionsPopup.opened && suggestionsList.currentIndex >= 0) {
                             suggestionsList.currentItem.selectSuggestion()
                         } else {
@@ -155,6 +169,7 @@ Item {
                 StyledButton {
                     text: qsTr("搜索")
                     buttonType: "secondary"
+                    enabled: !searchPage.loading
                     onClicked: {
                         suggestionsPopup.close()
                         if (searchInput.text.trim() === "") {
@@ -168,6 +183,7 @@ Item {
                 StyledComboBox {
                     id: sortComboBox
                     implicitWidth: 120
+                    enabled: !searchPage.loading
                     model: [qsTr("最近更新"), qsTr("按名称"), qsTr("选项数量")]
                     onActivated: function(index) {
                         console.log("排序方式改变:", index)
@@ -178,6 +194,7 @@ Item {
                 StyledButton {
                     text: qsTr("显示全部")
                     buttonType: "primary"
+                    enabled: !searchPage.loading
                     onClicked: {
                         searchInput.clear()
                         suggestionsPopup.close()
@@ -246,6 +263,9 @@ Item {
                     
                     // 提供给键盘选择调用的函数
                     function selectSuggestion() {
+                        if (searchPage.loading) {
+                            return
+                        }
                         var searchKeyword = modelData
                         var parenStart = modelData.indexOf("(")
                         var parenEnd = modelData.indexOf(")")
@@ -291,156 +311,216 @@ Item {
         }
         
         // 修改器表格
-        StyledTable {
-            id: modifierTable
+        Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            
-            model: searchPage.modifierModel
-            
-            headers: [qsTr("游戏名称"), qsTr("更新日期"), qsTr("支持版本"), qsTr("选项数量"), qsTr("操作")]
-            columnWidths: [240, 100, 130, 80, 80]
-            
-            delegate: Rectangle {
-                id: delegateRoot
-                width: modifierTable.width
-                height: modifierTable.rowHeight
-                
-                // 存储当前行索引
-                property int rowIndex: index
-                
-                color: {
-                    if (modifierTable.currentIndex === rowIndex) 
-                        return ThemeProvider.selectedColor
-                    if (rowMouseArea.containsMouse)
-                        return ThemeProvider.hoverColor
-                    if (rowIndex % 2 === 1)
-                        return ThemeProvider.alternateRowColor
-                    return "transparent"
-                }
-                
-                // 行选择区域（不包括操作按钮列）
-                MouseArea {
-                    id: rowMouseArea
-                    anchors.left: parent.left
-                    anchors.top: parent.top
-                    anchors.bottom: parent.bottom
-                    width: parent.width - 80  // 减去操作列宽度
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    
-                    onClicked: {
-                        modifierTable.currentIndex = delegateRoot.rowIndex
-                        searchPage.modifierSelected(delegateRoot.rowIndex)
+
+            StyledTable {
+                id: modifierTable
+                anchors.fill: parent
+                enabled: !searchPage.loading
+
+                model: searchPage.modifierModel
+
+                headers: [qsTr("游戏名称"), qsTr("更新日期"), qsTr("支持版本"), qsTr("选项数量"), qsTr("操作")]
+                columnWidths: [240, 100, 130, 80, 80]
+
+                delegate: Rectangle {
+                    id: delegateRoot
+                    width: modifierTable.width
+                    height: modifierTable.rowHeight
+
+                    // 存储当前行索引
+                    property int rowIndex: index
+
+                    color: {
+                        if (modifierTable.currentIndex === rowIndex)
+                            return ThemeProvider.selectedColor
+                        if (rowMouseArea.containsMouse)
+                            return ThemeProvider.hoverColor
+                        if (rowIndex % 2 === 1)
+                            return ThemeProvider.alternateRowColor
+                        return "transparent"
                     }
-                    
-                    onDoubleClicked: {
-                        // 双击打开详情
-                        searchPage.detailsRequested(delegateRoot.rowIndex)
-                    }
-                }
-                
-                // 数据行
-                Row {
-                    anchors.fill: parent
-                    
-                    // 游戏名称
-                    Item {
-                        width: modifierTable.columnWidths[0]
-                        height: parent.height
-                        
-                        Text {
-                            anchors.fill: parent
-                            anchors.leftMargin: 10
-                            text: model.name || ""
-                            font.pixelSize: ThemeProvider.fontSizeMedium
-                            color: ThemeProvider.textPrimary
-                            verticalAlignment: Text.AlignVCenter
-                            elide: Text.ElideRight
+
+                    // 行选择区域（不包括操作按钮列）
+                    MouseArea {
+                        id: rowMouseArea
+                        anchors.left: parent.left
+                        anchors.top: parent.top
+                        anchors.bottom: parent.bottom
+                        width: parent.width - 80  // 减去操作列宽度
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        enabled: !searchPage.loading
+
+                        onClicked: {
+                            modifierTable.currentIndex = delegateRoot.rowIndex
+                            searchPage.modifierSelected(delegateRoot.rowIndex)
+                        }
+
+                        onDoubleClicked: {
+                            // 双击打开详情
+                            searchPage.detailsRequested(delegateRoot.rowIndex)
                         }
                     }
-                    
-                    // 更新日期
-                    Item {
-                        width: modifierTable.columnWidths[1]
-                        height: parent.height
-                        
-                        Text {
-                            anchors.fill: parent
-                            anchors.leftMargin: 10
-                            text: model.lastUpdate || ""
-                            font.pixelSize: ThemeProvider.fontSizeMedium
-                            color: ThemeProvider.textSecondary
-                            verticalAlignment: Text.AlignVCenter
-                            elide: Text.ElideRight
-                        }
-                    }
-                    
-                    // 支持版本
-                    Item {
-                        width: modifierTable.columnWidths[2]
-                        height: parent.height
-                        
-                        Text {
-                            anchors.fill: parent
-                            anchors.leftMargin: 10
-                            text: model.gameVersion || ""
-                            font.pixelSize: ThemeProvider.fontSizeMedium
-                            color: ThemeProvider.textSecondary
-                            verticalAlignment: Text.AlignVCenter
-                            elide: Text.ElideRight
-                        }
-                    }
-                    
-                    // 选项数量
-                    Item {
-                        width: modifierTable.columnWidths[3]
-                        height: parent.height
-                        
-                        Text {
-                            anchors.fill: parent
-                            anchors.leftMargin: 10
-                            text: model.optionsCount || "0"
-                            font.pixelSize: ThemeProvider.fontSizeMedium
-                            color: ThemeProvider.textSecondary
-                            verticalAlignment: Text.AlignVCenter
-                            horizontalAlignment: Text.AlignHCenter
-                        }
-                    }
-                    
-                    // 操作按钮区 - 只有详情图标按钮
-                    Item {
-                        width: modifierTable.columnWidths[4]
-                        height: parent.height
-                        
-                        // 详情按钮 - 仅图标
-                        Rectangle {
-                            anchors.centerIn: parent
-                            width: 28
-                            height: 28
-                            radius: ThemeProvider.radiusSmall
-                            color: detailsMouseArea.containsMouse ? ThemeProvider.hoverColor : "transparent"
-                            
-                            Image {
-                                anchors.centerIn: parent
-                                source: ThemeProvider.assetUrl("icons/details.png")
-                                width: 18
-                                height: 18
-                                sourceSize: Qt.size(18, 18)
-                            }
-                            
-                            MouseArea {
-                                id: detailsMouseArea
+
+                    // 数据行
+                    Row {
+                        anchors.fill: parent
+
+                        // 游戏名称
+                        Item {
+                            width: modifierTable.columnWidths[0]
+                            height: parent.height
+
+                            Text {
                                 anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                
-                                onClicked: {
-                                    console.log("详情按钮点击, rowIndex:", delegateRoot.rowIndex)
-                                    searchPage.detailsRequested(delegateRoot.rowIndex)
+                                anchors.leftMargin: 10
+                                text: model.name || ""
+                                font.pixelSize: ThemeProvider.fontSizeMedium
+                                color: ThemeProvider.textPrimary
+                                verticalAlignment: Text.AlignVCenter
+                                elide: Text.ElideRight
+                            }
+                        }
+
+                        // 更新日期
+                        Item {
+                            width: modifierTable.columnWidths[1]
+                            height: parent.height
+
+                            Text {
+                                anchors.fill: parent
+                                anchors.leftMargin: 10
+                                text: model.lastUpdate || ""
+                                font.pixelSize: ThemeProvider.fontSizeMedium
+                                color: ThemeProvider.textSecondary
+                                verticalAlignment: Text.AlignVCenter
+                                elide: Text.ElideRight
+                            }
+                        }
+
+                        // 支持版本
+                        Item {
+                            width: modifierTable.columnWidths[2]
+                            height: parent.height
+
+                            Text {
+                                anchors.fill: parent
+                                anchors.leftMargin: 10
+                                text: model.gameVersion || ""
+                                font.pixelSize: ThemeProvider.fontSizeMedium
+                                color: ThemeProvider.textSecondary
+                                verticalAlignment: Text.AlignVCenter
+                                elide: Text.ElideRight
+                            }
+                        }
+
+                        // 选项数量
+                        Item {
+                            width: modifierTable.columnWidths[3]
+                            height: parent.height
+
+                            Text {
+                                anchors.fill: parent
+                                anchors.leftMargin: 10
+                                text: model.optionsCount || "0"
+                                font.pixelSize: ThemeProvider.fontSizeMedium
+                                color: ThemeProvider.textSecondary
+                                verticalAlignment: Text.AlignVCenter
+                                horizontalAlignment: Text.AlignHCenter
+                            }
+                        }
+
+                        // 操作按钮区 - 只有详情图标按钮
+                        Item {
+                            width: modifierTable.columnWidths[4]
+                            height: parent.height
+
+                            // 详情按钮 - 仅图标
+                            Rectangle {
+                                anchors.centerIn: parent
+                                width: 28
+                                height: 28
+                                radius: ThemeProvider.radiusSmall
+                                color: detailsMouseArea.containsMouse ? ThemeProvider.hoverColor : "transparent"
+
+                                Image {
+                                    anchors.centerIn: parent
+                                    source: ThemeProvider.assetUrl("icons/details.png")
+                                    width: 18
+                                    height: 18
+                                    sourceSize: Qt.size(18, 18)
+                                }
+
+                                MouseArea {
+                                    id: detailsMouseArea
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    enabled: !searchPage.loading
+
+                                    onClicked: {
+                                        console.log("详情按钮点击, rowIndex:", delegateRoot.rowIndex)
+                                        searchPage.detailsRequested(delegateRoot.rowIndex)
+                                    }
                                 }
                             }
                         }
+                    }
+                }
+            }
+
+            Rectangle {
+                anchors.fill: parent
+                visible: searchPage.loading
+                color: ThemeProvider.surfaceColor
+                opacity: 0.92
+                z: 100
+
+                MouseArea {
+                    anchors.fill: parent
+                }
+
+                Column {
+                    anchors.centerIn: parent
+                    spacing: 16
+
+                    Rectangle {
+                        id: loadingSpinner
+                        width: 40
+                        height: 40
+                        radius: 20
+                        color: "transparent"
+                        border.width: 3
+                        border.color: ThemeProvider.primaryColor
+                        anchors.horizontalCenter: parent.horizontalCenter
+
+                        Rectangle {
+                            width: 12
+                            height: 12
+                            radius: 6
+                            color: ThemeProvider.surfaceColor
+                            anchors.top: parent.top
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            anchors.topMargin: -2
+                        }
+
+                        RotationAnimation on rotation {
+                            from: 0
+                            to: 360
+                            duration: 1000
+                            loops: Animation.Infinite
+                            running: searchPage.loading
+                        }
+                    }
+
+                    Text {
+                        text: qsTr("加载中...")
+                        font.pixelSize: ThemeProvider.fontSizeMedium
+                        color: ThemeProvider.textSecondary
+                        anchors.horizontalCenter: parent.horizontalCenter
                     }
                 }
             }

@@ -84,7 +84,9 @@ void ModifierManager::downloadModifier(const ModifierInfo& modifier,
                                       const QString& version, 
                                       const QString& savePath,
                                       ModifierDownloadFinishedCallback callback,
-                                      DLProgressCallback progressCallback)
+                                      DLProgressCallback progressCallback,
+                                      qint64 resumeFrom,
+                                      bool keepPartialOnAbort)
 {    // Use DownloadManager to download the modifier
     DownloadManager::getInstance().downloadModifier(
         modifier,
@@ -100,7 +102,9 @@ void ModifierManager::downloadModifier(const ModifierInfo& modifier,
                 callback(success, errorMsg, actualPath, modifier, isArchive);
             }
         },
-        progressCallback
+        progressCallback,
+        resumeFrom,
+        keepPartialOnAbort
     );
 }
 
