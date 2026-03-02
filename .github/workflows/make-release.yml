@@ -90,30 +90,55 @@ jobs:
           $workspace = $env:GITHUB_WORKSPACE
           $distDir = Join-Path $workspace $env:DIST_DIR
           $exePath = Join-Path $workspace "build\ninja-release\FLiNG Downloader.exe"
+          $qmlSourceDir = Join-Path $workspace "qml"
           if (!(Test-Path $exePath)) {
             throw "Executable not found: $exePath"
+          }
+          if (!(Test-Path $qmlSourceDir)) {
+            throw "QML source dir not found: $qmlSourceDir"
           }
 
           New-Item -ItemType Directory -Force -Path $distDir | Out-Null
           $distExePath = Join-Path $distDir "FLiNG Downloader.exe"
           Copy-Item -Path $exePath -Destination $distExePath -Force
 
-          & windeployqt.exe --release --compiler-runtime --no-translations --no-opengl-sw --dir "$distDir" "$distExePath"
+          & windeployqt.exe --release --compiler-runtime --no-translations --no-opengl-sw --qmldir "$qmlSourceDir" --dir "$distDir" "$distExePath"
           if ($LASTEXITCODE -ne 0) {
             throw "windeployqt failed with exit code $LASTEXITCODE"
+          }
+
+          $requiredQmlModules = @(
+            "qml\QtQuick\Window\qmldir",
+            "qml\QtQuick\Layouts\qmldir",
+            "qml\QtQuick\Dialogs\qmldir",
+            "qml\QtQuick\Controls\Basic\qmldir"
+          )
+          foreach ($relativePath in $requiredQmlModules) {
+            $modulePath = Join-Path $distDir $relativePath
+            if (!(Test-Path $modulePath)) {
+              throw "Missing deployed QML module: $modulePath"
+            }
           }
 
           Get-ChildItem -Path $distDir -Recurse -File -Include *.pdb,*.ilk,*.exp,*.lib |
             Remove-Item -Force -ErrorAction SilentlyContinue
 
+          "dist_dir=$distDir" >> $env:GITHUB_OUTPUT
+
+      - name: Create portable release zip
+        id: portable
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $workspace = $env:GITHUB_WORKSPACE
+          $distDir = "${{ steps.package.outputs.dist_dir }}"
           $portableZip = Join-Path $workspace ("dist\FLiNG-Downloader-v{0}-win-x64-portable.zip" -f "${{ steps.version.outputs.version }}")
+
           if (Test-Path $portableZip) {
             Remove-Item -Force $portableZip
           }
           Compress-Archive -Path (Join-Path $distDir "*") -DestinationPath $portableZip -CompressionLevel Optimal
-
           "portable_zip=$portableZip" >> $env:GITHUB_OUTPUT
-          "dist_dir=$distDir" >> $env:GITHUB_OUTPUT
 
       - name: Build Inno Setup installer
         id: installer
@@ -149,7 +174,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: FLiNG-Downloader-Windows-x64-portable
-          path: ${{ steps.package.outputs.portable_zip }}
+          path: ${{ steps.package.outputs.dist_dir }}
           if-no-files-found: error
 
       - name: Upload installer artifact
@@ -164,6 +189,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            ${{ steps.package.outputs.portable_zip }}
+            ${{ steps.portable.outputs.portable_zip }}
             ${{ steps.installer.outputs.installer_exe }}
           generate_release_notes: true
