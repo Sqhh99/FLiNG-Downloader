@@ -66,97 +66,97 @@
 <context>
     <name>Backend</name>
     <message>
-        <location filename="../../src/Backend.cpp" line="87"/>
+        <location filename="../../src/Backend.cpp" line="133"/>
         <source>Searching: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="93"/>
+        <location filename="../../src/Backend.cpp" line="144"/>
         <source>Loading modifiers...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="135"/>
+        <location filename="../../src/Backend.cpp" line="190"/>
         <source>Loading modifier details...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="151"/>
+        <location filename="../../src/Backend.cpp" line="206"/>
         <source>Details loaded</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="157"/>
+        <location filename="../../src/Backend.cpp" line="212"/>
         <source>Failed to load details</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="172"/>
+        <location filename="../../src/Backend.cpp" line="227"/>
         <source>No download version available</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="197"/>
-        <source>Downloading: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../../src/Backend.cpp" line="214"/>
+        <location filename="../../src/Backend.cpp" line="712"/>
         <source>Download complete: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="231"/>
+        <location filename="../../src/Backend.cpp" line="721"/>
         <source>Download failed: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="260"/>
+        <location filename="../../src/Backend.cpp" line="385"/>
         <source>Extracting cover...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="272"/>
+        <location filename="../../src/Backend.cpp" line="249"/>
+        <source>Added to download queue: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/Backend.cpp" line="397"/>
         <source>Cover extracted</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="274"/>
+        <location filename="../../src/Backend.cpp" line="399"/>
         <source>Failed to save cover</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="277"/>
+        <location filename="../../src/Backend.cpp" line="402"/>
         <source>Failed to extract cover</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="300"/>
+        <location filename="../../src/Backend.cpp" line="425"/>
         <source>File not found: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="319"/>
+        <location filename="../../src/Backend.cpp" line="448"/>
         <source>Deleted: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="324"/>
+        <location filename="../../src/Backend.cpp" line="453"/>
         <source>Checking for updates...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="371"/>
+        <location filename="../../src/Backend.cpp" line="818"/>
         <source>Found %1 modifiers</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="389"/>
+        <location filename="../../src/Backend.cpp" line="841"/>
         <source>Download complete</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="391"/>
+        <location filename="../../src/Backend.cpp" line="843"/>
         <source>Download failed</source>
         <translation type="unfinished"></translation>
     </message>
@@ -177,38 +177,38 @@
 <context>
     <name>DetailDrawer</name>
     <message>
-        <location filename="../../qml/components/DetailDrawer.qml" line="127"/>
+        <location filename="../../qml/components/DetailDrawer.qml" line="124"/>
         <source>关闭</source>
         <translation>Close</translation>
     </message>
     <message>
-        <location filename="../../qml/components/DetailDrawer.qml" line="164"/>
+        <location filename="../../qml/components/DetailDrawer.qml" line="161"/>
         <source>暂无封面</source>
         <translation>No Cover</translation>
     </message>
     <message>
-        <location filename="../../qml/components/DetailDrawer.qml" line="181"/>
+        <location filename="../../qml/components/DetailDrawer.qml" line="178"/>
         <source>游戏版本:</source>
         <translation type="unfinished">Game Version:</translation>
     </message>
     <message>
-        <location filename="../../qml/components/DetailDrawer.qml" line="196"/>
+        <location filename="../../qml/components/DetailDrawer.qml" line="193"/>
         <source>选项数量:</source>
         <translation>Options Count:</translation>
     </message>
     <message>
-        <location filename="../../qml/components/DetailDrawer.qml" line="211"/>
+        <location filename="../../qml/components/DetailDrawer.qml" line="208"/>
         <source>最后更新:</source>
         <translation type="unfinished">Last Update:</translation>
     </message>
     <message>
-        <location filename="../../qml/components/DetailDrawer.qml" line="229"/>
+        <location filename="../../qml/components/DetailDrawer.qml" line="226"/>
         <source>选择版本下载</source>
         <translation>Select Version to Download</translation>
     </message>
     <message>
-        <location filename="../../qml/components/DetailDrawer.qml" line="95"/>
-        <location filename="../../qml/components/DetailDrawer.qml" line="255"/>
+        <location filename="../../qml/components/DetailDrawer.qml" line="92"/>
+        <location filename="../../qml/components/DetailDrawer.qml" line="252"/>
         <source>加载中...</source>
         <translation type="unfinished">Loading...</translation>
     </message>
@@ -217,7 +217,7 @@
         <translation type="obsolete">Download</translation>
     </message>
     <message>
-        <location filename="../../qml/components/DetailDrawer.qml" line="314"/>
+        <location filename="../../qml/components/DetailDrawer.qml" line="311"/>
         <source>修改器选项</source>
         <translation>Mod Options</translation>
     </message>
@@ -702,72 +702,88 @@ Game Name: %2</translation>
 <context>
     <name>DownloadListPopup</name>
     <message>
-        <location filename="../../qml/components/DownloadListPopup.qml" line="63"/>
+        <location filename="../../qml/components/DownloadListPopup.qml" line="80"/>
         <source>下载列表</source>
         <translation>Download List</translation>
     </message>
     <message>
-        <location filename="../../qml/components/DownloadListPopup.qml" line="71"/>
+        <location filename="../../qml/components/DownloadListPopup.qml" line="88"/>
         <source>正在下载 %1 项</source>
         <translation>Downloading %1 items</translation>
     </message>
     <message>
-        <location filename="../../qml/components/DownloadListPopup.qml" line="71"/>
+        <location filename="../../qml/components/DownloadListPopup.qml" line="88"/>
         <source>无活动下载</source>
         <translation>No active downloads</translation>
     </message>
     <message>
-        <location filename="../../qml/components/DownloadListPopup.qml" line="110"/>
+        <location filename="../../qml/components/DownloadListPopup.qml" line="131"/>
         <source>未知文件</source>
         <translation>Unknown file</translation>
     </message>
     <message>
-        <location filename="../../qml/components/DownloadListPopup.qml" line="120"/>
+        <location filename="../../qml/components/DownloadListPopup.qml" line="141"/>
+        <source>队列中</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../qml/components/DownloadListPopup.qml" line="142"/>
         <source>下载中</source>
         <translation>Downloading</translation>
     </message>
     <message>
-        <location filename="../../qml/components/DownloadListPopup.qml" line="121"/>
+        <location filename="../../qml/components/DownloadListPopup.qml" line="143"/>
         <source>已暂停</source>
         <translation>Paused</translation>
     </message>
     <message>
-        <location filename="../../qml/components/DownloadListPopup.qml" line="122"/>
+        <location filename="../../qml/components/DownloadListPopup.qml" line="144"/>
         <source>已完成</source>
         <translation>Completed</translation>
     </message>
     <message>
-        <location filename="../../qml/components/DownloadListPopup.qml" line="123"/>
+        <location filename="../../qml/components/DownloadListPopup.qml" line="145"/>
         <source>失败</source>
         <translation>Failed</translation>
     </message>
     <message>
-        <location filename="../../qml/components/DownloadListPopup.qml" line="184"/>
+        <location filename="../../qml/components/DownloadListPopup.qml" line="146"/>
+        <source>已取消</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../qml/components/DownloadListPopup.qml" line="272"/>
+        <location filename="../../qml/components/DownloadListPopup.qml" line="273"/>
         <source>继续</source>
         <translation>Resume</translation>
     </message>
     <message>
-        <location filename="../../qml/components/DownloadListPopup.qml" line="184"/>
+        <location filename="../../qml/components/DownloadListPopup.qml" line="274"/>
         <source>暂停</source>
         <translation>Pause</translation>
     </message>
     <message>
-        <location filename="../../qml/components/DownloadListPopup.qml" line="199"/>
+        <location filename="../../qml/components/DownloadListPopup.qml" line="290"/>
+        <source>重试</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../qml/components/DownloadListPopup.qml" line="299"/>
         <source>取消</source>
         <translation type="unfinished">Cancel</translation>
     </message>
     <message>
-        <location filename="../../qml/components/DownloadListPopup.qml" line="208"/>
+        <location filename="../../qml/components/DownloadListPopup.qml" line="308"/>
         <source>打开文件夹</source>
         <translation type="unfinished">Open Folder</translation>
     </message>
     <message>
-        <location filename="../../qml/components/DownloadListPopup.qml" line="217"/>
+        <location filename="../../qml/components/DownloadListPopup.qml" line="317"/>
         <source>移除</source>
         <translation>Remove</translation>
     </message>
     <message>
-        <location filename="../../qml/components/DownloadListPopup.qml" line="228"/>
+        <location filename="../../qml/components/DownloadListPopup.qml" line="328"/>
         <source>暂无下载任务</source>
         <translation>No download tasks</translation>
     </message>
@@ -813,7 +829,7 @@ Game Name: %2</translation>
         <translation type="unfinished">Downloaded Mods</translation>
     </message>
     <message>
-        <location filename="../../qml/Main.qml" line="382"/>
+        <location filename="../../qml/Main.qml" line="356"/>
         <source>选择下载目录</source>
         <translation type="unfinished">Select download directory</translation>
     </message>
@@ -918,57 +934,62 @@ Game Name: %2</translation>
 <context>
     <name>SearchPage</name>
     <message>
-        <location filename="../../qml/pages/SearchPage.qml" line="88"/>
+        <location filename="../../qml/pages/SearchPage.qml" line="96"/>
         <source>搜索游戏...</source>
         <translation type="unfinished">Search games...</translation>
     </message>
     <message>
-        <location filename="../../qml/pages/SearchPage.qml" line="156"/>
+        <location filename="../../qml/pages/SearchPage.qml" line="170"/>
         <source>搜索</source>
         <translation type="unfinished">Search</translation>
     </message>
     <message>
-        <location filename="../../qml/pages/SearchPage.qml" line="171"/>
+        <location filename="../../qml/pages/SearchPage.qml" line="187"/>
         <source>最近更新</source>
         <translation type="unfinished">Recent Updates</translation>
     </message>
     <message>
-        <location filename="../../qml/pages/SearchPage.qml" line="171"/>
+        <location filename="../../qml/pages/SearchPage.qml" line="187"/>
         <source>按名称</source>
         <translation type="unfinished">By Name</translation>
+    </message>
+    <message>
+        <location filename="../../qml/pages/SearchPage.qml" line="520"/>
+        <source>加载中...</source>
+        <translation type="unfinished">Loading...</translation>
     </message>
     <message>
         <source>下载次数</source>
         <translation type="obsolete">Download Count</translation>
     </message>
     <message>
-        <location filename="../../qml/pages/SearchPage.qml" line="179"/>
+        <location filename="../../qml/pages/SearchPage.qml" line="195"/>
         <source>显示全部</source>
         <translation type="unfinished">Show All</translation>
     </message>
     <message>
-        <location filename="../../qml/pages/SearchPage.qml" line="301"/>
+        <location filename="../../qml/pages/SearchPage.qml" line="325"/>
         <source>游戏名称</source>
         <translation type="unfinished">Game Name</translation>
     </message>
     <message>
-        <location filename="../../qml/pages/SearchPage.qml" line="301"/>
+        <location filename="../../qml/pages/SearchPage.qml" line="325"/>
         <source>更新日期</source>
         <translation type="unfinished">Update Date</translation>
     </message>
     <message>
-        <location filename="../../qml/pages/SearchPage.qml" line="301"/>
+        <location filename="../../qml/pages/SearchPage.qml" line="325"/>
         <source>支持版本</source>
         <translation type="unfinished">Supported Version</translation>
     </message>
     <message>
-        <location filename="../../qml/pages/SearchPage.qml" line="171"/>
-        <location filename="../../qml/pages/SearchPage.qml" line="301"/>
+        <location filename="../../qml/pages/SearchPage.qml" line="187"/>
+        <location filename="../../qml/pages/SearchPage.qml" line="325"/>
         <source>选项数量</source>
         <translation type="unfinished">Option Count</translation>
     </message>
     <message>
-        <location filename="../../qml/pages/SearchPage.qml" line="301"/>
+        <location filename="../../qml/pages/SearchPage.qml" line="325"/>
         <source>操作</source>
         <translation>Actions</translation>
     </message>
