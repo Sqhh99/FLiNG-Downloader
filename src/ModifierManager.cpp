@@ -290,7 +290,7 @@ QList<ModifierInfo> ModifierManager::getSortedModifierList() const
 void ModifierManager::saveDownloadedModifiers()
 {
     // Use FileSystem to get app data directory and ensure it exists
-    QString dataDir = FileSystem::getInstance().getAppDataDirectory();
+    QString dataDir = FileSystem::getInstance().getDataDirectory();
     QString settingsPath = dataDir + "/downloaded_modifiers.ini";
     
     QSettings settings(settingsPath, QSettings::IniFormat);
@@ -320,7 +320,7 @@ void ModifierManager::loadDownloadedModifiers()
     m_downloadedModifiers.clear();
     
     // Use FileSystem to get app data directory
-    QString dataDir = FileSystem::getInstance().getAppDataDirectory();
+    QString dataDir = FileSystem::getInstance().getDataDirectory();
     QString settingsPath = dataDir + "/downloaded_modifiers.ini";
     
     // Check if file exists
@@ -403,4 +403,4 @@ void ModifierManager::setModifierList(const QList<ModifierInfo>& modifiers)
 {
     m_modifierList = modifiers;
     qDebug() << "ModifierManager: Modifier list set externally, count:" << m_modifierList.size();
-} 
+}

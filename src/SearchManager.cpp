@@ -10,6 +10,7 @@
 #include "NetworkManager.h"
 #include "ModifierParser.h"
 #include "ModifierManager.h"
+#include "ConfigManager.h"
 
 // Constructor
 SearchManager::SearchManager(QObject* parent)
@@ -248,16 +249,19 @@ int SearchManager::calculateRelevanceScore(const ModifierInfo& modifier, const Q
 // Save search history
 void SearchManager::saveSearchHistory()
 {
-    QSettings settings;
+    const QString settingsPath = ConfigManager::getInstance().settingsFilePath();
+    QSettings settings(settingsPath, QSettings::IniFormat);
     settings.beginGroup("SearchManager");
     settings.setValue("SearchHistory", m_searchHistory);
     settings.endGroup();
+    settings.sync();
 }
 
 // Load search history
 void SearchManager::loadSearchHistory()
 {
-    QSettings settings;
+    const QString settingsPath = ConfigManager::getInstance().settingsFilePath();
+    QSettings settings(settingsPath, QSettings::IniFormat);
     settings.beginGroup("SearchManager");
     m_searchHistory = settings.value("SearchHistory").toStringList();
     settings.endGroup();

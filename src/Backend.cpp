@@ -394,7 +394,7 @@ void Backend::onDownloadFinished(bool success)
 
 void Backend::loadDownloadedModifiers()
 {
-    QString filePath = FileSystem::getInstance().getAppDataDirectory() + "/downloaded_modifiers.json";
+    QString filePath = FileSystem::getInstance().getDataDirectory() + "/downloaded_modifiers.json";
     QFile file(filePath);
     
     if (!file.open(QIODevice::ReadOnly)) {
@@ -428,7 +428,7 @@ void Backend::loadDownloadedModifiers()
 
 void Backend::saveDownloadedModifiers()
 {
-    QString filePath = FileSystem::getInstance().getAppDataDirectory() + "/downloaded_modifiers.json";
+    QString filePath = FileSystem::getInstance().getDataDirectory() + "/downloaded_modifiers.json";
     QFile file(filePath);
     
     if (!file.open(QIODevice::WriteOnly)) {

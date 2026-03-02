@@ -1,6 +1,6 @@
 #include "CoverExtractor.h"
+#include "FileSystem.h"
 #include <QNetworkRequest>
-#include <QStandardPaths>
 #include <QDir>
 #include <QCryptographicHash>
 #include <QDebug>
@@ -708,7 +708,7 @@ QPixmap CoverExtractor::extractCoverFromLocalImage(const QString& imagePath)
 
 QString CoverExtractor::getCacheDirectory()
 {
-    QString cacheDir = QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
+    QString cacheDir = FileSystem::getInstance().getCacheDirectory();
     QDir dir(cacheDir);
     if (!dir.exists("covers")) {
         dir.mkpath("covers");

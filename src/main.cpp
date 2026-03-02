@@ -1,4 +1,5 @@
 #include <QGuiApplication>
+#include <QCoreApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickStyle>
@@ -18,7 +19,13 @@ int main(int argc, char *argv[])
 {
     // Use QGuiApplication (pure QML app)
     QGuiApplication app(argc, argv);
-    
+
+    // Keep app data under "%AppData%\\FLiNG Downloader" instead of
+    // "%AppData%\\Sqhh99\\FLiNG Downloader".
+    QCoreApplication::setOrganizationName("");
+    QCoreApplication::setOrganizationDomain("");
+    QCoreApplication::setApplicationName("FLiNG Downloader");
+
     try {
         qDebug() << "Application initializing...";
         

@@ -4,14 +4,34 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QFile>
+#include <QFileInfo>
 #include <QDir>
-#include <QStandardPaths>
-#include <QCoreApplication>
 #include <QDebug>
 #include <QMutexLocker>
 #include <QTimer>
 #include <QtConcurrent>
 #include <QFuture>
+#include "FileSystem.h"
+
+namespace {
+void migrateLegacyFileToDataDirIfNeeded(const QString& fileName)
+{
+    const QString sourcePath = QDir(FileSystem::getInstance().getAppDataDirectory()).filePath(fileName);
+    const QString targetPath = QDir(FileSystem::getInstance().getDataDirectory()).filePath(fileName);
+
+    if (!QFileInfo::exists(sourcePath) || QFileInfo::exists(targetPath)) {
+        return;
+    }
+
+    if (QFile::rename(sourcePath, targetPath)) {
+        return;
+    }
+
+    if (QFile::copy(sourcePath, targetPath)) {
+        QFile::remove(sourcePath);
+    }
+}
+}
 
 GameMappingManager& GameMappingManager::getInstance()
 {
@@ -273,6 +293,8 @@ bool GameMappingManager::loadBuiltinMappings()
 
 bool GameMappingManager::loadUserMappings()
 {
+    migrateLegacyFileToDataDirIfNeeded("user_game_mappings.json");
+
     QString filePath = getUserMappingPath();
     QFile file(filePath);
     
@@ -311,6 +333,8 @@ bool GameMappingManager::loadUserMappings()
 
 bool GameMappingManager::loadTranslationCache()
 {
+    migrateLegacyFileToDataDirIfNeeded("translation_cache.json");
+
     QString filePath = getTranslationCachePath();
     QFile file(filePath);
     
@@ -444,14 +468,14 @@ double GameMappingManager::calculateSimilarity(const QString& str1, const QStrin
 
 QString GameMappingManager::getUserMappingPath() const
 {
-    QString appDataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-    return QDir(appDataPath).filePath("user_game_mappings.json");
+    QString dataPath = FileSystem::getInstance().getDataDirectory();
+    return QDir(dataPath).filePath("user_game_mappings.json");
 }
 
 QString GameMappingManager::getTranslationCachePath() const
 {
-    QString appDataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-    return QDir(appDataPath).filePath("translation_cache.json");
+    QString dataPath = FileSystem::getInstance().getDataDirectory();
+    return QDir(dataPath).filePath("translation_cache.json");
 }
 
 QString GameMappingManager::getBuiltinMappingPath() const
