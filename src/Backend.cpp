@@ -85,13 +85,22 @@ QString Backend::selectedModifierCoverUrl() const
 void Backend::searchModifiers(const QString& keyword)
 {
     emit statusMessage(tr("Searching: %1").arg(keyword));
-    SearchManager::getInstance().searchModifiers(keyword, this, &Backend::onSearchCompleted);
+    const quint64 requestId = beginSearchRequest();
+    SearchManager::getInstance().searchModifiers(
+        keyword,
+        [this, requestId](const QList<ModifierInfo>& modifiers) {
+            finishSearchRequest(requestId, modifiers);
+        });
 }
 
 void Backend::fetchRecentModifiers()
 {
     emit statusMessage(tr("Loading modifiers..."));
-    SearchManager::getInstance().fetchRecentlyUpdatedModifiers(this, &Backend::onSearchCompleted);
+    const quint64 requestId = beginSearchRequest();
+    SearchManager::getInstance().fetchRecentlyUpdatedModifiers(
+        [this, requestId](const QList<ModifierInfo>& modifiers) {
+            finishSearchRequest(requestId, modifiers);
+        });
 }
 
 void Backend::setSortOrder(int sortIndex)
@@ -364,11 +373,32 @@ void Backend::requestDownloadFolderSelection()
     emit downloadFolderSelectionRequested();
 }
 
-void Backend::onSearchCompleted(const QList<ModifierInfo>& modifiers)
+quint64 Backend::beginSearchRequest()
 {
+    m_nextSearchRequestId++;
+    m_activeSearchRequestId = m_nextSearchRequestId;
+    if (!m_searchLoading) {
+        m_searchLoading = true;
+        emit searchLoadingChanged();
+    }
+    return m_activeSearchRequestId;
+}
+
+void Backend::finishSearchRequest(quint64 requestId, const QList<ModifierInfo>& modifiers)
+{
+    // Ignore stale results if a newer request is already in flight.
+    if (requestId != m_activeSearchRequestId) {
+        return;
+    }
+
     m_modifierListModel->setModifiers(modifiers);
     emit searchCompleted();
     emit statusMessage(tr("Found %1 modifiers").arg(modifiers.size()));
+
+    if (m_searchLoading) {
+        m_searchLoading = false;
+        emit searchLoadingChanged();
+    }
 }
 
 void Backend::onDownloadProgress(qint64 bytesReceived, qint64 bytesTotal)

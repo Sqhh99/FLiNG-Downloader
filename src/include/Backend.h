@@ -44,6 +44,7 @@ class Backend : public QObject
     // Download status
     Q_PROPERTY(bool isDownloading READ isDownloading NOTIFY downloadingChanged)
     Q_PROPERTY(qreal downloadProgress READ downloadProgress NOTIFY downloadProgressChanged)
+    Q_PROPERTY(bool searchLoading READ searchLoading NOTIFY searchLoadingChanged)
     
     // Download directory
     Q_PROPERTY(QString downloadPath READ downloadPath WRITE setDownloadPath NOTIFY downloadPathChanged)
@@ -78,6 +79,7 @@ public:
 
     bool isDownloading() const { return m_isDownloading; }
     qreal downloadProgress() const { return m_downloadProgress; }
+    bool searchLoading() const { return m_searchLoading; }
     
     // Download directory
     QString downloadPath() const;
@@ -122,14 +124,16 @@ signals:
     void statusMessage(const QString& message);
     void coverExtracted();
     void downloadPathChanged();
+    void searchLoadingChanged();
     void downloadFolderSelectionRequested();  // Request to show folder selection dialog
 
 private slots:
-    void onSearchCompleted(const QList<ModifierInfo>& modifiers);
     void onDownloadProgress(qint64 bytesReceived, qint64 bytesTotal);
     void onDownloadFinished(bool success);
 
 private:
+    quint64 beginSearchRequest();
+    void finishSearchRequest(quint64 requestId, const QList<ModifierInfo>& modifiers);
     void loadDownloadedModifiers();
     void saveDownloadedModifiers();
 
@@ -148,6 +152,9 @@ private:
     // Download status
     bool m_isDownloading = false;
     qreal m_downloadProgress = 0.0;
+    bool m_searchLoading = false;
+    quint64 m_nextSearchRequestId = 0;
+    quint64 m_activeSearchRequestId = 0;
     
     // Temporary storage for downloaded modifiers list
     QList<DownloadedModifierInfo> m_downloadedList;
