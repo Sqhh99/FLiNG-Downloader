@@ -236,16 +236,21 @@ jobs:
           }
 
           # Ensure MSVC runtime is present for /MD-built main app.
-          $hasVCRuntime = $false
-          $hasMSVCP = $false
-          if (Get-ChildItem -Path $appDir -File -Filter "vcruntime*.dll" -ErrorAction SilentlyContinue) {
-            $hasVCRuntime = $true
+          # Accept either app-local runtime DLLs or the VC++ redistributable installer.
+          $vcruntimeDlls = Get-ChildItem -Path $appDir -File -Filter "vcruntime*.dll" -ErrorAction SilentlyContinue
+          $msvcpDlls = Get-ChildItem -Path $appDir -File -Filter "msvcp*.dll" -ErrorAction SilentlyContinue
+          $vcRedistInApp = Join-Path $appDir "vc_redist.x64.exe"
+          $vcRedistInDist = Join-Path $distDir "vc_redist.x64.exe"
+
+          $hasRuntimeDlls = ($vcruntimeDlls.Count -gt 0 -and $msvcpDlls.Count -gt 0)
+          $hasVcRedist = (Test-Path $vcRedistInApp) -or (Test-Path $vcRedistInDist)
+
+          if (-not $hasRuntimeDlls -and -not $hasVcRedist) {
+            throw "Missing MSVC runtime deployment in $distDir (expected either vcruntime*.dll + msvcp*.dll in app dir, or vc_redist.x64.exe)"
           }
-          if (Get-ChildItem -Path $appDir -File -Filter "msvcp*.dll" -ErrorAction SilentlyContinue) {
-            $hasMSVCP = $true
-          }
-          if (-not ($hasVCRuntime -and $hasMSVCP)) {
-            throw "Missing MSVC runtime deployment in $appDir (expected vcruntime*.dll and msvcp*.dll)"
+
+          if (-not $hasRuntimeDlls -and $hasVcRedist) {
+            Write-Warning "MSVC runtime DLLs not found in app dir; relying on vc_redist.x64.exe in package"
           }
 
           $qwindowsPath = Join-Path (Join-Path $pluginRoot "platforms") "qwindows.dll"
