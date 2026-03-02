@@ -18,6 +18,7 @@
 #include "CoverExtractor.h"
 
 class QGuiApplication;
+class QTimer;
 
 /**
  * Backend - QML backend bridge class

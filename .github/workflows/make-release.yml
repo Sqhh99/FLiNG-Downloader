@@ -114,7 +114,7 @@ jobs:
           Copy-Item -Path $launcherPath -Destination $rootLauncherPath -Force
           Copy-Item -Path $exePath -Destination $appExePath -Force
 
-          & windeployqt.exe --release --no-compiler-runtime --no-translations --no-opengl-sw --qmldir "$qmlSourceDir" --dir "$appDir" "$appExePath"
+          & windeployqt.exe --release --compiler-runtime --no-translations --no-opengl-sw --qmldir "$qmlSourceDir" --dir "$appDir" "$appExePath"
           if ($LASTEXITCODE -ne 0) {
             throw "windeployqt failed with exit code $LASTEXITCODE"
           }
@@ -179,8 +179,7 @@ jobs:
             "Qt6QuickControls2MaterialStyleImpl.dll",
             "Qt6QuickControls2Universal.dll",
             "Qt6QuickControls2UniversalStyleImpl.dll",
-            "Qt6QuickControls2WindowsStyleImpl.dll",
-            "vc_redist.x64.exe"
+            "Qt6QuickControls2WindowsStyleImpl.dll"
           )
           foreach ($dll in $pruneDlls) {
             $dllPath = Join-Path $appDir $dll
@@ -234,6 +233,19 @@ jobs:
             if (!(Test-Path $runtimePath)) {
               throw "Missing deployed runtime file: $runtimePath"
             }
+          }
+
+          # Ensure MSVC runtime is present for /MD-built main app.
+          $hasVCRuntime = $false
+          $hasMSVCP = $false
+          if (Get-ChildItem -Path $appDir -File -Filter "vcruntime*.dll" -ErrorAction SilentlyContinue) {
+            $hasVCRuntime = $true
+          }
+          if (Get-ChildItem -Path $appDir -File -Filter "msvcp*.dll" -ErrorAction SilentlyContinue) {
+            $hasMSVCP = $true
+          }
+          if (-not ($hasVCRuntime -and $hasMSVCP)) {
+            throw "Missing MSVC runtime deployment in $appDir (expected vcruntime*.dll and msvcp*.dll)"
           }
 
           $qwindowsPath = Join-Path (Join-Path $pluginRoot "platforms") "qwindows.dll"

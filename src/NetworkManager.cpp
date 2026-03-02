@@ -48,10 +48,14 @@ void NetworkManager::sendGetRequest(const QString& url, NetworkResponseCallback 
         if (reply->error() == QNetworkReply::NoError) {
             // Read response data
             QByteArray responseData = reply->readAll();
-            callback(responseData, true);
+            if (callback) {
+                callback(responseData, true);
+            }
         } else {
             qDebug() << "Network request failed:" << reply->errorString();
-            callback(QByteArray(), false);
+            if (callback) {
+                callback(QByteArray(), false);
+            }
         }
         
         // Clean up resources
@@ -78,7 +82,9 @@ void NetworkManager::downloadFile(const QString& url,
         savePath,
         progressCallback,
         [finishedCallback](bool success, const QString& errorMsg, int) {
-            finishedCallback(success, errorMsg);
+            if (finishedCallback) {
+                finishedCallback(success, errorMsg);
+            }
         },
         userAgent,
         resumeFrom,
@@ -110,7 +116,9 @@ void NetworkManager::downloadFileWithStatus(const QString& url,
         : (QIODevice::WriteOnly | QIODevice::Truncate);
     if (!file->open(openMode)) {
         qDebug() << "NetworkManager: Cannot create file:" << file->errorString();
-        finishedCallback(false, "Cannot create file: " + file->errorString(), 0);
+        if (finishedCallback) {
+            finishedCallback(false, "Cannot create file: " + file->errorString(), 0);
+        }
         delete file;
         return;
     }
@@ -231,7 +239,9 @@ void NetworkManager::downloadFileWithStatus(const QString& url,
                     delete bytesWritten;
                     delete effectiveResumeFrom;
                     delete responseModeChecked;
-                    finishedCallback(false, "Server returned HTML page instead of file - download link may be invalid", httpStatus);
+                    if (finishedCallback) {
+                        finishedCallback(false, "Server returned HTML page instead of file - download link may be invalid", httpStatus);
+                    }
                     reply->deleteLater();
                     file->deleteLater();
                     if (m_currentDownloadReply == reply) {
@@ -244,12 +254,16 @@ void NetworkManager::downloadFileWithStatus(const QString& url,
                 delete bytesWritten;
                 delete effectiveResumeFrom;
                 delete responseModeChecked;
-                finishedCallback(false, "Downloaded file is empty - server may have returned no content", httpStatus);
+                if (finishedCallback) {
+                    finishedCallback(false, "Downloaded file is empty - server may have returned no content", httpStatus);
+                }
             } else {
                 delete bytesWritten;
                 delete effectiveResumeFrom;
                 delete responseModeChecked;
-                finishedCallback(true, QString(), httpStatus);
+                if (finishedCallback) {
+                    finishedCallback(true, QString(), httpStatus);
+                }
             }
         } else {
             qDebug() << "NetworkManager: Download failed:" << reply->errorString();
@@ -259,7 +273,9 @@ void NetworkManager::downloadFileWithStatus(const QString& url,
                     delete bytesWritten;
                     delete effectiveResumeFrom;
                     delete responseModeChecked;
-                    finishedCallback(true, QString(), httpStatus);
+                    if (finishedCallback) {
+                        finishedCallback(true, QString(), httpStatus);
+                    }
                     file->deleteLater();
                     reply->deleteLater();
                     if (m_currentDownloadReply == reply) {
@@ -276,7 +292,9 @@ void NetworkManager::downloadFileWithStatus(const QString& url,
             delete bytesWritten;
             delete effectiveResumeFrom;
             delete responseModeChecked;
-            finishedCallback(false, reply->errorString(), httpStatus);
+            if (finishedCallback) {
+                finishedCallback(false, reply->errorString(), httpStatus);
+            }
         }
         
         // Clean up resources

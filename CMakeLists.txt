@@ -96,7 +96,7 @@ set(PROJECT_RC_FILES
 )
 
 add_executable(${PROJECT_NAME}
-    # WIN32
+    WIN32
     ${PROJECT_SOURCES}
     ${PROJECT_HEADERS}
     ${PROJECT_RC_FILES}
