@@ -119,33 +119,39 @@ jobs:
             throw "windeployqt failed with exit code $LASTEXITCODE"
           }
 
+          $pluginRoot = $appDir
+          $pluginProbeDir = Join-Path $appDir "plugins"
+          if (Test-Path $pluginProbeDir) {
+            $pluginRoot = $pluginProbeDir
+          }
+
           $sizeBeforeBytes = (Get-ChildItem -Path $distDir -Recurse -File | Measure-Object -Property Length -Sum).Sum
 
           $qtConfPath = Join-Path $appDir "qt.conf"
           @(
             "[Paths]",
             "Prefix=.",
-            "Plugins=plugins",
+            "Plugins=.",
             "Qml2Imports=qml",
             "Imports=qml"
           ) | Set-Content -Path $qtConfPath -Encoding Ascii
 
           $prunePluginDirs = @(
-            "plugins\generic",
-            "plugins\networkinformation",
-            "plugins\sceneparsers",
-            "plugins\assetimporters",
-            "plugins\geometryloaders",
-            "plugins\renderers"
+            "generic",
+            "networkinformation",
+            "sceneparsers",
+            "assetimporters",
+            "geometryloaders",
+            "renderers"
           )
           foreach ($relativeDir in $prunePluginDirs) {
-            $fullDir = Join-Path $appDir $relativeDir
+            $fullDir = Join-Path $pluginRoot $relativeDir
             if (Test-Path $fullDir) {
               Remove-Item -Path $fullDir -Recurse -Force
             }
           }
 
-          $imageFormatsDir = Join-Path $appDir "plugins\imageformats"
+          $imageFormatsDir = Join-Path $pluginRoot "imageformats"
           if (Test-Path $imageFormatsDir) {
             Get-ChildItem -Path $imageFormatsDir -File -Filter "*.dll" | Where-Object {
               $_.Name -notin @("qjpeg.dll", "qpng.dll", "qico.dll", "qgif.dll")
@@ -168,14 +174,18 @@ jobs:
           $requiredRuntimeFiles = @(
             "Qt6Core.dll",
             "Qt6Qml.dll",
-            "Qt6Quick.dll",
-            "plugins\platforms\qwindows.dll"
+            "Qt6Quick.dll"
           )
           foreach ($relativePath in $requiredRuntimeFiles) {
             $runtimePath = Join-Path $appDir $relativePath
             if (!(Test-Path $runtimePath)) {
               throw "Missing deployed runtime file: $runtimePath"
             }
+          }
+
+          $qwindowsPath = Join-Path (Join-Path $pluginRoot "platforms") "qwindows.dll"
+          if (!(Test-Path $qwindowsPath)) {
+            throw "Missing deployed runtime file: $qwindowsPath"
           }
 
           if (!(Test-Path $rootLauncherPath)) {
