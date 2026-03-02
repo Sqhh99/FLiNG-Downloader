@@ -228,7 +228,9 @@ set_target_properties(${LAUNCHER_TARGET} PROPERTIES OUTPUT_NAME "FLiNG Launcher"
 
 if(MSVC)
     set_property(TARGET ${LAUNCHER_TARGET} PROPERTY
-        MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL"
+        # Keep launcher self-contained on clean Windows hosts.
+        # Main app remains /MD for Qt compatibility, launcher can safely use /MT.
+        MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
     )
     target_compile_options(${LAUNCHER_TARGET} PRIVATE
         $<$<CONFIG:Release>:/GL>
