@@ -96,12 +96,12 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="712"/>
+        <location filename="../../src/Backend.cpp" line="706"/>
         <source>Download complete: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="721"/>
+        <location filename="../../src/Backend.cpp" line="715"/>
         <source>Download failed: %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -146,17 +146,17 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="818"/>
+        <location filename="../../src/Backend.cpp" line="812"/>
         <source>Found %1 modifiers</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="841"/>
+        <location filename="../../src/Backend.cpp" line="835"/>
         <source>Download complete</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="843"/>
+        <location filename="../../src/Backend.cpp" line="837"/>
         <source>Download failed</source>
         <translation type="unfinished"></translation>
     </message>
