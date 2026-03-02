@@ -655,26 +655,20 @@ void Backend::startDownloadTask(const QString& taskId)
             }
             
             if (success) {
-                // Rename .crdownload to final file
+                // Step 1: Rename .crdownload temp file to the intended save path
                 const DownloadTaskMeta taskMeta = m_downloadTaskMeta.value(taskId);
                 QString finalPath = taskMeta.savePath;
                 
-                // filePath may have been corrected by DownloadManager (extension fix)
-                // In that case the temp file was already renamed by DownloadManager,
-                // so we need to check if the temp-based corrected path exists
-                QString correctedTempPath = filePath; // This is the path after correctFileExtension
-                
-                // If the corrected path is the temp path itself, rename to final
-                if (correctedTempPath.endsWith(".crdownload")) {
-                    // Remove .crdownload suffix to get the actual final path
-                    finalPath = correctedTempPath.left(correctedTempPath.length() - 11);
+                // The callback filePath is based on tempPath (.crdownload),
+                // so we ignore it and work with our known paths directly.
+                if (QFile::exists(taskMeta.tempPath)) {
                     QFile::remove(finalPath); // Remove existing file if any
-                    QFile::rename(correctedTempPath, finalPath);
-                } else {
-                    // DownloadManager already renamed it (extension correction),
-                    // just use the returned path
-                    finalPath = correctedTempPath;
+                    QFile::rename(taskMeta.tempPath, finalPath);
                 }
+                
+                // Step 2: Run extension correction on the clean final path
+                // (now operating on a path WITHOUT .crdownload suffix)
+                finalPath = DownloadManager::getInstance().correctFileExtension(finalPath);
                 
                 if (m_downloadTaskMeta.contains(taskId)) {
                     DownloadTaskMeta updatedMeta = m_downloadTaskMeta.value(taskId);
@@ -699,7 +693,7 @@ void Backend::startDownloadTask(const QString& taskId)
                 downloadedInfo.version = versionName;
                 downloadedInfo.gameVersion = modifier.gameVersion;
                 downloadedInfo.downloadDate = QDateTime::currentDateTime();
-                downloadedInfo.filePath = filePath;
+                downloadedInfo.filePath = finalPath;
                 downloadedInfo.url = modifier.url;
                 
                 m_downloadedList.append(downloadedInfo);
@@ -709,7 +703,7 @@ void Backend::startDownloadTask(const QString& taskId)
                 m_downloadProgress = 1.0;
                 emit downloadProgressChanged();
                 emit downloadCompleted(true);
-                emit statusMessage(tr("Download complete: %1").arg(filePath));
+                emit statusMessage(tr("Download complete: %1").arg(finalPath));
             } else {
                 updateDownloadTask(taskId, [errorMsg](QVariantMap& task) {
                     task["status"] = "failed";
