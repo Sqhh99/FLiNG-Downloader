@@ -33,55 +33,18 @@
 
 ## 开发与构建（Windows）
 
-### 依赖
+需要安装 Visual Studio 2022、CMake、Qt 6 和 vcpkg。配置好 `VCPKG_ROOT` 与 `CMAKE_PREFIX_PATH` 后，直接运行 `build.cmd`。
 
-- Visual Studio 2022（含“使用 C++ 的桌面开发”）
-- CMake ≥ 3.25
-- Qt 6.6.3+（MSVC x64），例如 `C:\Qt\6.10.0\msvc2022_64`
-- vcpkg（设置环境变量 `VCPKG_ROOT`）
+### build.cmd 常见用法
 
-### 环境变量示例（PowerShell）
+- **`build.cmd` 或 `build.cmd release`**: 默认使用 Ninja 构建 Release 版本（输出到 `build\ninja-release`）
+- **`build.cmd debug`**: 构建 Debug 版本（输出到 `build\ninja-debug`）
+- **`build.cmd run` / `build.cmd run debug`**: 构建并立即运行程序
+- **`build.cmd clean`**: 删除整个 `build` 构建目录
+- **`build.cmd rebuild`**: 清除旧目录并重新配置、构建
+- **`build.cmd i18n`**: 更新所有翻译源码文件（`.ts`）并生成翻译所需文件（`.qm`）
 
-```powershell
-$env:VCPKG_ROOT = "C:\vcpkg"
-$env:CMAKE_PREFIX_PATH = "C:\Qt\6.10.0\msvc2022_64"
-```
-
-### 配置与构建
-
-```powershell
-cmake -S . -B build -G "Visual Studio 17 2022" -A x64 \
-  -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" \
-  -DVCPKG_TARGET_TRIPLET="x64-windows-static"
-
-cmake --build build --config Release
-```
-
-构建完成后，可执行文件位于：`build\Release\FLiNG Downloader.exe`。
-
-（可选）如果你使用 CMakePresets，可运行：
-
-```powershell
-cmake --list-presets
-cmake --preset <configure-preset>
-cmake --build --preset <build-preset>
-```
-
-### 翻译文件（i18n）
-
-```powershell
-# 更新 TS + 生成 QM（推荐）
-build.cmd i18n
-
-# 仅更新 TS
-build.cmd i18n update
-
-# 仅生成 QM
-build.cmd i18n release
-
-# 检查翻译文件是否已同步（CI 同款）
-build.cmd i18n check
-```
+构建完成后，可执行文件位于对应的 `build\ninja-release\` 或 `build\ninja-debug\` 目录下。
 
 ## 安全与隐私
 
