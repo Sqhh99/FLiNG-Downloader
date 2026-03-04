@@ -33,55 +33,18 @@ A Qt-based trainer download manager with intelligent Chinese title mapping.
 
 ## Development & Build (Windows)
 
-### Prerequisites
+Visual Studio 2022, CMake, Qt 6, and vcpkg are required. After configuring `VCPKG_ROOT` and `CMAKE_PREFIX_PATH`, simply run `build.cmd`.
 
-- Visual Studio 2022 (Desktop development with C++)
-- CMake ≥ 3.25
-- Qt 6.6.3+ (MSVC x64), e.g. `C:\Qt\6.10.0\msvc2022_64`
-- vcpkg (set `VCPKG_ROOT`)
+### `build.cmd` Usage
 
-### Environment (PowerShell)
+- **`build.cmd` or `build.cmd release`**: Build Release version using Ninja by default (outputs to `build\ninja-release`)
+- **`build.cmd debug`**: Build Debug version (outputs to `build\ninja-debug`)
+- **`build.cmd run` / `build.cmd run debug`**: Build and run immediately
+- **`build.cmd clean`**: Delete the entire `build` directory
+- **`build.cmd rebuild`**: Clean directory, reconfigure, and build
+- **`build.cmd i18n`**: Update translation source files (`.ts`) and generate translation files (`.qm`)
 
-```powershell
-$env:VCPKG_ROOT = "C:\vcpkg"
-$env:CMAKE_PREFIX_PATH = "C:\Qt\6.10.0\msvc2022_64"
-```
-
-### Configure & Build
-
-```powershell
-cmake -S . -B build -G "Visual Studio 17 2022" -A x64 \
-  -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" \
-  -DVCPKG_TARGET_TRIPLET="x64-windows-static"
-
-cmake --build build --config Release
-```
-
-Artifact: `build\Release\FLiNG Downloader.exe`
-
-Optional with CMakePresets:
-
-```powershell
-cmake --list-presets
-cmake --preset <configure-preset>
-cmake --build --preset <build-preset>
-```
-
-### Translation files (i18n)
-
-```powershell
-# Update TS + build QM (recommended)
-build.cmd i18n
-
-# Update TS only
-build.cmd i18n update
-
-# Build QM only
-build.cmd i18n release
-
-# Verify translations are in sync (same as CI)
-build.cmd i18n check
-```
+Artifacts will be located in the corresponding `build\ninja-release\` or `build\ninja-debug\` directories after building.
 
 ## Security & Privacy
 

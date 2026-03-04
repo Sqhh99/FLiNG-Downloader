@@ -35,7 +35,7 @@
 
 需要安装 Visual Studio 2022、CMake、Qt 6 和 vcpkg。配置好 `VCPKG_ROOT` 与 `CMAKE_PREFIX_PATH` 后，直接运行 `build.cmd`。
 
-### build.cmd 常见用法
+### build.cmd 用法
 
 - **`build.cmd` 或 `build.cmd release`**: 默认使用 Ninja 构建 Release 版本（输出到 `build\ninja-release`）
 - **`build.cmd debug`**: 构建 Debug 版本（输出到 `build\ninja-debug`）
