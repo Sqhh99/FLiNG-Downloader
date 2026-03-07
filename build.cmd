@@ -109,6 +109,18 @@ exit /b 1
 if /i "%BUILD_CONFIG%"=="debug"   ( set "CONFIGURE_PRESET=debug"   & set "BUILD_PRESET=debug"   & set "CONFIG_LABEL=Debug" & set "BUILD_DIR=%BUILD_ROOT%\ninja-debug" )
 if /i "%BUILD_CONFIG%"=="release" ( set "CONFIGURE_PRESET=release" & set "BUILD_PRESET=release" & set "CONFIG_LABEL=Release" & set "BUILD_DIR=%BUILD_ROOT%\ninja-release" )
 
+if /i not "%COMMAND%"=="i18n" (
+    if defined APP_VERSION_OVERRIDE (
+        powershell -NoProfile -Command "$v=$env:APP_VERSION_OVERRIDE; if ($v -match '^[0-9]+\.[0-9]+\.[0-9]+$') { exit 0 } else { exit 1 }"
+        if errorlevel 1 (
+            echo [ERROR] Invalid --app-version value.
+            echo [ERROR] Expected format: MAJOR.MINOR.PATCH ^(digits only^).
+            echo [ERROR] Received: "%APP_VERSION_OVERRIDE%"
+            exit /b 1
+        )
+    )
+)
+
 :: ============================================================
 :: Validate environment
 :: ============================================================
@@ -180,8 +192,8 @@ echo ========================================
 echo [INFO] Configure preset: %CONFIGURE_PRESET%
 echo [INFO] Binary directory: %BUILD_DIR%
 if defined APP_VERSION_OVERRIDE (
-    echo [INFO] App version override: %APP_VERSION_OVERRIDE%
-    cmake --preset "%CONFIGURE_PRESET%" -DAPP_VERSION=%APP_VERSION_OVERRIDE%
+    echo [INFO] App version override: "%APP_VERSION_OVERRIDE%"
+    cmake --preset "%CONFIGURE_PRESET%" -DAPP_VERSION="%APP_VERSION_OVERRIDE%"
 ) else (
     cmake --preset "%CONFIGURE_PRESET%"
 )
