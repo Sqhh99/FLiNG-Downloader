@@ -422,7 +422,12 @@ void Backend::runModifier(int index)
     if (QFile::exists(modifier.filePath)) {
         QDesktopServices::openUrl(QUrl::fromLocalFile(modifier.filePath));
     } else {
-        emit statusMessage(tr("File not found: %1").arg(modifier.filePath));
+        m_downloadedModifierModel->removeModifier(index);
+        if (index >= 0 && index < m_downloadedList.size()) {
+            m_downloadedList.removeAt(index);
+        }
+        saveDownloadedModifiers();
+        emit statusMessage(tr("File not found. Removed from downloaded list: %1").arg(modifier.name));
     }
 }
 
@@ -853,9 +858,10 @@ void Backend::loadDownloadedModifiers()
     if (!doc.isArray()) {
         return;
     }
-    
+
     QList<DownloadedModifierInfo> list;
     QJsonArray array = doc.array();
+    bool removedMissingEntries = false;
     
     for (const auto& item : array) {
         QJsonObject obj = item.toObject();
@@ -866,11 +872,21 @@ void Backend::loadDownloadedModifiers()
         info.downloadDate = QDateTime::fromString(obj["downloadDate"].toString(), Qt::ISODate);
         info.filePath = obj["filePath"].toString();
         info.url = obj["url"].toString();
+
+        if (info.filePath.isEmpty() || !QFile::exists(info.filePath)) {
+            removedMissingEntries = true;
+            continue;
+        }
+
         list.append(info);
     }
     
     m_downloadedList = list;
     m_downloadedModifierModel->setModifiers(list);
+
+    if (removedMissingEntries) {
+        saveDownloadedModifiers();
+    }
 }
 
 void Backend::saveDownloadedModifiers()
