@@ -44,6 +44,10 @@ jobs:
           modules: qtnetworkauth
           cache: true
 
+      - name: Update translations for release
+        shell: pwsh
+        run: .\build.cmd i18n
+
       - name: Update vcpkg
         shell: pwsh
         run: |
