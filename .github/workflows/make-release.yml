@@ -79,7 +79,7 @@ jobs:
         shell: pwsh
         run: |
           $env:VCPKG_ROOT = $env:VCPKG_INSTALLATION_ROOT
-          .\build.cmd release
+          .\build.cmd release --app-version "${{ steps.version.outputs.version }}"
         env:
           PKG_CONFIG: C:\ProgramData\chocolatey\bin\pkg-config.exe
           VCPKG_PKGCONFIG: C:\ProgramData\chocolatey\bin\pkg-config.exe

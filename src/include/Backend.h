@@ -36,6 +36,7 @@ class Backend : public QObject
 
     // Current language
     Q_PROPERTY(int currentLanguage READ currentLanguage NOTIFY languageChanged)
+    Q_PROPERTY(QString appVersion READ appVersion CONSTANT)
 
     // Selected modifier info
     Q_PROPERTY(QString selectedModifierName READ selectedModifierName NOTIFY selectedModifierChanged)
@@ -69,6 +70,7 @@ public:
     ModifierListModel* modifierListModel() const { return m_modifierListModel; }
     DownloadedModifierModel* downloadedModifierModel() const { return m_downloadedModifierModel; }
     int currentLanguage() const;
+    QString appVersion() const;
 
     QString selectedModifierName() const;
     QString selectedModifierVersion() const;

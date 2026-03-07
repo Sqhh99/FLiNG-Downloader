@@ -25,6 +25,11 @@ int main(int argc, char *argv[])
     QCoreApplication::setOrganizationName("");
     QCoreApplication::setOrganizationDomain("");
     QCoreApplication::setApplicationName("FLiNG Downloader");
+#ifdef FLING_APP_VERSION
+    QCoreApplication::setApplicationVersion(QStringLiteral(FLING_APP_VERSION));
+#else
+    QCoreApplication::setApplicationVersion(QStringLiteral("0.0.0-dev"));
+#endif
 
     try {
         qDebug() << "Application initializing...";

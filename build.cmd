@@ -18,6 +18,7 @@ setlocal enabledelayedexpansion
 ::
 :: Options:
 ::   --jobs <N>   Parallel build jobs (default: auto)
+::   --app-version <V>  Override app version (for example: 1.1.5)
 ::
 :: Examples:
 ::   build.cmd              Build Release
@@ -29,6 +30,7 @@ setlocal enabledelayedexpansion
 ::   build.cmd i18n check   Verify translation files are in sync
 ::   build.cmd run debug    Build Debug and launch
 ::   build.cmd clean        Remove build directory
+::   build.cmd release --app-version 1.1.5
 :: ============================================================
 
 set "SOURCE_DIR=%~dp0"
@@ -40,6 +42,8 @@ set "COMMAND=build"
 set "BUILD_CONFIG=release"
 set "I18N_ACTION=all"
 set "JOBS="
+set "APP_VERSION_OVERRIDE=%FLING_APP_VERSION%"
+set "CONFIGURE_DONE="
 
 :: Parse arguments
 :parse_args
@@ -68,6 +72,16 @@ if /i "%~1"=="--jobs" (
         exit /b 1
     )
     set "JOBS=%~2"
+    shift & shift
+    goto :parse_args
+)
+
+if /i "%~1"=="--app-version" (
+    if "%~2"=="" (
+        echo [ERROR] --app-version requires a value.
+        exit /b 1
+    )
+    set "APP_VERSION_OVERRIDE=%~2"
     shift & shift
     goto :parse_args
 )
@@ -165,22 +179,36 @@ echo  Configuring [%CONFIG_LABEL%]
 echo ========================================
 echo [INFO] Configure preset: %CONFIGURE_PRESET%
 echo [INFO] Binary directory: %BUILD_DIR%
-cmake --preset "%CONFIGURE_PRESET%"
+if defined APP_VERSION_OVERRIDE (
+    echo [INFO] App version override: %APP_VERSION_OVERRIDE%
+    cmake --preset "%CONFIGURE_PRESET%" -DAPP_VERSION=%APP_VERSION_OVERRIDE%
+) else (
+    cmake --preset "%CONFIGURE_PRESET%"
+)
 if errorlevel 1 (
     echo [ERROR] CMake configure failed!
     exit /b 1
 )
+set "CONFIGURE_DONE=1"
 echo [OK] Configure complete.
 exit /b 0
 
 :: ------------------------------------------------------------
 :do_build
 :: ------------------------------------------------------------
-:: Auto-configure if build directory doesn't have CMakeCache
-if not exist "%BUILD_DIR%\CMakeCache.txt" (
-    echo [INFO] No CMakeCache found, running configure first...
-    call :do_configure
-    if errorlevel 1 exit /b 1
+:: Auto-configure if needed.
+if defined APP_VERSION_OVERRIDE (
+    if not defined CONFIGURE_DONE (
+        echo [INFO] App version override detected, refreshing configure cache...
+        call :do_configure
+        if errorlevel 1 exit /b 1
+    )
+) else (
+    if not exist "%BUILD_DIR%\CMakeCache.txt" (
+        echo [INFO] No CMakeCache found, running configure first...
+        call :do_configure
+        if errorlevel 1 exit /b 1
+    )
 )
 
 echo.
@@ -282,6 +310,7 @@ echo    help        Show this help message
 echo.
 echo  Options:
 echo    --jobs ^<N^>  Parallel build jobs (positive integer)
+echo    --app-version ^<V^>  Override app version (e.g. 1.1.5)
 echo.
 echo  Examples:
 echo    build.cmd                Build Release
@@ -292,5 +321,6 @@ echo    build.cmd i18n           Update TS and QM translation files
 echo    build.cmd i18n check     Verify translation files are in sync
 echo    build.cmd run debug      Build Debug ^& run
 echo    build.cmd clean          Remove build directory
+echo    build.cmd release --app-version 1.1.5
 echo.
 exit /b 0

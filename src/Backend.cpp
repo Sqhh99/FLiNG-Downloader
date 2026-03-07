@@ -1,4 +1,5 @@
 #include "Backend.h"
+#include <QCoreApplication>
 #include <QGuiApplication>
 #include <QDesktopServices>
 #include <QUrl>
@@ -73,6 +74,11 @@ Backend::~Backend()
 int Backend::currentLanguage() const
 {
     return static_cast<int>(ConfigManager::getInstance().getCurrentLanguage());
+}
+
+QString Backend::appVersion() const
+{
+    return QCoreApplication::applicationVersion();
 }
 
 QString Backend::selectedModifierName() const
