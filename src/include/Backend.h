@@ -16,6 +16,7 @@
 #include "ThemeManager.h"
 #include "LanguageManager.h"
 #include "CoverExtractor.h"
+#include "AppUpdateManager.h"
 
 class QGuiApplication;
 class QTimer;
@@ -52,6 +53,15 @@ class Backend : public QObject
     Q_PROPERTY(qreal downloadProgress READ downloadProgress NOTIFY downloadProgressChanged)
     Q_PROPERTY(bool searchLoading READ searchLoading NOTIFY searchLoadingChanged)
     Q_PROPERTY(QVariantList downloadTasks READ downloadTasks NOTIFY downloadTasksChanged)
+    Q_PROPERTY(bool autoCheckAppUpdates READ autoCheckAppUpdates WRITE setAutoCheckAppUpdates NOTIFY autoCheckAppUpdatesChanged)
+    Q_PROPERTY(bool appUpdateChecking READ appUpdateChecking NOTIFY appUpdateStateChanged)
+    Q_PROPERTY(bool appUpdateAvailable READ appUpdateAvailable NOTIFY appUpdateStateChanged)
+    Q_PROPERTY(QString appLatestVersion READ appLatestVersion NOTIFY appUpdateStateChanged)
+    Q_PROPERTY(QString appUpdateSource READ appUpdateSource NOTIFY appUpdateStateChanged)
+    Q_PROPERTY(QString appUpdatePublishedAt READ appUpdatePublishedAt NOTIFY appUpdateStateChanged)
+    Q_PROPERTY(bool appUpdateDownloading READ appUpdateDownloading NOTIFY appUpdateStateChanged)
+    Q_PROPERTY(qreal appUpdateProgress READ appUpdateProgress NOTIFY appUpdateStateChanged)
+    Q_PROPERTY(QString appUpdateStatusText READ appUpdateStatusText NOTIFY appUpdateStateChanged)
     
     // Download directory
     Q_PROPERTY(QString downloadPath READ downloadPath WRITE setDownloadPath NOTIFY downloadPathChanged)
@@ -89,6 +99,15 @@ public:
     qreal downloadProgress() const { return m_downloadProgress; }
     bool searchLoading() const { return m_searchLoading; }
     QVariantList downloadTasks() const;
+    bool autoCheckAppUpdates() const;
+    bool appUpdateChecking() const { return m_appUpdateChecking; }
+    bool appUpdateAvailable() const { return m_appUpdateAvailable; }
+    QString appLatestVersion() const { return m_appLatestVersion; }
+    QString appUpdateSource() const { return m_appUpdateSource; }
+    QString appUpdatePublishedAt() const { return m_appUpdatePublishedAt; }
+    bool appUpdateDownloading() const { return m_appUpdateDownloading; }
+    qreal appUpdateProgress() const { return m_appUpdateProgress; }
+    QString appUpdateStatusText() const { return m_appUpdateStatusText; }
     
     // Download directory
     QString downloadPath() const;
@@ -117,10 +136,13 @@ public slots:
     Q_INVOKABLE void runModifier(int index);
     Q_INVOKABLE void deleteModifier(int index);
     Q_INVOKABLE void checkForUpdates();
+    Q_INVOKABLE void checkAppUpdate();
+    Q_INVOKABLE void downloadAppUpdate();
 
     // Settings
     Q_INVOKABLE void setTheme(int themeIndex);
     Q_INVOKABLE void setLanguage(int languageIndex);
+    Q_INVOKABLE void setAutoCheckAppUpdates(bool enabled);
     
     // Search suggestions - obtained from game_mappings.json
     Q_INVOKABLE QStringList getSuggestions(const QString& keyword, int maxResults = 8);
@@ -140,6 +162,8 @@ signals:
     void searchLoadingChanged();
     void downloadTasksChanged();
     void downloadFolderSelectionRequested();  // Request to show folder selection dialog
+    void autoCheckAppUpdatesChanged();
+    void appUpdateStateChanged();
 
 private slots:
     void onDownloadProgress(qint64 bytesReceived, qint64 bytesTotal);
@@ -205,6 +229,17 @@ private:
     // Cover extractor
     CoverExtractor* m_coverExtractor;
     QString m_currentCoverPath;
+
+    AppUpdateManager* m_appUpdateManager = nullptr;
+    AppReleaseInfo m_latestAppRelease;
+    bool m_appUpdateChecking = false;
+    bool m_appUpdateAvailable = false;
+    QString m_appLatestVersion;
+    QString m_appUpdateSource;
+    QString m_appUpdatePublishedAt;
+    bool m_appUpdateDownloading = false;
+    qreal m_appUpdateProgress = 0.0;
+    QString m_appUpdateStatusText;
     
     // Game name mapping data (Chinese-English search suggestions)
     struct GameMapping {
