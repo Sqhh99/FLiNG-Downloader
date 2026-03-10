@@ -111,10 +111,10 @@ if /i "%BUILD_CONFIG%"=="release" ( set "CONFIGURE_PRESET=release" & set "BUILD_
 
 if /i not "%COMMAND%"=="i18n" (
     if defined APP_VERSION_OVERRIDE (
-        powershell -NoProfile -Command "$v=$env:APP_VERSION_OVERRIDE; if ($v -match '^[0-9]+\.[0-9]+\.[0-9]+$') { exit 0 } else { exit 1 }"
+        powershell -NoProfile -Command "$v=$env:APP_VERSION_OVERRIDE; if ($v -match '^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$') { exit 0 } else { exit 1 }"
         if errorlevel 1 (
             echo [ERROR] Invalid --app-version value.
-            echo [ERROR] Expected format: MAJOR.MINOR.PATCH ^(digits only^).
+            echo [ERROR] Expected format: SemVer-style ^(for example 1.2.3, 1.2.3-beta.1, 1.2.3+build.5^).
             echo [ERROR] Received: "%APP_VERSION_OVERRIDE%"
             exit /b 1
         )
