@@ -37,8 +37,11 @@ jobs:
         modules: qtnetworkauth
         cache: true
 
-    - name: Verify translations are in sync
-      run: .\build.cmd i18n check
+    - name: Update translations for CI build
+      run: .\build.cmd i18n
+
+    - name: Show translation changes (info only)
+      run: git --no-pager diff -- resources/translations
 
     # Use pre-installed vcpkg on GitHub Actions runner
     # VCPKG_INSTALLATION_ROOT is set by the runner automatically

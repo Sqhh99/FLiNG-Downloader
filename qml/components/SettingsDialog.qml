@@ -13,6 +13,7 @@ Dialog {
     property int currentTheme: ThemeProvider.currentTheme
     property int currentLanguage: 0
     property string downloadPath: ""
+    property string appVersion: ""
     
     signal themeChanged(int index)
     signal languageChangedSignal(int index)  // 重命名避免冲突
@@ -506,7 +507,7 @@ Dialog {
                         }
                         
                         Text {
-                            text: qsTr("版本: 2.3.0")
+                            text: qsTr("版本: %1").arg(settingsDialog.appVersion.length > 0 ? settingsDialog.appVersion : "0.0.0-dev")
                             font.pixelSize: ThemeProvider.fontSizeMedium
                             color: ThemeProvider.textSecondary
                         }

@@ -333,6 +333,7 @@ ApplicationWindow {
         
         // 绑定下载路径
         downloadPath: backend ? backend.downloadPath : ""
+        appVersion: backend ? backend.appVersion : ""
         
         onThemeChanged: function(index) {
             ThemeProvider.currentTheme = index

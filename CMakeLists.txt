@@ -14,6 +14,50 @@ set(VCPKG_INSTALLED_DIR "${CMAKE_SOURCE_DIR}/third_party" CACHE PATH "Vcpkg inst
 
 project("FLiNGDownloader" LANGUAGES CXX)
 
+# Unified application version:
+# 1) use -DAPP_VERSION=... when provided
+# 2) otherwise derive from git tags (vX.Y.Z or vX.Y.Z-N-gHASH)
+set(APP_VERSION "" CACHE STRING "Application version override (for example: 1.1.5)")
+if(NOT APP_VERSION)
+    find_package(Git QUIET)
+    if(GIT_FOUND)
+        execute_process(
+            COMMAND "${GIT_EXECUTABLE}" describe --tags --match "v[0-9]*" --always
+            WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+            OUTPUT_VARIABLE GIT_DESCRIBE_VERSION
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            ERROR_QUIET
+        )
+
+        if(GIT_DESCRIBE_VERSION MATCHES "^v([0-9]+\\.[0-9]+\\.[0-9]+)$")
+            set(APP_VERSION "${CMAKE_MATCH_1}")
+        elseif(GIT_DESCRIBE_VERSION MATCHES "^v([0-9]+\\.[0-9]+\\.[0-9]+)-([0-9]+)-g([0-9a-fA-F]+)$")
+            set(APP_VERSION "${CMAKE_MATCH_1}-dev.${CMAKE_MATCH_2}+g${CMAKE_MATCH_3}")
+        endif()
+    endif()
+endif()
+
+if(NOT APP_VERSION)
+    set(APP_VERSION "0.0.0-dev")
+endif()
+
+set(APP_VERSION "${APP_VERSION}" CACHE STRING "Application version override (for example: 1.1.5)" FORCE)
+
+if(APP_VERSION MATCHES "^([0-9]+)\\.([0-9]+)\\.([0-9]+)")
+    set(APP_VERSION_MAJOR "${CMAKE_MATCH_1}")
+    set(APP_VERSION_MINOR "${CMAKE_MATCH_2}")
+    set(APP_VERSION_PATCH "${CMAKE_MATCH_3}")
+else()
+    set(APP_VERSION_MAJOR "0")
+    set(APP_VERSION_MINOR "0")
+    set(APP_VERSION_PATCH "0")
+endif()
+
+set(APP_VERSION_FILE_COMMA "${APP_VERSION_MAJOR},${APP_VERSION_MINOR},${APP_VERSION_PATCH},0")
+file(TO_CMAKE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/resources/icons/app_icon.ico" APP_ICON_RC_PATH)
+
+message(STATUS "FLiNG Downloader version: ${APP_VERSION}")
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -91,8 +135,14 @@ set(PROJECT_HEADERS
     src/include/ThemeManager.h
 )
 
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/icon.rc.in
+    ${CMAKE_CURRENT_BINARY_DIR}/icon.rc
+    @ONLY
+)
+
 set(PROJECT_RC_FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/icon.rc
+    ${CMAKE_CURRENT_BINARY_DIR}/icon.rc
 )
 
 add_executable(${PROJECT_NAME}
@@ -128,6 +178,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE
     CURL_STATICLIB
+    FLING_APP_VERSION="${APP_VERSION}"
 )
 
 if(MSVC)
