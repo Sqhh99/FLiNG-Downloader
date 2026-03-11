@@ -16,6 +16,7 @@ constexpr const char* kGithubLatestReleaseUrl =
 constexpr const char* kGiteeLatestReleaseUrl =
     "https://gitee.com/api/v5/repos/sqhh99/fli-ng-downloader/releases/latest";
 constexpr const char* kInstallerSuffix = "-win-x64-setup.exe";
+constexpr const char* kInstallerPrefix = "FLiNG-Downloader-v";
 }
 
 AppUpdateManager::AppUpdateManager(QObject* parent)
@@ -233,6 +234,9 @@ AppReleaseInfo AppUpdateManager::parseReleaseResponse(const QByteArray& response
         releaseInfo.version = normalizeVersion(
             releaseObject.value(QStringLiteral("name")).toString());
     }
+    if (!releaseInfo.version.isEmpty() && !parseVersion(releaseInfo.version).valid) {
+        releaseInfo.version.clear();
+    }
     releaseInfo.releaseUrl = releaseObject.value(QStringLiteral("html_url")).toString();
     if (releaseInfo.releaseUrl.isEmpty()) {
         releaseInfo.releaseUrl = releaseObject.value(QStringLiteral("url")).toString();
@@ -257,9 +261,16 @@ AppReleaseInfo AppUpdateManager::parseReleaseResponse(const QByteArray& response
 
         const bool exactMatch = !expectedName.isEmpty()
             && assetName.compare(expectedName, Qt::CaseInsensitive) == 0;
-        const bool fallbackMatch = assetName.startsWith(QStringLiteral("FLiNG-Downloader-v"), Qt::CaseInsensitive)
-            && assetName.endsWith(QString::fromLatin1(kInstallerSuffix), Qt::CaseInsensitive);
-        if (!exactMatch && !fallbackMatch) {
+
+        QString assetVersion;
+        if (exactMatch) {
+            assetVersion = releaseInfo.version;
+        } else if (releaseInfo.version.isEmpty()) {
+            assetVersion = extractVersionFromInstallerAssetName(assetName);
+            if (assetVersion.isEmpty()) {
+                continue;
+            }
+        } else {
             continue;
         }
 
@@ -270,6 +281,9 @@ AppReleaseInfo AppUpdateManager::parseReleaseResponse(const QByteArray& response
 
         releaseInfo.installerAssetName = assetName;
         releaseInfo.installerDownloadUrl = assetUrl;
+        if (releaseInfo.version.isEmpty()) {
+            releaseInfo.version = assetVersion;
+        }
         break;
     }
 
@@ -280,14 +294,13 @@ QString AppUpdateManager::resolveInstallerAssetUrl(const QJsonObject& assetObjec
 {
     const QStringList candidateKeys = {
         QStringLiteral("browser_download_url"),
-        QStringLiteral("download_url"),
-        QStringLiteral("browser_download_url_private"),
-        QStringLiteral("url")
+        QStringLiteral("download_url")
     };
 
     for (const QString& key : candidateKeys) {
         const QString value = assetObject.value(key).toString();
-        if (!value.isEmpty()) {
+        if (value.startsWith(QStringLiteral("https://"), Qt::CaseInsensitive)
+            || value.startsWith(QStringLiteral("http://"), Qt::CaseInsensitive)) {
             return value;
         }
     }
@@ -304,6 +317,19 @@ QString AppUpdateManager::expectedInstallerAssetName(const QString& version) con
 
     return QStringLiteral("FLiNG-Downloader-v%1%2")
         .arg(normalizedVersion, QString::fromLatin1(kInstallerSuffix));
+}
+
+QString AppUpdateManager::extractVersionFromInstallerAssetName(const QString& assetName) const
+{
+    if (!assetName.startsWith(QString::fromLatin1(kInstallerPrefix), Qt::CaseInsensitive)
+        || !assetName.endsWith(QString::fromLatin1(kInstallerSuffix), Qt::CaseInsensitive)) {
+        return QString();
+    }
+
+    const int prefixLength = QString::fromLatin1(kInstallerPrefix).size();
+    const int suffixLength = QString::fromLatin1(kInstallerSuffix).size();
+    const QString version = assetName.mid(prefixLength, assetName.size() - prefixLength - suffixLength);
+    return normalizeVersion(version);
 }
 
 AppUpdateManager::ParsedVersion AppUpdateManager::parseVersion(const QString& version) const

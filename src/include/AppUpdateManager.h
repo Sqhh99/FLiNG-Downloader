@@ -60,5 +60,6 @@ private:
     AppReleaseInfo parseReleaseResponse(const QByteArray& responseData, const QString& source) const;
     QString resolveInstallerAssetUrl(const QJsonObject& assetObject) const;
     QString expectedInstallerAssetName(const QString& version) const;
+    QString extractVersionFromInstallerAssetName(const QString& assetName) const;
     ParsedVersion parseVersion(const QString& version) const;
 };

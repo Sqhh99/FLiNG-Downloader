@@ -549,10 +549,7 @@ Dialog {
                             Switch {
                                 id: autoUpdateSwitch
                                 checked: settingsDialog.autoCheckUpdates
-                                onToggled: {
-                                    settingsDialog.autoCheckUpdates = checked
-                                    settingsDialog.autoCheckUpdatesToggled(checked)
-                                }
+                                onToggled: settingsDialog.autoCheckUpdatesToggled(checked)
                             }
 
                             Text {

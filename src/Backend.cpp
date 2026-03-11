@@ -473,7 +473,16 @@ void Backend::deleteModifier(int index)
 
 void Backend::checkForUpdates()
 {
-    checkAppUpdate();
+    emit statusMessage(tr("Checking for updates..."));
+
+    ModifierManager::getInstance().batchCheckForUpdates(
+        [this](int current, int total, bool) {
+            emit statusMessage(tr("Checking for updates... (%1/%2)").arg(current).arg(total));
+        },
+        [this](int updatesCount) {
+            Q_UNUSED(updatesCount)
+            emit statusMessage(tr("Update check complete"));
+        });
 }
 
 void Backend::checkAppUpdate()
