@@ -14,10 +14,22 @@ Dialog {
     property int currentLanguage: 0
     property string downloadPath: ""
     property string appVersion: ""
+    property bool autoCheckUpdates: true
+    property bool appUpdateChecking: false
+    property bool appUpdateAvailable: false
+    property string appLatestVersion: ""
+    property string appUpdateSource: ""
+    property string appUpdatePublishedAt: ""
+    property bool appUpdateDownloading: false
+    property real appUpdateProgress: 0
+    property string appUpdateStatusText: ""
     
     signal themeChanged(int index)
     signal languageChangedSignal(int index)  // 重命名避免冲突
     signal browseDownloadPath()
+    signal autoCheckUpdatesToggled(bool enabled)
+    signal checkAppUpdateRequested()
+    signal downloadAppUpdateRequested()
     signal settingsApplied()
     
     title: qsTr("设置")
@@ -516,6 +528,100 @@ Dialog {
                             text: qsTr("作者: Sqhh99")
                             font.pixelSize: ThemeProvider.fontSizeMedium
                             color: ThemeProvider.textSecondary
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            height: 1
+                            color: ThemeProvider.borderColor
+                        }
+
+                        Text {
+                            text: qsTr("软件更新")
+                            font.pixelSize: ThemeProvider.fontSizeMedium
+                            color: ThemeProvider.textPrimary
+                            font.bold: true
+                        }
+
+                        RowLayout {
+                            spacing: ThemeProvider.spacingSmall
+
+                            StyledSwitch {
+                                id: autoUpdateSwitch
+                                checked: settingsDialog.autoCheckUpdates
+                                onToggled: settingsDialog.autoCheckUpdatesToggled(checked)
+                            }
+
+                            Text {
+                                text: qsTr("启动时自动检查更新")
+                                font.pixelSize: ThemeProvider.fontSizeMedium
+                                color: ThemeProvider.textSecondary
+                            }
+                        }
+
+                        Text {
+                            text: settingsDialog.appUpdateStatusText.length > 0
+                                ? settingsDialog.appUpdateStatusText
+                                : qsTr("点击“检查更新”获取最新版本信息")
+                            font.pixelSize: ThemeProvider.fontSizeMedium
+                            color: ThemeProvider.textSecondary
+                            wrapMode: Text.WordWrap
+                            Layout.fillWidth: true
+                        }
+
+                        Text {
+                            visible: settingsDialog.appLatestVersion.length > 0
+                            text: qsTr("最新版本: %1").arg(settingsDialog.appLatestVersion)
+                            font.pixelSize: ThemeProvider.fontSizeMedium
+                            color: ThemeProvider.textSecondary
+                        }
+
+                        Text {
+                            visible: settingsDialog.appUpdateSource.length > 0
+                            text: qsTr("更新源: %1").arg(settingsDialog.appUpdateSource)
+                            font.pixelSize: ThemeProvider.fontSizeMedium
+                            color: ThemeProvider.textSecondary
+                        }
+
+                        Text {
+                            visible: settingsDialog.appUpdatePublishedAt.length > 0
+                            text: qsTr("发布时间: %1").arg(settingsDialog.appUpdatePublishedAt)
+                            font.pixelSize: ThemeProvider.fontSizeMedium
+                            color: ThemeProvider.textSecondary
+                            wrapMode: Text.WrapAnywhere
+                            Layout.fillWidth: true
+                        }
+
+                        ProgressIndicator {
+                            visible: settingsDialog.appUpdateDownloading
+                            Layout.fillWidth: true
+                            showText: true
+                            statusText: Math.round(Math.max(0, Math.min(1, settingsDialog.appUpdateProgress)) * 100) + "%"
+                            value: Math.max(0, Math.min(1, settingsDialog.appUpdateProgress))
+                        }
+
+                        RowLayout {
+                            spacing: ThemeProvider.spacingSmall
+
+                            StyledButton {
+                                text: settingsDialog.appUpdateChecking
+                                    ? qsTr("检查中...")
+                                    : qsTr("检查更新")
+                                buttonType: "secondary"
+                                enabled: !settingsDialog.appUpdateChecking && !settingsDialog.appUpdateDownloading
+                                onClicked: settingsDialog.checkAppUpdateRequested()
+                            }
+
+                            StyledButton {
+                                visible: settingsDialog.appUpdateAvailable
+                                text: settingsDialog.appUpdateDownloading
+                                    ? qsTr("下载中...")
+                                    : qsTr("下载并安装")
+                                enabled: settingsDialog.appUpdateAvailable
+                                    && !settingsDialog.appUpdateChecking
+                                    && !settingsDialog.appUpdateDownloading
+                                onClicked: settingsDialog.downloadAppUpdateRequested()
+                            }
                         }
 
                         Item {

@@ -334,6 +334,15 @@ ApplicationWindow {
         // 绑定下载路径
         downloadPath: backend ? backend.downloadPath : ""
         appVersion: backend ? backend.appVersion : ""
+        autoCheckUpdates: backend ? backend.autoCheckAppUpdates : true
+        appUpdateChecking: backend ? backend.appUpdateChecking : false
+        appUpdateAvailable: backend ? backend.appUpdateAvailable : false
+        appLatestVersion: backend ? backend.appLatestVersion : ""
+        appUpdateSource: backend ? backend.appUpdateSource : ""
+        appUpdatePublishedAt: backend ? backend.appUpdatePublishedAt : ""
+        appUpdateDownloading: backend ? backend.appUpdateDownloading : false
+        appUpdateProgress: backend ? backend.appUpdateProgress : 0
+        appUpdateStatusText: backend ? backend.appUpdateStatusText : ""
         
         onThemeChanged: function(index) {
             ThemeProvider.currentTheme = index
@@ -348,6 +357,18 @@ ApplicationWindow {
         onBrowseDownloadPath: {
             console.log("Main: 打开下载目录选择对话框")
             downloadFolderDialog.open()
+        }
+
+        onAutoCheckUpdatesToggled: function(enabled) {
+            if (backend) backend.setAutoCheckAppUpdates(enabled)
+        }
+
+        onCheckAppUpdateRequested: {
+            if (backend) backend.checkAppUpdate()
+        }
+
+        onDownloadAppUpdateRequested: {
+            if (backend) backend.downloadAppUpdate()
         }
     }
     

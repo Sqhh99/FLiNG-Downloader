@@ -24,6 +24,7 @@ Backend::Backend(QObject* parent)
     , m_modifierListModel(new ModifierListModel(this))
     , m_downloadedModifierModel(new DownloadedModifierModel(this))
     , m_coverExtractor(new CoverExtractor(this))
+    , m_appUpdateManager(new AppUpdateManager(this))
 {
     // Speed calculation timer - fires every second
     m_speedUpdateTimer = new QTimer(this);
@@ -64,6 +65,12 @@ Backend::Backend(QObject* parent)
     loadGameMappings();
     loadDownloadedModifiers();
     fetchRecentModifiers();
+
+    if (autoCheckAppUpdates()) {
+        QTimer::singleShot(1500, this, [this]() {
+            checkAppUpdate();
+        });
+    }
 }
 
 Backend::~Backend()
@@ -132,6 +139,11 @@ QVariantList Backend::downloadTasks() const
         list.append(task);
     }
     return list;
+}
+
+bool Backend::autoCheckAppUpdates() const
+{
+    return ConfigManager::getInstance().getAutoCheckUpdates();
 }
 
 void Backend::searchModifiers(const QString& keyword)
@@ -462,7 +474,114 @@ void Backend::deleteModifier(int index)
 void Backend::checkForUpdates()
 {
     emit statusMessage(tr("Checking for updates..."));
-    // TODO: Implement update check logic
+
+    ModifierManager::getInstance().batchCheckForUpdates(
+        [this](int current, int total, bool) {
+            emit statusMessage(tr("Checking for updates... (%1/%2)").arg(current).arg(total));
+        },
+        [this](int updatesCount) {
+            Q_UNUSED(updatesCount)
+            emit statusMessage(tr("Update check complete"));
+        });
+}
+
+void Backend::checkAppUpdate()
+{
+    if (m_appUpdateChecking || m_appUpdateDownloading || !m_appUpdateManager) {
+        return;
+    }
+
+    m_appUpdateChecking = true;
+    m_appUpdateStatusText = tr("Checking for updates...");
+    emit appUpdateStateChanged();
+    emit statusMessage(m_appUpdateStatusText);
+
+    m_appUpdateManager->checkForUpdates(
+        appVersion(),
+        [this](bool success, bool updateAvailable, const AppReleaseInfo& releaseInfo, const QString& errorMessage) {
+            m_appUpdateChecking = false;
+
+            if (!success) {
+                m_appUpdateAvailable = false;
+                m_latestAppRelease = AppReleaseInfo();
+                m_appLatestVersion.clear();
+                m_appUpdateSource.clear();
+                m_appUpdatePublishedAt.clear();
+                m_appUpdateStatusText = errorMessage.isEmpty()
+                    ? tr("Failed to check for updates")
+                    : errorMessage;
+                emit appUpdateStateChanged();
+                emit statusMessage(m_appUpdateStatusText);
+                return;
+            }
+
+            m_latestAppRelease = releaseInfo;
+            m_appUpdateAvailable = updateAvailable;
+            m_appLatestVersion = releaseInfo.version;
+            m_appUpdateSource = releaseInfo.source;
+            m_appUpdatePublishedAt = releaseInfo.publishedAt;
+            m_appUpdateStatusText = updateAvailable
+                ? tr("New version available: %1").arg(releaseInfo.version)
+                : tr("You are using the latest version");
+
+            emit appUpdateStateChanged();
+            emit statusMessage(m_appUpdateStatusText);
+        });
+}
+
+void Backend::downloadAppUpdate()
+{
+    if (!m_appUpdateAvailable || m_appUpdateDownloading || !m_latestAppRelease.isValid() || !m_appUpdateManager) {
+        return;
+    }
+
+    m_appUpdateDownloading = true;
+    m_appUpdateProgress = 0.0;
+    m_appUpdateStatusText = tr("Downloading installer...");
+    emit appUpdateStateChanged();
+    emit statusMessage(m_appUpdateStatusText);
+
+    m_appUpdateManager->downloadInstaller(
+        m_latestAppRelease,
+        [this](qint64 bytesReceived, qint64 bytesTotal) {
+            if (bytesTotal > 0) {
+                m_appUpdateProgress = qBound<qreal>(
+                    0.0,
+                    static_cast<qreal>(bytesReceived) / static_cast<qreal>(bytesTotal),
+                    1.0);
+            }
+            emit appUpdateStateChanged();
+        },
+        [this](bool success, const QString& installerPath, const QString& errorMessage) {
+            m_appUpdateDownloading = false;
+
+            if (!success) {
+                m_appUpdateProgress = 0.0;
+                m_appUpdateStatusText = errorMessage.isEmpty()
+                    ? tr("Failed to download installer")
+                    : errorMessage;
+                emit appUpdateStateChanged();
+                emit statusMessage(m_appUpdateStatusText);
+                return;
+            }
+
+            m_appUpdateProgress = 1.0;
+            m_appUpdateStatusText = tr("Installer downloaded. Launching setup...");
+            emit appUpdateStateChanged();
+            emit statusMessage(m_appUpdateStatusText);
+
+            const bool launched = QProcess::startDetached(installerPath, QStringList());
+            if (!launched) {
+                m_appUpdateStatusText = tr("Failed to launch installer");
+                emit appUpdateStateChanged();
+                emit statusMessage(m_appUpdateStatusText);
+                return;
+            }
+
+            QTimer::singleShot(300, QCoreApplication::instance(), []() {
+                QCoreApplication::quit();
+            });
+        });
 }
 
 void Backend::setTheme(int themeIndex)
@@ -483,6 +602,16 @@ void Backend::setLanguage(int languageIndex)
     }
     
     emit languageChanged();
+}
+
+void Backend::setAutoCheckAppUpdates(bool enabled)
+{
+    if (enabled == autoCheckAppUpdates()) {
+        return;
+    }
+
+    ConfigManager::getInstance().setAutoCheckUpdates(enabled);
+    emit autoCheckAppUpdatesChanged();
 }
 
 QString Backend::downloadPath() const
