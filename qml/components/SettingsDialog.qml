@@ -546,7 +546,7 @@ Dialog {
                         RowLayout {
                             spacing: ThemeProvider.spacingSmall
 
-                            Switch {
+                            StyledSwitch {
                                 id: autoUpdateSwitch
                                 checked: settingsDialog.autoCheckUpdates
                                 onToggled: settingsDialog.autoCheckUpdatesToggled(checked)
@@ -592,11 +592,11 @@ Dialog {
                             Layout.fillWidth: true
                         }
 
-                        ProgressBar {
+                        ProgressIndicator {
                             visible: settingsDialog.appUpdateDownloading
                             Layout.fillWidth: true
-                            from: 0
-                            to: 1
+                            showText: true
+                            statusText: Math.round(Math.max(0, Math.min(1, settingsDialog.appUpdateProgress)) * 100) + "%"
                             value: Math.max(0, Math.min(1, settingsDialog.appUpdateProgress))
                         }
 

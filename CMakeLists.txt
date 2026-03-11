@@ -236,6 +236,7 @@ qt_add_qml_module(${PROJECT_NAME}
         qml/components/StyledButton.qml
         qml/components/StyledTextField.qml
         qml/components/StyledComboBox.qml
+        qml/components/StyledSwitch.qml
         qml/components/StyledTable.qml
         qml/components/ProgressIndicator.qml
         qml/components/IconButton.qml
