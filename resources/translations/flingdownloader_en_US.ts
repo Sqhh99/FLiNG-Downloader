@@ -893,24 +893,29 @@ Game Name: %2</translation>
 <context>
     <name>Main</name>
     <message>
+        <location filename="../../qml/Main.qml" line="21"/>
         <source>FLiNG Downloader</source>
-        <translation type="vanished">FLiNG Downloader</translation>
+        <translation>FLiNG Downloader</translation>
     </message>
     <message>
+        <location filename="../../qml/Main.qml" line="99"/>
         <source>搜索修改器</source>
-        <translation type="obsolete">Search Mods</translation>
+        <translation type="unfinished">Search Mods</translation>
     </message>
     <message>
+        <location filename="../../qml/Main.qml" line="125"/>
         <source>已下载修改器</source>
-        <translation type="obsolete">Downloaded Mods</translation>
+        <translation type="unfinished">Downloaded Mods</translation>
     </message>
     <message>
+        <location filename="../../qml/Main.qml" line="379"/>
         <source>选择下载目录</source>
-        <translation type="obsolete">Select download directory</translation>
+        <translation type="unfinished">Select download directory</translation>
     </message>
     <message>
+        <location filename="../../qml/Main.qml" line="213"/>
         <source>正在检查更新...</source>
-        <translation type="obsolete">Checking for updates...</translation>
+        <translation type="unfinished">Checking for updates...</translation>
     </message>
     <message>
         <source>下载完成</source>
@@ -978,7 +983,7 @@ Game Name: %2</translation>
     <message>
         <location filename="../../qml/pages/ModifierDetailPanel.qml" line="202"/>
         <source>下载中...</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Downloading...</translation>
     </message>
     <message>
         <source>下载</source>
@@ -1226,67 +1231,67 @@ Game Name: %2</translation>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="516"/>
         <source>FLiNG Downloader</source>
-        <translation type="unfinished">Game Mod Download Integrator</translation>
+        <translation>FLiNG Downloader</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="522"/>
         <source>版本: %1</source>
-        <translation type="unfinished">Version: %1</translation>
+        <translation>Version: %1</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="540"/>
         <source>软件更新</source>
-        <translation type="unfinished"></translation>
+        <translation>Software Updates</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="556"/>
         <source>启动时自动检查更新</source>
-        <translation type="unfinished"></translation>
+        <translation>Automatically check for updates on startup</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="565"/>
         <source>点击“检查更新”获取最新版本信息</source>
-        <translation type="unfinished"></translation>
+        <translation>Click &quot;Check for Updates&quot; to get the latest version info</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="574"/>
         <source>最新版本: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Latest version: %1</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="581"/>
         <source>更新源: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Update source: %1</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="588"/>
         <source>发布时间: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Release date: %1</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="608"/>
         <source>检查中...</source>
-        <translation type="unfinished"></translation>
+        <translation>Checking...</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="609"/>
         <source>检查更新</source>
-        <translation type="unfinished">Check for Updates</translation>
+        <translation>Check for Updates</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="618"/>
         <source>下载中...</source>
-        <translation type="unfinished"></translation>
+        <translation>Downloading...</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="619"/>
         <source>下载并安装</source>
-        <translation type="unfinished"></translation>
+        <translation>Download and Install</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="633"/>
         <source>开源地址: https://github.com/Sqhh99/FLiNG-Downloader</source>
-        <translation type="unfinished"></translation>
+        <translation>Open-source URL: https://github.com/Sqhh99/FLiNG-Downloader</translation>
     </message>
     <message>
         <source>版本: 1.0.0</source>

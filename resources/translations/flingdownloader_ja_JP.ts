@@ -893,24 +893,29 @@
 <context>
     <name>Main</name>
     <message>
+        <location filename="../../qml/Main.qml" line="21"/>
         <source>FLiNG Downloader</source>
-        <translation type="vanished">FLiNG Downloader</translation>
+        <translation>FLiNG Downloader</translation>
     </message>
     <message>
+        <location filename="../../qml/Main.qml" line="99"/>
         <source>搜索修改器</source>
-        <translation type="obsolete">MODを検索</translation>
+        <translation type="unfinished">MODを検索</translation>
     </message>
     <message>
+        <location filename="../../qml/Main.qml" line="125"/>
         <source>已下载修改器</source>
-        <translation type="obsolete">ダウンロード済みMOD</translation>
+        <translation type="unfinished">ダウンロード済みMOD</translation>
     </message>
     <message>
+        <location filename="../../qml/Main.qml" line="213"/>
         <source>正在检查更新...</source>
-        <translation type="obsolete">更新を確認中...</translation>
+        <translation type="unfinished">更新を確認中...</translation>
     </message>
     <message>
+        <location filename="../../qml/Main.qml" line="379"/>
         <source>选择下载目录</source>
-        <translation type="obsolete">ダウンロードディレクトリを選択</translation>
+        <translation type="unfinished">ダウンロードディレクトリを選択</translation>
     </message>
     <message>
         <source>下载完成</source>
@@ -978,7 +983,7 @@
     <message>
         <location filename="../../qml/pages/ModifierDetailPanel.qml" line="202"/>
         <source>下载中...</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">ダウンロード中...</translation>
     </message>
     <message>
         <source>下载</source>
@@ -1226,67 +1231,67 @@
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="516"/>
         <source>FLiNG Downloader</source>
-        <translation type="unfinished">ゲームMODダウンロード統合ツール</translation>
+        <translation>FLiNG Downloader</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="522"/>
         <source>版本: %1</source>
-        <translation type="unfinished">バージョン: %1</translation>
+        <translation>バージョン: %1</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="540"/>
         <source>软件更新</source>
-        <translation type="unfinished"></translation>
+        <translation>ソフトウェア更新</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="556"/>
         <source>启动时自动检查更新</source>
-        <translation type="unfinished"></translation>
+        <translation>起動時に自動で更新を確認</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="565"/>
         <source>点击“检查更新”获取最新版本信息</source>
-        <translation type="unfinished"></translation>
+        <translation>「更新を確認」をクリックして最新バージョン情報を取得</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="574"/>
         <source>最新版本: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>最新バージョン: %1</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="581"/>
         <source>更新源: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>更新元: %1</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="588"/>
         <source>发布时间: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>公開日時: %1</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="608"/>
         <source>检查中...</source>
-        <translation type="unfinished"></translation>
+        <translation>確認中...</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="609"/>
         <source>检查更新</source>
-        <translation type="unfinished">更新を確認</translation>
+        <translation>更新を確認</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="618"/>
         <source>下载中...</source>
-        <translation type="unfinished"></translation>
+        <translation>ダウンロード中...</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="619"/>
         <source>下载并安装</source>
-        <translation type="unfinished"></translation>
+        <translation>ダウンロードしてインストール</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="633"/>
         <source>开源地址: https://github.com/Sqhh99/FLiNG-Downloader</source>
-        <translation type="unfinished"></translation>
+        <translation>オープンソース: https://github.com/Sqhh99/FLiNG-Downloader</translation>
     </message>
     <message>
         <source>版本: 1.0.0</source>

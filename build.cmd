@@ -191,6 +191,25 @@ echo  Configuring [%CONFIG_LABEL%]
 echo ========================================
 echo [INFO] Configure preset: %CONFIGURE_PRESET%
 echo [INFO] Binary directory: %BUILD_DIR%
+
+:: Self-heal stale generator tool path from old CMake cache.
+if exist "%BUILD_DIR%\CMakeCache.txt" (
+    set "CACHE_MAKE_PROGRAM="
+    for /f "tokens=1,* delims==" %%A in ('findstr /b "CMAKE_MAKE_PROGRAM:FILEPATH=" "%BUILD_DIR%\CMakeCache.txt"') do (
+        set "CACHE_MAKE_PROGRAM=%%B"
+    )
+
+    if defined CACHE_MAKE_PROGRAM (
+        set "CACHE_MAKE_PROGRAM=!CACHE_MAKE_PROGRAM:/=\!"
+        if not exist "!CACHE_MAKE_PROGRAM!" (
+            echo [WARNING] Cached build tool path is invalid: !CACHE_MAKE_PROGRAM!
+            echo [INFO] Removing stale CMake cache from "%BUILD_DIR%"...
+            del /f /q "%BUILD_DIR%\CMakeCache.txt" >nul 2>&1
+            if exist "%BUILD_DIR%\CMakeFiles" rmdir /s /q "%BUILD_DIR%\CMakeFiles"
+        )
+    )
+)
+
 if defined APP_VERSION_OVERRIDE (
     echo [INFO] App version override: "%APP_VERSION_OVERRIDE%"
     cmake --preset "%CONFIGURE_PRESET%" -DAPP_VERSION="%APP_VERSION_OVERRIDE%"
@@ -208,6 +227,24 @@ exit /b 0
 :: ------------------------------------------------------------
 :do_build
 :: ------------------------------------------------------------
+:: Self-heal stale Ninja path in existing cache.
+if exist "%BUILD_DIR%\CMakeCache.txt" (
+    set "CACHE_MAKE_PROGRAM="
+    for /f "tokens=1,* delims==" %%A in ('findstr /b "CMAKE_MAKE_PROGRAM:FILEPATH=" "%BUILD_DIR%\CMakeCache.txt"') do (
+        set "CACHE_MAKE_PROGRAM=%%B"
+    )
+
+    if defined CACHE_MAKE_PROGRAM (
+        set "CACHE_MAKE_PROGRAM=!CACHE_MAKE_PROGRAM:/=\!"
+        if not exist "!CACHE_MAKE_PROGRAM!" (
+            echo [WARNING] Cached build tool path is invalid: !CACHE_MAKE_PROGRAM!
+            echo [INFO] Re-running configure to refresh generator tool path...
+            call :do_configure
+            if errorlevel 1 exit /b 1
+        )
+    )
+)
+
 :: Auto-configure if needed.
 if defined APP_VERSION_OVERRIDE (
     if not defined CONFIGURE_DONE (
