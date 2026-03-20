@@ -25,8 +25,9 @@ ApplicationWindow {
     
     color: ThemeProvider.backgroundColor
     
-    // backend 由 main.cpp 通过 rootContext 注入
-    required property var backend
+    // backend is injected from main.cpp via engine.setInitialProperties
+    // Use plain property for lupdate compatibility with older Qt parser.
+    property var backend: null
     
     // 待下载标志 - 用于等待详情加载完成后自动开始下载
     property bool pendingDownload: false

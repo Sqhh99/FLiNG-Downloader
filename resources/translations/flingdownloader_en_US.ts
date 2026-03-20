@@ -64,99 +64,178 @@
     </message>
 </context>
 <context>
+    <name>AppUpdateManager</name>
+    <message>
+        <location filename="../../src/AppUpdateManager.cpp" line="38"/>
+        <source>Update package information is incomplete</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/AppUpdateManager.cpp" line="46"/>
+        <source>Failed to create update cache directory</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/AppUpdateManager.cpp" line="161"/>
+        <source>GitHub release request failed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/AppUpdateManager.cpp" line="169"/>
+        <source>GitHub release response did not contain a valid installer asset</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/AppUpdateManager.cpp" line="193"/>
+        <source>; Gitee release request failed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/AppUpdateManager.cpp" line="204"/>
+        <source>; Gitee release response did not contain a valid installer asset</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>Backend</name>
     <message>
-        <location filename="../../src/Backend.cpp" line="139"/>
+        <location filename="../../src/Backend.cpp" line="151"/>
         <source>Searching: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="150"/>
+        <location filename="../../src/Backend.cpp" line="162"/>
         <source>Loading modifiers...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="196"/>
+        <location filename="../../src/Backend.cpp" line="208"/>
         <source>Loading modifier details...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="212"/>
+        <location filename="../../src/Backend.cpp" line="224"/>
         <source>Details loaded</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="218"/>
+        <location filename="../../src/Backend.cpp" line="230"/>
         <source>Failed to load details</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="233"/>
+        <location filename="../../src/Backend.cpp" line="245"/>
         <source>No download version available</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="436"/>
+        <location filename="../../src/Backend.cpp" line="448"/>
         <source>File not found. Removed from downloaded list: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="717"/>
+        <location filename="../../src/Backend.cpp" line="846"/>
         <source>Download complete: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="726"/>
+        <location filename="../../src/Backend.cpp" line="855"/>
         <source>Download failed: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="391"/>
+        <location filename="../../src/Backend.cpp" line="403"/>
         <source>Extracting cover...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="255"/>
+        <location filename="../../src/Backend.cpp" line="267"/>
         <source>Added to download queue: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="403"/>
+        <location filename="../../src/Backend.cpp" line="415"/>
         <source>Cover extracted</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="405"/>
+        <location filename="../../src/Backend.cpp" line="417"/>
         <source>Failed to save cover</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="408"/>
+        <location filename="../../src/Backend.cpp" line="420"/>
         <source>Failed to extract cover</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="459"/>
+        <location filename="../../src/Backend.cpp" line="471"/>
         <source>Deleted: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="464"/>
+        <location filename="../../src/Backend.cpp" line="476"/>
+        <location filename="../../src/Backend.cpp" line="495"/>
         <source>Checking for updates...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="823"/>
+        <location filename="../../src/Backend.cpp" line="480"/>
+        <source>Checking for updates... (%1/%2)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/Backend.cpp" line="484"/>
+        <source>Update check complete</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/Backend.cpp" line="511"/>
+        <source>Failed to check for updates</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/Backend.cpp" line="524"/>
+        <source>New version available: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/Backend.cpp" line="525"/>
+        <source>You are using the latest version</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/Backend.cpp" line="540"/>
+        <source>Downloading installer...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/Backend.cpp" line="561"/>
+        <source>Failed to download installer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/Backend.cpp" line="569"/>
+        <source>Installer downloaded. Launching setup...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/Backend.cpp" line="575"/>
+        <source>Failed to launch installer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/Backend.cpp" line="952"/>
         <source>Found %1 modifiers</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="846"/>
+        <location filename="../../src/Backend.cpp" line="975"/>
         <source>Download complete</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="848"/>
+        <location filename="../../src/Backend.cpp" line="977"/>
         <source>Download failed</source>
         <translation type="unfinished"></translation>
     </message>
@@ -819,22 +898,22 @@ Game Name: %2</translation>
         <translation>FLiNG Downloader</translation>
     </message>
     <message>
-        <location filename="../../qml/Main.qml" line="98"/>
+        <location filename="../../qml/Main.qml" line="99"/>
         <source>搜索修改器</source>
         <translation type="unfinished">Search Mods</translation>
     </message>
     <message>
-        <location filename="../../qml/Main.qml" line="124"/>
+        <location filename="../../qml/Main.qml" line="125"/>
         <source>已下载修改器</source>
         <translation type="unfinished">Downloaded Mods</translation>
     </message>
     <message>
-        <location filename="../../qml/Main.qml" line="357"/>
+        <location filename="../../qml/Main.qml" line="379"/>
         <source>选择下载目录</source>
         <translation type="unfinished">Select download directory</translation>
     </message>
     <message>
-        <location filename="../../qml/Main.qml" line="212"/>
+        <location filename="../../qml/Main.qml" line="213"/>
         <source>正在检查更新...</source>
         <translation type="unfinished">Checking for updates...</translation>
     </message>
@@ -904,7 +983,7 @@ Game Name: %2</translation>
     <message>
         <location filename="../../qml/pages/ModifierDetailPanel.qml" line="202"/>
         <source>下载中...</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Downloading...</translation>
     </message>
     <message>
         <source>下载</source>
@@ -997,39 +1076,39 @@ Game Name: %2</translation>
 <context>
     <name>SettingsDialog</name>
     <message>
-        <location filename="../../qml/components/SettingsDialog.qml" line="23"/>
-        <location filename="../../qml/components/SettingsDialog.qml" line="48"/>
+        <location filename="../../qml/components/SettingsDialog.qml" line="35"/>
+        <location filename="../../qml/components/SettingsDialog.qml" line="60"/>
         <source>设置</source>
         <translation type="unfinished">Settings</translation>
     </message>
     <message>
-        <location filename="../../qml/components/SettingsDialog.qml" line="121"/>
+        <location filename="../../qml/components/SettingsDialog.qml" line="133"/>
         <source>外观</source>
         <translation>Appearance</translation>
     </message>
     <message>
-        <location filename="../../qml/components/SettingsDialog.qml" line="155"/>
+        <location filename="../../qml/components/SettingsDialog.qml" line="167"/>
         <source>下载</source>
         <translation type="unfinished">Download</translation>
     </message>
     <message>
-        <location filename="../../qml/components/SettingsDialog.qml" line="189"/>
+        <location filename="../../qml/components/SettingsDialog.qml" line="201"/>
         <source>语言</source>
         <translation type="unfinished">Language</translation>
     </message>
     <message>
-        <location filename="../../qml/components/SettingsDialog.qml" line="223"/>
-        <location filename="../../qml/components/SettingsDialog.qml" line="487"/>
+        <location filename="../../qml/components/SettingsDialog.qml" line="235"/>
+        <location filename="../../qml/components/SettingsDialog.qml" line="499"/>
         <source>关于</source>
         <translation>About</translation>
     </message>
     <message>
-        <location filename="../../qml/components/SettingsDialog.qml" line="256"/>
+        <location filename="../../qml/components/SettingsDialog.qml" line="268"/>
         <source>外观设置</source>
         <translation>Appearance Settings</translation>
     </message>
     <message>
-        <location filename="../../qml/components/SettingsDialog.qml" line="274"/>
+        <location filename="../../qml/components/SettingsDialog.qml" line="286"/>
         <source>主题</source>
         <translation type="unfinished">Theme</translation>
     </message>
@@ -1050,126 +1129,176 @@ Game Name: %2</translation>
         <translation type="vanished">Colorful</translation>
     </message>
     <message>
-        <location filename="../../qml/components/SettingsDialog.qml" line="287"/>
+        <location filename="../../qml/components/SettingsDialog.qml" line="299"/>
         <source>浅色</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../qml/components/SettingsDialog.qml" line="288"/>
+        <location filename="../../qml/components/SettingsDialog.qml" line="300"/>
         <source>深色</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../qml/components/SettingsDialog.qml" line="289"/>
+        <location filename="../../qml/components/SettingsDialog.qml" line="301"/>
         <source>海洋</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../qml/components/SettingsDialog.qml" line="290"/>
+        <location filename="../../qml/components/SettingsDialog.qml" line="302"/>
         <source>日落</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../qml/components/SettingsDialog.qml" line="291"/>
+        <location filename="../../qml/components/SettingsDialog.qml" line="303"/>
         <source>森林</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../qml/components/SettingsDialog.qml" line="292"/>
+        <location filename="../../qml/components/SettingsDialog.qml" line="304"/>
         <source>薰衣草</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../qml/components/SettingsDialog.qml" line="293"/>
+        <location filename="../../qml/components/SettingsDialog.qml" line="305"/>
         <source>玫瑰</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../qml/components/SettingsDialog.qml" line="294"/>
+        <location filename="../../qml/components/SettingsDialog.qml" line="306"/>
         <source>午夜</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../qml/components/SettingsDialog.qml" line="295"/>
+        <location filename="../../qml/components/SettingsDialog.qml" line="307"/>
         <source>摩卡</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../qml/components/SettingsDialog.qml" line="358"/>
+        <location filename="../../qml/components/SettingsDialog.qml" line="370"/>
         <source>下载设置</source>
         <translation>Download Settings</translation>
     </message>
     <message>
-        <location filename="../../qml/components/SettingsDialog.qml" line="376"/>
+        <location filename="../../qml/components/SettingsDialog.qml" line="388"/>
         <source>下载目录</source>
         <translation>Download Directory</translation>
     </message>
     <message>
-        <location filename="../../qml/components/SettingsDialog.qml" line="396"/>
+        <location filename="../../qml/components/SettingsDialog.qml" line="408"/>
         <source>未设置</source>
         <translation>Not Set</translation>
     </message>
     <message>
-        <location filename="../../qml/components/SettingsDialog.qml" line="405"/>
+        <location filename="../../qml/components/SettingsDialog.qml" line="417"/>
         <source>浏览...</source>
         <translation>Browse...</translation>
     </message>
     <message>
-        <location filename="../../qml/components/SettingsDialog.qml" line="414"/>
+        <location filename="../../qml/components/SettingsDialog.qml" line="426"/>
         <source>修改器将下载到此目录</source>
         <translation>Mods will be downloaded to this directory</translation>
     </message>
     <message>
-        <location filename="../../qml/components/SettingsDialog.qml" line="432"/>
+        <location filename="../../qml/components/SettingsDialog.qml" line="444"/>
         <source>语言设置</source>
         <translation>Language Settings</translation>
     </message>
     <message>
-        <location filename="../../qml/components/SettingsDialog.qml" line="450"/>
+        <location filename="../../qml/components/SettingsDialog.qml" line="462"/>
         <source>界面语言</source>
         <translation>Interface Language</translation>
     </message>
     <message>
-        <location filename="../../qml/components/SettingsDialog.qml" line="458"/>
+        <location filename="../../qml/components/SettingsDialog.qml" line="470"/>
         <source>简体中文</source>
         <translation>Simplified Chinese</translation>
     </message>
     <message>
-        <location filename="../../qml/components/SettingsDialog.qml" line="458"/>
+        <location filename="../../qml/components/SettingsDialog.qml" line="470"/>
         <source>English</source>
         <translation>English</translation>
     </message>
     <message>
-        <location filename="../../qml/components/SettingsDialog.qml" line="458"/>
+        <location filename="../../qml/components/SettingsDialog.qml" line="470"/>
         <source>日本語</source>
         <translation>Japanese</translation>
     </message>
     <message>
-        <location filename="../../qml/components/SettingsDialog.qml" line="469"/>
+        <location filename="../../qml/components/SettingsDialog.qml" line="481"/>
         <source>切换语言后需要重启应用才能完全生效</source>
         <translation>Restart the app for language changes to take full effect</translation>
     </message>
     <message>
-        <location filename="../../qml/components/SettingsDialog.qml" line="504"/>
+        <location filename="../../qml/components/SettingsDialog.qml" line="516"/>
         <source>FLiNG Downloader</source>
-        <translation type="unfinished">Game Mod Download Integrator</translation>
+        <translation>FLiNG Downloader</translation>
     </message>
     <message>
-        <location filename="../../qml/components/SettingsDialog.qml" line="510"/>
+        <location filename="../../qml/components/SettingsDialog.qml" line="522"/>
         <source>版本: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Version: %1</translation>
     </message>
     <message>
-        <location filename="../../qml/components/SettingsDialog.qml" line="527"/>
+        <location filename="../../qml/components/SettingsDialog.qml" line="540"/>
+        <source>软件更新</source>
+        <translation>Software Updates</translation>
+    </message>
+    <message>
+        <location filename="../../qml/components/SettingsDialog.qml" line="556"/>
+        <source>启动时自动检查更新</source>
+        <translation>Automatically check for updates on startup</translation>
+    </message>
+    <message>
+        <location filename="../../qml/components/SettingsDialog.qml" line="565"/>
+        <source>点击“检查更新”获取最新版本信息</source>
+        <translation>Click &quot;Check for Updates&quot; to get the latest version info</translation>
+    </message>
+    <message>
+        <location filename="../../qml/components/SettingsDialog.qml" line="574"/>
+        <source>最新版本: %1</source>
+        <translation>Latest version: %1</translation>
+    </message>
+    <message>
+        <location filename="../../qml/components/SettingsDialog.qml" line="581"/>
+        <source>更新源: %1</source>
+        <translation>Update source: %1</translation>
+    </message>
+    <message>
+        <location filename="../../qml/components/SettingsDialog.qml" line="588"/>
+        <source>发布时间: %1</source>
+        <translation>Release date: %1</translation>
+    </message>
+    <message>
+        <location filename="../../qml/components/SettingsDialog.qml" line="608"/>
+        <source>检查中...</source>
+        <translation>Checking...</translation>
+    </message>
+    <message>
+        <location filename="../../qml/components/SettingsDialog.qml" line="609"/>
+        <source>检查更新</source>
+        <translation>Check for Updates</translation>
+    </message>
+    <message>
+        <location filename="../../qml/components/SettingsDialog.qml" line="618"/>
+        <source>下载中...</source>
+        <translation>Downloading...</translation>
+    </message>
+    <message>
+        <location filename="../../qml/components/SettingsDialog.qml" line="619"/>
+        <source>下载并安装</source>
+        <translation>Download and Install</translation>
+    </message>
+    <message>
+        <location filename="../../qml/components/SettingsDialog.qml" line="633"/>
         <source>开源地址: https://github.com/Sqhh99/FLiNG-Downloader</source>
-        <translation type="unfinished"></translation>
+        <translation>Open-source URL: https://github.com/Sqhh99/FLiNG-Downloader</translation>
     </message>
     <message>
         <source>版本: 1.0.0</source>
         <translation type="vanished">Version: 1.0.0</translation>
     </message>
     <message>
-        <location filename="../../qml/components/SettingsDialog.qml" line="516"/>
+        <location filename="../../qml/components/SettingsDialog.qml" line="528"/>
         <source>作者: Sqhh99</source>
         <translation>Author: Sqhh99</translation>
     </message>
