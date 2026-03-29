@@ -33,10 +33,10 @@ SearchManager::SearchManager(QObject* parent)
     }
 }
 
-// Initialize search suggestions from game mappings
+// Initialize search suggestions from the bundled translation database.
 void SearchManager::initializeDefaultSuggestions()
 {
-    // Add Chinese game names from the mapping database
+    // Add Chinese game names from the local translation database.
     GameMappingManager& mappingManager = GameMappingManager::getInstance();
     if (mappingManager.initialize()) {
         QStringList chineseNames = mappingManager.getAllChineseNames();
@@ -63,23 +63,11 @@ void SearchManager::searchModifiers(const QString& searchTerm,
         return;
     }
     
-    // Check for Chinese characters and translate if needed
+    // Resolve Chinese, Japanese, or English variants to the canonical FLiNG English title
+    // before searching the website. Unknown titles fall back to the original query text.
     GameMappingManager& mappingManager = GameMappingManager::getInstance();
-    if (mappingManager.containsChinese(searchTerm)) {
-        QString englishTerm = mappingManager.translateToEnglish(searchTerm);
-        
-        if (!englishTerm.isEmpty() && englishTerm != searchTerm) {
-            performSearch(englishTerm, callback);
-        } else {
-            // Use async translation
-            mappingManager.translateToEnglishAsync(searchTerm, [this, searchTerm, callback](const QString& translatedTerm) {
-                performSearch(!translatedTerm.isEmpty() ? translatedTerm : searchTerm, callback);
-            });
-            return;
-        }
-    } else {
-        performSearch(searchTerm, callback);
-    }
+    const QString englishTerm = mappingManager.translateToEnglish(searchTerm);
+    performSearch(!englishTerm.isEmpty() ? englishTerm : searchTerm, callback);
 }
 
 // Execute actual search operation

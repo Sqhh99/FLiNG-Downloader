@@ -27,6 +27,10 @@ public:
     void sendGetRequest(const QString& url, 
                         NetworkResponseCallback callback, 
                         const QString& userAgent = QString());
+    void sendGetRequest(const QString& url,
+                        QObject* context,
+                        NetworkResponseCallback callback,
+                        const QString& userAgent = QString());
 
     // Download file
     void downloadFile(const QString& url, 
@@ -36,10 +40,26 @@ public:
                       const QString& userAgent = QString(),
                       qint64 resumeFrom = 0,
                       bool keepPartialOnAbort = false);
+    void downloadFile(const QString& url,
+                      const QString& savePath,
+                      QObject* context,
+                      DownloadProgressCallback progressCallback,
+                      std::function<void(bool, const QString&)> finishedCallback,
+                      const QString& userAgent = QString(),
+                      qint64 resumeFrom = 0,
+                      bool keepPartialOnAbort = false);
 
     // Download file with HTTP metadata callback.
     void downloadFileWithStatus(const QString& url,
                                 const QString& savePath,
+                                DownloadProgressCallback progressCallback,
+                                DownloadFinishedCallback finishedCallback,
+                                const QString& userAgent = QString(),
+                                qint64 resumeFrom = 0,
+                                bool keepPartialOnAbort = false);
+    void downloadFileWithStatus(const QString& url,
+                                const QString& savePath,
+                                QObject* context,
                                 DownloadProgressCallback progressCallback,
                                 DownloadFinishedCallback finishedCallback,
                                 const QString& userAgent = QString(),

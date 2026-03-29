@@ -87,6 +87,12 @@ public:
     // Set whether to auto check updates
     void setAutoCheckUpdates(bool autoCheck);
 
+    // Get whether to auto check translation database updates
+    bool getAutoCheckDatabaseUpdates() const;
+
+    // Set whether to auto check translation database updates
+    void setAutoCheckDatabaseUpdates(bool autoCheck);
+
     // Get current theme
     Theme getCurrentTheme() const;
 

@@ -70,5 +70,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: FLiNG-Downloader-Windows-x64
-        path: build/ninja-release/FLiNG Downloader.exe
+        path: |
+          build/ninja-release/FLiNG Downloader.exe
+          resources/fling_translations.db
         if-no-files-found: warn

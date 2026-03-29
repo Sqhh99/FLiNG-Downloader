@@ -120,6 +120,17 @@ void ConfigManager::setAutoCheckUpdates(bool autoCheck)
     m_settings->sync();
 }
 
+bool ConfigManager::getAutoCheckDatabaseUpdates() const
+{
+    return m_settings->value("autoCheckDatabaseUpdates", true).toBool();
+}
+
+void ConfigManager::setAutoCheckDatabaseUpdates(bool autoCheck)
+{
+    m_settings->setValue("autoCheckDatabaseUpdates", autoCheck);
+    m_settings->sync();
+}
+
 ConfigManager::Theme ConfigManager::getCurrentTheme() const
 {
     const int themeValue = m_settings->value(
@@ -185,9 +196,7 @@ void ConfigManager::migrateLegacyDataFilesIfNeeded()
     const QString targetDir = FileSystem::getInstance().getDataDirectory();
     const QStringList filesToMigrate = {
         "downloaded_modifiers.json",
-        "downloaded_modifiers.ini",
-        "user_game_mappings.json",
-        "translation_cache.json"
+        "downloaded_modifiers.ini"
     };
 
     bool migratedAny = false;

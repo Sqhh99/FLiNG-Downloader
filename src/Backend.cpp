@@ -7,8 +7,8 @@
 #include <QDebug>
 #include <QFile>
 #include <QFileInfo>
-#include <QJsonDocument>
 #include <QJsonArray>
+#include <QJsonDocument>
 #include <QJsonObject>
 #include <QTimer>
 #include "FileSystem.h"
@@ -16,8 +16,134 @@
 #include "ThemeManager.h"
 #include "LanguageManager.h"
 #include "DownloadManager.h"
-#include <QRegularExpression>
+#include "TranslationDatabase.h"
+#include "TranslationTextUtils.h"
 #include <QSet>
+
+namespace {
+bool containsJapaneseScript(const QString& text)
+{
+    for (const QChar& ch : text) {
+        const ushort code = ch.unicode();
+        if ((code >= 0x3040 && code <= 0x309F) || (code >= 0x30A0 && code <= 0x30FF)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool containsLatinLetterOrDigit(const QString& text)
+{
+    for (const QChar& ch : text) {
+        if (ch.isLetterOrNumber() && ch.unicode() < 0x80) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool isEnglishLikeInput(const QString& text)
+{
+    return containsLatinLetterOrDigit(text) &&
+           !GameMappingManager::getInstance().containsChinese(text) &&
+           !containsJapaneseScript(text);
+}
+
+QString makeSuggestionDisplayText(const QString& chineseName,
+                                  const QString& englishName,
+                                  const QString& japaneseName,
+                                  const QString& query,
+                                  bool chineseMatched,
+                                  bool englishMatched,
+                                  bool normalizedEnglishMatched,
+                                  bool japaneseMatched,
+                                  ConfigManager::Language language)
+{
+    const bool englishInput = isEnglishLikeInput(query);
+
+    auto pickLocalizedSecondary = [&]() -> QString {
+        if (language == ConfigManager::Language::Japanese && !japaneseName.isEmpty()) {
+            return japaneseName;
+        }
+        if (language == ConfigManager::Language::Chinese && !chineseName.isEmpty()) {
+            return chineseName;
+        }
+        if (language == ConfigManager::Language::Japanese && !chineseName.isEmpty()) {
+            return chineseName;
+        }
+        if (language == ConfigManager::Language::Chinese && !japaneseName.isEmpty()) {
+            return japaneseName;
+        }
+        return QString();
+    };
+
+    if (language == ConfigManager::Language::English) {
+        return englishName;
+    }
+
+    if (englishInput || englishMatched || normalizedEnglishMatched) {
+        const QString secondary = pickLocalizedSecondary();
+        return secondary.isEmpty() ? englishName
+                                   : QStringLiteral("%1 (%2)").arg(englishName, secondary);
+    }
+
+    if (japaneseMatched && !japaneseName.isEmpty()) {
+        return englishName.isEmpty()
+                   ? japaneseName
+                   : QStringLiteral("%1 (%2)").arg(japaneseName, englishName);
+    }
+
+    if (chineseMatched && !chineseName.isEmpty()) {
+        return englishName.isEmpty()
+                   ? chineseName
+                   : QStringLiteral("%1 (%2)").arg(chineseName, englishName);
+    }
+
+    const QString localizedSecondary = pickLocalizedSecondary();
+    return localizedSecondary.isEmpty()
+               ? englishName
+               : QStringLiteral("%1 (%2)").arg(englishName, localizedSecondary);
+}
+
+QString makeSuggestionInputText(const QString& chineseName,
+                                const QString& englishName,
+                                const QString& japaneseName,
+                                const QString& query,
+                                bool chineseMatched,
+                                bool englishMatched,
+                                bool normalizedEnglishMatched,
+                                bool japaneseMatched,
+                                ConfigManager::Language language)
+{
+    const bool englishInput = isEnglishLikeInput(query);
+
+    if (language == ConfigManager::Language::English) {
+        return englishName;
+    }
+
+    if (englishInput || englishMatched || normalizedEnglishMatched) {
+        return englishName;
+    }
+
+    if (japaneseMatched && !japaneseName.isEmpty()) {
+        return japaneseName;
+    }
+
+    if (chineseMatched && !chineseName.isEmpty()) {
+        return chineseName;
+    }
+
+    if (language == ConfigManager::Language::Japanese && !japaneseName.isEmpty()) {
+        return japaneseName;
+    }
+
+    if (language == ConfigManager::Language::Chinese && !chineseName.isEmpty()) {
+        return chineseName;
+    }
+
+    return englishName;
+}
+}
 
 Backend::Backend(QObject* parent)
     : QObject(parent)
@@ -25,6 +151,7 @@ Backend::Backend(QObject* parent)
     , m_downloadedModifierModel(new DownloadedModifierModel(this))
     , m_coverExtractor(new CoverExtractor(this))
     , m_appUpdateManager(new AppUpdateManager(this))
+    , m_databaseUpdateManager(new DatabaseUpdateManager(this))
 {
     // Speed calculation timer - fires every second
     m_speedUpdateTimer = new QTimer(this);
@@ -63,12 +190,19 @@ Backend::Backend(QObject* parent)
     });
 
     loadGameMappings();
+    refreshCurrentDatabaseVersion();
     loadDownloadedModifiers();
     fetchRecentModifiers();
 
     if (autoCheckAppUpdates()) {
         QTimer::singleShot(1500, this, [this]() {
             checkAppUpdate();
+        });
+    }
+
+    if (autoCheckDatabaseUpdates()) {
+        QTimer::singleShot(2200, this, [this]() {
+            checkDatabaseUpdate();
         });
     }
 }
@@ -144,6 +278,11 @@ QVariantList Backend::downloadTasks() const
 bool Backend::autoCheckAppUpdates() const
 {
     return ConfigManager::getInstance().getAutoCheckUpdates();
+}
+
+bool Backend::autoCheckDatabaseUpdates() const
+{
+    return ConfigManager::getInstance().getAutoCheckDatabaseUpdates();
 }
 
 void Backend::searchModifiers(const QString& keyword)
@@ -584,6 +723,121 @@ void Backend::downloadAppUpdate()
         });
 }
 
+void Backend::checkDatabaseUpdate()
+{
+    if (m_databaseUpdateChecking || m_databaseUpdateDownloading || !m_databaseUpdateManager) {
+        return;
+    }
+
+    refreshCurrentDatabaseVersion();
+    m_databaseUpdateChecking = true;
+    m_databaseUpdateStatusText = tr("Checking database updates...");
+    emit databaseUpdateStateChanged();
+    emit statusMessage(m_databaseUpdateStatusText);
+
+    m_databaseUpdateManager->checkForUpdates(
+        m_databaseCurrentVersion,
+        [this](bool success,
+               bool updateAvailable,
+               const DatabaseReleaseInfo& releaseInfo,
+               const QString& errorMessage) {
+            m_databaseUpdateChecking = false;
+
+            if (!success) {
+                m_databaseUpdateAvailable = false;
+                m_latestDatabaseRelease = DatabaseReleaseInfo();
+                m_databaseLatestVersion.clear();
+                m_databaseUpdateSource.clear();
+                m_databaseUpdatePublishedAt.clear();
+                m_databaseUpdateStatusText = errorMessage.isEmpty()
+                    ? tr("Failed to check database updates")
+                    : errorMessage;
+                emit databaseUpdateStateChanged();
+                emit statusMessage(m_databaseUpdateStatusText);
+                return;
+            }
+
+            m_latestDatabaseRelease = releaseInfo;
+            m_databaseUpdateAvailable = updateAvailable;
+            m_databaseLatestVersion = releaseInfo.version;
+            m_databaseUpdateSource = releaseInfo.source;
+            m_databaseUpdatePublishedAt = releaseInfo.publishedAt;
+            m_databaseUpdateStatusText = updateAvailable
+                ? tr("New database version available: %1").arg(releaseInfo.version)
+                : tr("You are using the latest database version");
+
+            emit databaseUpdateStateChanged();
+            emit statusMessage(m_databaseUpdateStatusText);
+        });
+}
+
+void Backend::downloadDatabaseUpdate()
+{
+    if (!m_databaseUpdateAvailable || m_databaseUpdateDownloading
+        || !m_latestDatabaseRelease.isValid() || !m_databaseUpdateManager) {
+        return;
+    }
+
+    m_databaseUpdateDownloading = true;
+    m_databaseUpdateProgress = 0.0;
+    m_databaseUpdateStatusText = tr("Downloading database update...");
+    emit databaseUpdateStateChanged();
+    emit statusMessage(m_databaseUpdateStatusText);
+
+    m_databaseUpdateManager->downloadDatabase(
+        m_latestDatabaseRelease,
+        [this](qint64 bytesReceived, qint64 bytesTotal) {
+            if (bytesTotal > 0) {
+                m_databaseUpdateProgress = qBound<qreal>(
+                    0.0,
+                    static_cast<qreal>(bytesReceived) / static_cast<qreal>(bytesTotal),
+                    1.0);
+            }
+            emit databaseUpdateStateChanged();
+        },
+        [this](bool success, const QString& databasePath, const QString& errorMessage) {
+            m_databaseUpdateDownloading = false;
+
+            if (!success) {
+                m_databaseUpdateProgress = 0.0;
+                m_databaseUpdateStatusText = errorMessage.isEmpty()
+                    ? tr("Failed to download database update")
+                    : errorMessage;
+                emit databaseUpdateStateChanged();
+                emit statusMessage(m_databaseUpdateStatusText);
+                return;
+            }
+
+            QString installError;
+            if (!TranslationDatabase::getInstance().installOverrideDatabase(databasePath, &installError)) {
+                m_databaseUpdateProgress = 0.0;
+                m_databaseUpdateStatusText = installError.isEmpty()
+                    ? tr("Failed to activate database update")
+                    : installError;
+                emit databaseUpdateStateChanged();
+                emit statusMessage(m_databaseUpdateStatusText);
+                return;
+            }
+
+            if (!reloadTranslationDatabase()) {
+                m_databaseUpdateProgress = 0.0;
+                m_databaseUpdateStatusText = tr("Database updated, but failed to reload data");
+                emit databaseUpdateStateChanged();
+                emit statusMessage(m_databaseUpdateStatusText);
+                return;
+            }
+
+            refreshCurrentDatabaseVersion();
+            m_databaseUpdateAvailable = false;
+            m_databaseLatestVersion = m_databaseCurrentVersion;
+            m_databaseUpdateProgress = 1.0;
+            m_databaseUpdateStatusText =
+                tr("Database updated successfully: %1").arg(m_databaseCurrentVersion);
+            emit databaseUpdateStateChanged();
+            emit statusMessage(m_databaseUpdateStatusText);
+        });
+}
+
 void Backend::setTheme(int themeIndex)
 {
     ConfigManager::Theme theme = static_cast<ConfigManager::Theme>(themeIndex);
@@ -612,6 +866,16 @@ void Backend::setAutoCheckAppUpdates(bool enabled)
 
     ConfigManager::getInstance().setAutoCheckUpdates(enabled);
     emit autoCheckAppUpdatesChanged();
+}
+
+void Backend::setAutoCheckDatabaseUpdates(bool enabled)
+{
+    if (enabled == autoCheckDatabaseUpdates()) {
+        return;
+    }
+
+    ConfigManager::getInstance().setAutoCheckDatabaseUpdates(enabled);
+    emit autoCheckDatabaseUpdatesChanged();
 }
 
 QString Backend::downloadPath() const
@@ -1052,96 +1316,155 @@ void Backend::saveDownloadedModifiers()
     file.close();
 }
 
-// Load game name mapping database
+// Load game names from the bundled translation database.
 void Backend::loadGameMappings()
 {
     m_gameMappings.clear();
-    
-    QFile file(":/resources/game_mappings.json");
-    if (!file.open(QIODevice::ReadOnly)) {
-        qWarning() << "Backend: Cannot open game mappings file";
+
+    const QList<TranslationGameRecord> records = TranslationDatabase::getInstance().loadAllGames();
+    if (records.isEmpty()) {
+        qWarning() << "Backend: No game mappings loaded from translation database";
         return;
     }
-    
-    QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
-    file.close();
-    
-    if (!doc.isObject()) {
-        qWarning() << "Backend: Invalid game mappings format";
-        return;
-    }
-    
-    QJsonObject rootObj = doc.object();
-    QJsonObject mappings = rootObj["mappings"].toObject();
-    
-    for (const QString& chineseName : mappings.keys()) {
-        QJsonObject gameObj = mappings[chineseName].toObject();
-        
-        GameMapping mapping;
-        mapping.chineseName = chineseName;
-        mapping.englishName = gameObj["english"].toString();
-        
-        QJsonArray aliasArray = gameObj["aliases"].toArray();
-        for (const QJsonValue& val : aliasArray) {
-            mapping.aliases.append(val.toString());
+
+    for (const TranslationGameRecord& record : records) {
+        if (record.english.isEmpty() && record.chineseSimplified.isEmpty() && record.japanese.isEmpty()) {
+            continue;
         }
-        
+
+        GameMapping mapping;
+        mapping.chineseName = record.chineseSimplified;
+        mapping.englishName = record.english;
+        mapping.japaneseName = record.japanese;
+        mapping.chineseNameLower = mapping.chineseName.toLower();
+        mapping.englishNameLower = mapping.englishName.toLower();
+        mapping.japaneseNameLower = mapping.japaneseName.toLower();
+        mapping.chineseNameNormalized = TranslationTextUtils::normalizeLookupText(mapping.chineseName);
+        mapping.englishNameNormalized = TranslationTextUtils::normalizeLookupText(mapping.englishName);
+        mapping.japaneseNameNormalized = TranslationTextUtils::normalizeLookupText(mapping.japaneseName);
+        mapping.normalizedEnglish = record.normalizedEnglish.isEmpty()
+            ? mapping.englishNameNormalized
+            : record.normalizedEnglish.toLower();
         m_gameMappings.append(mapping);
     }
+
+    qDebug() << "Backend: Loaded" << m_gameMappings.size() << "game mappings from SQLite";
 }
 
-// Get search suggestions - supports fuzzy matching for Chinese and English
+void Backend::refreshCurrentDatabaseVersion()
+{
+    m_databaseCurrentVersion = AppUpdateManager::normalizeVersion(
+        TranslationDatabase::getInstance().currentReleaseTag());
+}
+
+bool Backend::reloadTranslationDatabase()
+{
+    if (!GameMappingManager::getInstance().reloadMappings()) {
+        return false;
+    }
+
+    loadGameMappings();
+    return true;
+}
+
+QVariantList Backend::getSuggestionItems(const QString& keyword, int maxResults)
+{
+    QVariantList results;
+
+    const QString trimmedKeyword = keyword.trimmed();
+    if (trimmedKeyword.isEmpty()) {
+        return results;
+    }
+
+    const QString normalizedKeyword = TranslationTextUtils::normalizeLookupText(trimmedKeyword);
+    if (normalizedKeyword.isEmpty()) {
+        return results;
+    }
+
+    const QString lowerKeyword = trimmedKeyword.toLower();
+    const ConfigManager::Language language = ConfigManager::getInstance().getCurrentLanguage();
+    QSet<QString> addedSearchKeywords;
+
+    for (const GameMapping& mapping : m_gameMappings) {
+        if (results.size() >= maxResults) {
+            break;
+        }
+
+        bool matched = false;
+
+        const bool chineseMatched =
+            !mapping.chineseName.isEmpty() &&
+            (mapping.chineseNameLower.contains(lowerKeyword) ||
+             mapping.chineseNameNormalized.contains(normalizedKeyword));
+        const bool englishMatched =
+            !mapping.englishName.isEmpty() &&
+            (mapping.englishNameLower.contains(lowerKeyword) ||
+             mapping.englishNameNormalized.contains(normalizedKeyword));
+        const bool normalizedEnglishMatched =
+            !mapping.normalizedEnglish.isEmpty() &&
+            mapping.normalizedEnglish.contains(normalizedKeyword);
+        const bool japaneseMatched =
+            !mapping.japaneseName.isEmpty() &&
+            (mapping.japaneseNameLower.contains(lowerKeyword) ||
+             mapping.japaneseNameNormalized.contains(normalizedKeyword));
+
+        if (chineseMatched) {
+            matched = true;
+        }
+        else if (englishMatched || normalizedEnglishMatched) {
+            matched = true;
+        }
+        else if (japaneseMatched) {
+            matched = true;
+        }
+
+        if (matched) {
+            const QString searchKeyword = mapping.englishName;
+            if (searchKeyword.isEmpty() || addedSearchKeywords.contains(searchKeyword)) {
+                continue;
+            }
+
+            QVariantMap item;
+            item["displayText"] = makeSuggestionDisplayText(
+                mapping.chineseName,
+                mapping.englishName,
+                mapping.japaneseName,
+                trimmedKeyword,
+                chineseMatched,
+                englishMatched,
+                normalizedEnglishMatched,
+                japaneseMatched,
+                language);
+            item["inputText"] = makeSuggestionInputText(
+                mapping.chineseName,
+                mapping.englishName,
+                mapping.japaneseName,
+                trimmedKeyword,
+                chineseMatched,
+                englishMatched,
+                normalizedEnglishMatched,
+                japaneseMatched,
+                language);
+            item["searchKeyword"] = searchKeyword;
+            results.append(item);
+            addedSearchKeywords.insert(searchKeyword);
+        }
+    }
+    
+    return results;
+}
+
+// Legacy string-only suggestion API used by older QML code.
 QStringList Backend::getSuggestions(const QString& keyword, int maxResults)
 {
     QStringList results;
-    
-    if (keyword.isEmpty()) {
-        return results;
-    }
-    
-    QString lowerKeyword = keyword.toLower();
-    
-    // Track added names to avoid duplicates
-    QSet<QString> addedNames;
-    
-    for (const GameMapping& mapping : m_gameMappings) {
-        if (results.size() >= maxResults) break;
-        
-        bool matched = false;
-        QString displayName;
-        
-        // Check Chinese name match
-        if (mapping.chineseName.toLower().contains(lowerKeyword)) {
-            matched = true;
-            displayName = mapping.chineseName;
-            if (!mapping.englishName.isEmpty()) {
-                displayName += " (" + mapping.englishName + ")";
-            }
-        }
-        // Check English name match
-        else if (mapping.englishName.toLower().contains(lowerKeyword)) {
-            matched = true;
-            displayName = mapping.englishName;
-            if (!mapping.chineseName.isEmpty()) {
-                displayName += " (" + mapping.chineseName + ")";
-            }
-        }
-        // Check alias match
-        else {
-            for (const QString& alias : mapping.aliases) {
-                if (alias.toLower().contains(lowerKeyword)) {
-                    matched = true;
-                    displayName = mapping.chineseName + " (" + alias + ")";
-                    break;
-                }
-            }
-        }
-        
-        if (matched && !addedNames.contains(displayName)) {
-            results.append(displayName);
-            addedNames.insert(displayName);
+    const QVariantList items = getSuggestionItems(keyword, maxResults);
+    for (const QVariant& itemVariant : items) {
+        const QVariantMap item = itemVariant.toMap();
+        const QString displayText = item.value("displayText").toString();
+        if (!displayText.isEmpty()) {
+            results.append(displayText);
         }
     }
-    
     return results;
 }

@@ -12,6 +12,7 @@
       "features": ["ssl"]
     },
     "nlohmann-json",
+    "sqlitecpp",
     {
       "name": "opencv4",
       "default-features": false,

@@ -2,6 +2,7 @@
 
 #include <QString>
 #include <QDir>
+#include <QCoreApplication>
 #include <QFile>
 #include <QFileInfo>
 #include <QStandardPaths>
@@ -154,6 +155,30 @@ public:
         QString cachePath = QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
         ensureDirectoryExists(cachePath);
         return cachePath;
+    }
+
+    /**
+     * @brief Resolve an external bundled resource path near the application.
+     * @param relativePath Relative path such as "resources/file.db"
+     * @return Absolute path if found, empty string otherwise
+     */
+    QString getBundledResourcePath(const QString& relativePath) {
+        const QString cleanRelativePath = QDir::cleanPath(relativePath);
+        const QDir appDir(QCoreApplication::applicationDirPath());
+        const QStringList candidateRoots = {
+            appDir.absolutePath(),
+            appDir.absoluteFilePath(".."),
+            appDir.absoluteFilePath("../..")
+        };
+
+        for (const QString& root : candidateRoots) {
+            const QString candidate = QDir(root).absoluteFilePath(cleanRelativePath);
+            if (QFileInfo::exists(candidate)) {
+                return QDir::cleanPath(candidate);
+            }
+        }
+
+        return QString();
     }
     
     /**

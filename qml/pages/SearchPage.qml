@@ -26,19 +26,19 @@ Item {
     // 标记：是否正在程序化设置文本（避免触发建议列表）
     property bool isProgrammaticTextChange: false
     
-    // 更新建议列表的函数 - 从游戏数据库获取建议（支持中英文）
+    // 更新建议列表的函数 - 从游戏数据库获取建议（支持中英日）
     function updateSuggestions(keyword) {
         suggestionsModel.clear()
         if (!backend || keyword.length < 1) {
             return
         }
         
-        // 使用 backend 的 getSuggestions 方法从 game_mappings.json 获取建议
-        var suggestions = backend.getSuggestions(keyword, 8)
+        // 获取结构化建议，区分显示文本、输入框文本和实际搜索词
+        var suggestions = backend.getSuggestionItems(keyword, 8)
         console.log("updateSuggestions:", keyword, "-> found", suggestions.length, "suggestions")
         
         for (var i = 0; i < suggestions.length; i++) {
-            suggestionsModel.append({modelData: suggestions[i]})
+            suggestionsModel.append(suggestions[i])
         }
     }
     
@@ -266,33 +266,23 @@ Item {
                         if (searchPage.loading) {
                             return
                         }
-                        var searchKeyword = modelData
-                        var parenStart = modelData.indexOf("(")
-                        var parenEnd = modelData.indexOf(")")
-                        if (parenStart !== -1 && parenEnd !== -1) {
-                            var inParens = modelData.substring(parenStart + 1, parenEnd)
-                            var mainPart = modelData.substring(0, parenStart).trim()
-                            if (/[\u4e00-\u9fa5]/.test(mainPart)) {
-                                searchKeyword = inParens
-                            } else {
-                                searchKeyword = mainPart
-                            }
-                        }
+                        var selectedInputText = inputText || displayText || ""
+                        var selectedSearchKeyword = searchKeyword || selectedInputText
                         
                         searchPage.isProgrammaticTextChange = true
-                        searchInput.text = searchKeyword
+                        searchInput.text = selectedInputText
                         searchPage.isProgrammaticTextChange = false
                         
                         suggestionsPopup.close()
                         suggestionsList.currentIndex = -1
-                        searchRequested(searchKeyword)
+                        searchRequested(selectedSearchKeyword)
                     }
                     
                     Text {
                         anchors.left: parent.left
                         anchors.leftMargin: 10
                         anchors.verticalCenter: parent.verticalCenter
-                        text: modelData
+                        text: displayText || ""
                         font.pixelSize: ThemeProvider.fontSizeMedium
                         color: ThemeProvider.textPrimary
                         elide: Text.ElideRight
@@ -323,7 +313,9 @@ Item {
                 model: searchPage.modifierModel
 
                 headers: [qsTr("游戏名称"), qsTr("更新日期"), qsTr("支持版本"), qsTr("选项数量"), qsTr("操作")]
-                columnWidths: [240, 100, 130, 80, 80]
+                columnWeights: [3, 2, 2, 2, 1]
+                headerTextHorizontalAlignment: Text.AlignLeft
+                headerTextLeftPadding: 10
 
                 delegate: Rectangle {
                     id: delegateRoot
@@ -349,7 +341,7 @@ Item {
                         anchors.left: parent.left
                         anchors.top: parent.top
                         anchors.bottom: parent.bottom
-                        width: parent.width - 80  // 减去操作列宽度
+                        width: parent.width - modifierTable.columnWidthFor(4)
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         enabled: !searchPage.loading
@@ -371,7 +363,7 @@ Item {
 
                         // 游戏名称
                         Item {
-                            width: modifierTable.columnWidths[0]
+                            width: modifierTable.columnWidthFor(0)
                             height: parent.height
 
                             Text {
@@ -381,13 +373,14 @@ Item {
                                 font.pixelSize: ThemeProvider.fontSizeMedium
                                 color: ThemeProvider.textPrimary
                                 verticalAlignment: Text.AlignVCenter
+                                horizontalAlignment: Text.AlignLeft
                                 elide: Text.ElideRight
                             }
                         }
 
                         // 更新日期
                         Item {
-                            width: modifierTable.columnWidths[1]
+                            width: modifierTable.columnWidthFor(1)
                             height: parent.height
 
                             Text {
@@ -397,13 +390,14 @@ Item {
                                 font.pixelSize: ThemeProvider.fontSizeMedium
                                 color: ThemeProvider.textSecondary
                                 verticalAlignment: Text.AlignVCenter
+                                horizontalAlignment: Text.AlignLeft
                                 elide: Text.ElideRight
                             }
                         }
 
                         // 支持版本
                         Item {
-                            width: modifierTable.columnWidths[2]
+                            width: modifierTable.columnWidthFor(2)
                             height: parent.height
 
                             Text {
@@ -413,13 +407,14 @@ Item {
                                 font.pixelSize: ThemeProvider.fontSizeMedium
                                 color: ThemeProvider.textSecondary
                                 verticalAlignment: Text.AlignVCenter
+                                horizontalAlignment: Text.AlignLeft
                                 elide: Text.ElideRight
                             }
                         }
 
                         // 选项数量
                         Item {
-                            width: modifierTable.columnWidths[3]
+                            width: modifierTable.columnWidthFor(3)
                             height: parent.height
 
                             Text {
@@ -429,18 +424,20 @@ Item {
                                 font.pixelSize: ThemeProvider.fontSizeMedium
                                 color: ThemeProvider.textSecondary
                                 verticalAlignment: Text.AlignVCenter
-                                horizontalAlignment: Text.AlignHCenter
+                                horizontalAlignment: Text.AlignLeft
                             }
                         }
 
                         // 操作按钮区 - 只有详情图标按钮
                         Item {
-                            width: modifierTable.columnWidths[4]
+                            width: modifierTable.columnWidthFor(4)
                             height: parent.height
 
                             // 详情按钮 - 仅图标
                             Rectangle {
-                                anchors.centerIn: parent
+                                anchors.left: parent.left
+                                anchors.leftMargin: 10
+                                anchors.verticalCenter: parent.verticalCenter
                                 width: 28
                                 height: 28
                                 radius: ThemeProvider.radiusSmall
