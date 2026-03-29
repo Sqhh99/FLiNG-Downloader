@@ -9,6 +9,8 @@ setlocal enabledelayedexpansion
 :: Commands:
 ::   release    - Build Release (default)
 ::   debug      - Build Debug
+::   tests      - Configure, build, and run tests
+::   benchmark  - Configure, build, and run benchmarks
 ::   configure  - Configure only (default: release)
 ::   rebuild    - Clean + rebuild (default: release)
 ::   clean      - Remove build directory
@@ -19,6 +21,7 @@ setlocal enabledelayedexpansion
 :: Options:
 ::   --jobs <N>   Parallel build jobs (default: auto)
 ::   --app-version <V>  Override app version (for example: 1.1.5)
+::   --filter <PATTERN>  Benchmark filter pattern
 ::
 :: Examples:
 ::   build.cmd              Build Release
@@ -43,6 +46,7 @@ set "BUILD_CONFIG=release"
 set "I18N_ACTION=all"
 set "JOBS="
 set "APP_VERSION_OVERRIDE=%FLING_APP_VERSION%"
+set "BENCHMARK_FILTER="
 set "CONFIGURE_DONE="
 
 :: Parse arguments
@@ -51,6 +55,8 @@ if "%~1"=="" goto :done_args
 
 if /i "%~1"=="release"   ( set "BUILD_CONFIG=release" & shift & goto :parse_args )
 if /i "%~1"=="debug"     ( set "BUILD_CONFIG=debug"   & shift & goto :parse_args )
+if /i "%~1"=="tests"     ( set "COMMAND=tests"         & shift & goto :parse_args )
+if /i "%~1"=="benchmark" ( set "COMMAND=benchmark"     & shift & goto :parse_args )
 if /i "%~1"=="configure" ( set "COMMAND=configure"     & shift & goto :parse_args )
 if /i "%~1"=="rebuild"   ( set "COMMAND=rebuild"        & shift & goto :parse_args )
 if /i "%~1"=="clean"     ( set "COMMAND=clean"          & shift & goto :parse_args )
@@ -82,6 +88,16 @@ if /i "%~1"=="--app-version" (
         exit /b 1
     )
     set "APP_VERSION_OVERRIDE=%~2"
+    shift & shift
+    goto :parse_args
+)
+
+if /i "%~1"=="--filter" (
+    if "%~2"=="" (
+        echo [ERROR] --filter requires a value.
+        exit /b 1
+    )
+    set "BENCHMARK_FILTER=%~2"
     shift & shift
     goto :parse_args
 )
@@ -160,6 +176,8 @@ if not defined VCPKG_ROOT (
 :: ============================================================
 :execute_command
 if /i "%COMMAND%"=="clean"     goto :do_clean
+if /i "%COMMAND%"=="tests"     goto :do_tests
+if /i "%COMMAND%"=="benchmark" goto :do_benchmark
 if /i "%COMMAND%"=="configure" goto :do_configure
 if /i "%COMMAND%"=="build"     goto :do_build
 if /i "%COMMAND%"=="rebuild"   goto :do_rebuild
@@ -287,6 +305,98 @@ echo [OUTPUT] %BUILD_DIR%\FLiNG Downloader.exe
 exit /b 0
 
 :: ------------------------------------------------------------
+:do_tests
+:: ------------------------------------------------------------
+echo.
+echo ========================================
+echo  Testing [%CONFIG_LABEL%]
+echo ========================================
+echo [INFO] Configure preset: %CONFIGURE_PRESET%
+echo [INFO] Build preset: %BUILD_PRESET%
+echo [INFO] Binary directory: %BUILD_DIR%
+
+if defined APP_VERSION_OVERRIDE (
+    echo [INFO] App version override: "%APP_VERSION_OVERRIDE%"
+    cmake --preset "%CONFIGURE_PRESET%" -DFLING_BUILD_TESTS=ON -DAPP_VERSION="%APP_VERSION_OVERRIDE%"
+) else (
+    cmake --preset "%CONFIGURE_PRESET%" -DFLING_BUILD_TESTS=ON
+)
+if errorlevel 1 (
+    echo [ERROR] CMake configure for tests failed!
+    exit /b 1
+)
+
+if defined JOBS (
+    cmake --build --preset "%BUILD_PRESET%" --target FLiNGDownloaderTests --parallel %JOBS%
+) else (
+    cmake --build --preset "%BUILD_PRESET%" --target FLiNGDownloaderTests
+)
+if errorlevel 1 (
+    echo [ERROR] Test build failed!
+    exit /b 1
+)
+
+ctest --test-dir "%BUILD_DIR%" --output-on-failure
+if errorlevel 1 (
+    echo [ERROR] Tests failed!
+    exit /b 1
+)
+
+echo [OK] Tests passed.
+exit /b 0
+
+:: ------------------------------------------------------------
+:do_benchmark
+:: ------------------------------------------------------------
+echo.
+echo ========================================
+echo  Benchmarking [%CONFIG_LABEL%]
+echo ========================================
+echo [INFO] Configure preset: %CONFIGURE_PRESET%
+echo [INFO] Build preset: %BUILD_PRESET%
+echo [INFO] Binary directory: %BUILD_DIR%
+
+if defined APP_VERSION_OVERRIDE (
+    echo [INFO] App version override: "%APP_VERSION_OVERRIDE%"
+    cmake --preset "%CONFIGURE_PRESET%" -DFLING_BUILD_BENCHMARKS=ON -DAPP_VERSION="%APP_VERSION_OVERRIDE%"
+) else (
+    cmake --preset "%CONFIGURE_PRESET%" -DFLING_BUILD_BENCHMARKS=ON
+)
+if errorlevel 1 (
+    echo [ERROR] CMake configure for benchmarks failed!
+    exit /b 1
+)
+
+if defined JOBS (
+    cmake --build --preset "%BUILD_PRESET%" --target FLiNGDownloaderBenchmarks --parallel %JOBS%
+) else (
+    cmake --build --preset "%BUILD_PRESET%" --target FLiNGDownloaderBenchmarks
+)
+if errorlevel 1 (
+    echo [ERROR] Benchmark build failed!
+    exit /b 1
+)
+
+set "BENCHMARK_EXE=%BUILD_DIR%\FLiNG Downloader Benchmarks.exe"
+if not exist "%BENCHMARK_EXE%" (
+    echo [ERROR] Benchmark executable not found: "%BENCHMARK_EXE%"
+    exit /b 1
+)
+
+if defined BENCHMARK_FILTER (
+    "%BENCHMARK_EXE%" --benchmark_filter=%BENCHMARK_FILTER%
+) else (
+    "%BENCHMARK_EXE%"
+)
+if errorlevel 1 (
+    echo [ERROR] Benchmarks failed!
+    exit /b 1
+)
+
+echo [OK] Benchmarks completed.
+exit /b 0
+
+:: ------------------------------------------------------------
 :do_rebuild
 :: ------------------------------------------------------------
 call :do_clean
@@ -351,6 +461,8 @@ echo  Commands:
 echo    release     Build Release (default)
 echo    debug       Build Debug
 echo    configure   Configure only
+echo    tests       Configure, build, and run tests
+echo    benchmark   Configure, build, and run benchmarks
 echo    rebuild     Clean, configure, and build
 echo    clean       Remove build directory
 echo    i18n        Update/check translation files
@@ -366,6 +478,10 @@ echo    build.cmd                Build Release
 echo    build.cmd debug          Build Debug
 echo    build.cmd rebuild        Clean + rebuild Release
 echo    build.cmd rebuild debug  Clean + rebuild Debug
+echo    build.cmd tests          Build and run tests
+echo    build.cmd tests debug    Build and run Debug tests
+echo    build.cmd benchmark      Build and run benchmarks
+echo    build.cmd benchmark --filter CoverExtractor/all_images
 echo    build.cmd i18n           Update TS and QM translation files
 echo    build.cmd i18n check     Verify translation files are in sync
 echo    build.cmd run debug      Build Debug ^& run

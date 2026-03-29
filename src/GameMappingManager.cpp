@@ -8,31 +8,23 @@
 #include "TranslationTextUtils.h"
 
 namespace {
-bool matchesLookupValue(const QString& input, const QString& normalizedInput, const QString& candidate)
+QString exactLookupKey(const QString& value)
 {
-    if (candidate.isEmpty()) {
-        return false;
-    }
+    return value.trimmed().toCaseFolded();
+}
 
-    if (input.compare(candidate, Qt::CaseInsensitive) == 0) {
+bool containsLookupValue(const QString& input, const QString& normalizedInput, const QString& candidate, const QString& normalizedCandidate)
+{
+    if (!candidate.isEmpty() &&
+        (input.contains(candidate, Qt::CaseInsensitive) || candidate.contains(input, Qt::CaseInsensitive))) {
         return true;
     }
 
-    if (input.contains(candidate, Qt::CaseInsensitive) || candidate.contains(input, Qt::CaseInsensitive)) {
-        return true;
-    }
-
-    if (normalizedInput.isEmpty()) {
+    if (normalizedInput.isEmpty() || normalizedCandidate.isEmpty()) {
         return false;
     }
 
-    const QString normalizedCandidate = TranslationTextUtils::normalizeLookupText(candidate);
-    if (normalizedCandidate.isEmpty()) {
-        return false;
-    }
-
-    return normalizedInput == normalizedCandidate ||
-           normalizedInput.contains(normalizedCandidate) ||
+    return normalizedInput.contains(normalizedCandidate) ||
            normalizedCandidate.contains(normalizedInput);
 }
 }
@@ -71,7 +63,17 @@ bool GameMappingManager::initialize()
 QString GameMappingManager::translateToEnglish(const QString& input)
 {
     QMutexLocker locker(&m_mutex);
+    return translateToEnglishInternal(input, true);
+}
 
+QString GameMappingManager::translateToEnglishForSearch(const QString& input)
+{
+    QMutexLocker locker(&m_mutex);
+    return translateToEnglishInternal(input, false);
+}
+
+QString GameMappingManager::translateToEnglishInternal(const QString& input, bool allowContainsFallback)
+{
     if (input.isEmpty()) {
         return QString();
     }
@@ -81,9 +83,10 @@ QString GameMappingManager::translateToEnglish(const QString& input)
         return QString();
     }
 
-    auto exactMatch = m_builtinMappings.constFind(trimmedInput);
-    if (exactMatch != m_builtinMappings.constEnd()) {
-        return exactMatch.value().english;
+    const QString exactKey = exactLookupKey(trimmedInput);
+    auto exactMatch = m_exactLookupToEnglish.constFind(exactKey);
+    if (exactMatch != m_exactLookupToEnglish.constEnd()) {
+        return exactMatch.value();
     }
 
     if (!TranslationTextUtils::hasNormalizedLookupText(trimmedInput)) {
@@ -91,14 +94,21 @@ QString GameMappingManager::translateToEnglish(const QString& input)
     }
 
     const QString normalizedInput = TranslationTextUtils::normalizeLookupText(trimmedInput);
+    auto normalizedMatch = m_normalizedLookupToEnglish.constFind(normalizedInput);
+    if (normalizedMatch != m_normalizedLookupToEnglish.constEnd()) {
+        return normalizedMatch.value();
+    }
+
+    if (!allowContainsFallback) {
+        return QString();
+    }
 
     for (auto it = m_builtinMappings.constBegin(); it != m_builtinMappings.constEnd(); ++it) {
         const GameMappingInfo& info = it.value();
         const bool matched =
-            matchesLookupValue(trimmedInput, normalizedInput, it.key()) ||
-            matchesLookupValue(trimmedInput, normalizedInput, info.english) ||
-            matchesLookupValue(trimmedInput, normalizedInput, info.japanese) ||
-            matchesLookupValue(trimmedInput, normalizedInput, info.normalizedEnglish);
+            containsLookupValue(trimmedInput, normalizedInput, info.chinese, info.normalizedChinese) ||
+            containsLookupValue(trimmedInput, normalizedInput, info.english, info.normalizedEnglish) ||
+            containsLookupValue(trimmedInput, normalizedInput, info.japanese, info.normalizedJapanese);
 
         if (matched) {
             return it.value().english;
@@ -170,9 +180,20 @@ QStringList GameMappingManager::getAllChineseNames() const
     return m_builtinMappings.keys();
 }
 
+void GameMappingManager::addLookupValue(QHash<QString, QString>& lookup, const QString& key, const QString& english)
+{
+    if (key.isEmpty() || english.isEmpty() || lookup.contains(key)) {
+        return;
+    }
+
+    lookup.insert(key, english);
+}
+
 bool GameMappingManager::loadBuiltinMappings()
 {
     m_builtinMappings.clear();
+    m_exactLookupToEnglish.clear();
+    m_normalizedLookupToEnglish.clear();
 
     const QList<TranslationGameRecord> records = TranslationDatabase::getInstance().loadAllGames();
     if (records.isEmpty()) {
@@ -188,9 +209,22 @@ bool GameMappingManager::loadBuiltinMappings()
         info.english = record.english;
         info.chinese = record.chineseSimplified;
         info.japanese = record.japanese;
-        info.normalizedEnglish = record.normalizedEnglish;
+        info.normalizedChinese = TranslationTextUtils::normalizeLookupText(record.chineseSimplified);
+        info.normalizedJapanese = TranslationTextUtils::normalizeLookupText(record.japanese);
+        info.normalizedEnglish = record.normalizedEnglish.isEmpty()
+            ? TranslationTextUtils::normalizeLookupText(record.english)
+            : TranslationTextUtils::normalizeLookupText(record.normalizedEnglish);
         info.category = QStringLiteral("database");
         m_builtinMappings.insert(record.chineseSimplified, info);
+
+        addLookupValue(m_exactLookupToEnglish, exactLookupKey(info.chinese), info.english);
+        addLookupValue(m_exactLookupToEnglish, exactLookupKey(info.english), info.english);
+        addLookupValue(m_exactLookupToEnglish, exactLookupKey(info.japanese), info.english);
+        addLookupValue(m_exactLookupToEnglish, exactLookupKey(info.normalizedEnglish), info.english);
+
+        addLookupValue(m_normalizedLookupToEnglish, info.normalizedChinese, info.english);
+        addLookupValue(m_normalizedLookupToEnglish, info.normalizedEnglish, info.english);
+        addLookupValue(m_normalizedLookupToEnglish, info.normalizedJapanese, info.english);
     }
 
     qDebug() << "GameMappingManager: Loaded" << m_builtinMappings.size() << "mappings from SQLite";

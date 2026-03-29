@@ -14,6 +14,8 @@ set(VCPKG_INSTALLED_DIR "${CMAKE_SOURCE_DIR}/third_party" CACHE PATH "Vcpkg inst
 set(VCPKG_APPLOCAL_DEPS OFF CACHE BOOL "Disable vcpkg applocal copy step; runtime deployment is handled separately" FORCE)
 
 project("FLiNGDownloader" LANGUAGES CXX)
+option(FLING_BUILD_TESTS "Build GoogleTest-based test targets" OFF)
+option(FLING_BUILD_BENCHMARKS "Build Google Benchmark targets" OFF)
 
 # Unified application version:
 # 1) use -DAPP_VERSION=... when provided
@@ -86,6 +88,12 @@ find_package(nlohmann_json CONFIG REQUIRED)
 find_package(SQLiteCpp CONFIG REQUIRED)
 find_package(OpenCV CONFIG REQUIRED)
 find_package(pugixml CONFIG REQUIRED)
+if(FLING_BUILD_TESTS)
+    find_package(GTest CONFIG REQUIRED)
+endif()
+if(FLING_BUILD_BENCHMARKS)
+    find_package(benchmark CONFIG REQUIRED)
+endif()
 
 find_package(Qt6 REQUIRED COMPONENTS
     Core
@@ -147,6 +155,9 @@ configure_file(
     ${CMAKE_CURRENT_BINARY_DIR}/icon.rc
     @ONLY
 )
+
+set(TESTABLE_PROJECT_SOURCES ${PROJECT_SOURCES})
+list(REMOVE_ITEM TESTABLE_PROJECT_SOURCES src/main.cpp)
 
 set(PROJECT_RC_FILES
     ${CMAKE_CURRENT_BINARY_DIR}/icon.rc
@@ -309,6 +320,14 @@ endif()
 target_link_libraries(${LAUNCHER_TARGET} PRIVATE
     shell32.lib
 )
+
+if(FLING_BUILD_TESTS)
+    enable_testing()
+endif()
+
+if(FLING_BUILD_TESTS OR FLING_BUILD_BENCHMARKS)
+    add_subdirectory(tests)
+endif()
 
 # install(TARGETS ${PROJECT_NAME}
 #     RUNTIME DESTINATION bin

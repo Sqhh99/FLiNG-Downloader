@@ -66,6 +66,14 @@ jobs:
         PKG_CONFIG: C:\ProgramData\chocolatey\bin\pkg-config.exe
         VCPKG_PKGCONFIG: C:\ProgramData\chocolatey\bin\pkg-config.exe
 
+    - name: Run tests
+      run: |
+        $env:VCPKG_ROOT = $env:VCPKG_INSTALLATION_ROOT
+        .\build.cmd tests
+      env:
+        PKG_CONFIG: C:\ProgramData\chocolatey\bin\pkg-config.exe
+        VCPKG_PKGCONFIG: C:\ProgramData\chocolatey\bin\pkg-config.exe
+
     - name: Upload build artifact
       uses: actions/upload-artifact@v4
       with:

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QObject>
+#include <QHash>
 #include <QMap>
 #include <QMutex>
 #include <QString>
@@ -11,6 +12,8 @@ struct GameMappingInfo {
     QString english;
     QString chinese;
     QString japanese;
+    QString normalizedChinese;
+    QString normalizedJapanese;
     QString normalizedEnglish;
     QString category;
     bool isTranslated = false;
@@ -28,6 +31,7 @@ public:
 
     // Resolve Chinese, Japanese, or English variants to the FLiNG English title.
     QString translateToEnglish(const QString& input);
+    QString translateToEnglishForSearch(const QString& input);
 
     // Compatibility wrapper around the synchronous local DB lookup.
     void translateToEnglishAsync(const QString& input, std::function<void(const QString&)> callback);
@@ -38,17 +42,21 @@ public:
     bool reloadMappings();
 
 private:
+    QString translateToEnglishInternal(const QString& input, bool allowContainsFallback);
     GameMappingManager(QObject* parent = nullptr);
     ~GameMappingManager() = default;
 
     GameMappingManager(const GameMappingManager&) = delete;
     GameMappingManager& operator=(const GameMappingManager&) = delete;
 
+    void addLookupValue(QHash<QString, QString>& lookup, const QString& key, const QString& english);
     bool loadBuiltinMappings();
     double calculateSimilarity(const QString& str1, const QString& str2) const;
 
 private:
     QMap<QString, GameMappingInfo> m_builtinMappings;
+    QHash<QString, QString> m_exactLookupToEnglish;
+    QHash<QString, QString> m_normalizedLookupToEnglish;
     mutable QMutex m_mutex;
     bool m_initialized;
 };

@@ -4,6 +4,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QSet>
 
 #include <SQLiteCpp/SQLiteCpp.h>
 
@@ -20,6 +21,45 @@ std::string toUtf8String(const QString& value)
 QString fromUtf8String(const std::string& value)
 {
     return QString::fromUtf8(value.c_str(), static_cast<int>(value.size()));
+}
+
+constexpr auto kSupportedSchemaVersion = "1";
+
+bool hasTable(SQLite::Database& db, const char* tableName)
+{
+    SQLite::Statement query(
+        db,
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name = ? LIMIT 1");
+    query.bind(1, tableName);
+    return query.executeStep();
+}
+
+bool validateGamesColumns(SQLite::Database& db, QString* errorMessage)
+{
+    SQLite::Statement query(db, "PRAGMA table_info(games)");
+    QSet<QString> columns;
+
+    while (query.executeStep()) {
+        columns.insert(fromUtf8String(query.getColumn(1).getString()));
+    }
+
+    const QStringList requiredColumns = {
+        QStringLiteral("english"),
+        QStringLiteral("normalized_english"),
+        QStringLiteral("chinese_simplified"),
+        QStringLiteral("japanese")
+    };
+
+    for (const QString& requiredColumn : requiredColumns) {
+        if (!columns.contains(requiredColumn)) {
+            if (errorMessage) {
+                *errorMessage = QStringLiteral("Required column missing: games.%1").arg(requiredColumn);
+            }
+            return false;
+        }
+    }
+
+    return true;
 }
 }
 
@@ -54,7 +94,9 @@ QList<TranslationGameRecord> TranslationDatabase::loadAllGames() const
     QList<TranslationGameRecord> results;
     const QString path = databasePath();
     if (path.isEmpty()) {
-        qWarning() << "TranslationDatabase: bundled database not found near application directory";
+        qWarning() << "TranslationDatabase: no valid translation database found"
+                   << "Bundled candidate:" << bundledDatabasePath()
+                   << "Override candidate:" << overrideDatabasePath();
         return results;
     }
 
@@ -133,17 +175,14 @@ bool TranslationDatabase::isValidDatabaseFile(const QString& path, QString* erro
     try {
         SQLite::Database db(toUtf8String(path), SQLite::OPEN_READONLY);
 
-        SQLite::Statement tableQuery(
-            db,
-            "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('games', 'metadata')");
-        int foundTables = 0;
-        while (tableQuery.executeStep()) {
-            ++foundTables;
-        }
-        if (foundTables < 2) {
+        if (!hasTable(db, "games") || !hasTable(db, "metadata")) {
             if (errorMessage) {
                 *errorMessage = QStringLiteral("Database schema is incomplete");
             }
+            return false;
+        }
+
+        if (!validateGamesColumns(db, errorMessage)) {
             return false;
         }
 
@@ -151,6 +190,14 @@ bool TranslationDatabase::isValidDatabaseFile(const QString& path, QString* erro
         if (!metadata.isValid()) {
             if (errorMessage) {
                 *errorMessage = QStringLiteral("Database metadata is missing release_tag");
+            }
+            return false;
+        }
+
+        if (!metadata.schemaVersion.isEmpty() &&
+            metadata.schemaVersion != QString::fromLatin1(kSupportedSchemaVersion)) {
+            if (errorMessage) {
+                *errorMessage = QStringLiteral("Unsupported schema_version: %1").arg(metadata.schemaVersion);
             }
             return false;
         }

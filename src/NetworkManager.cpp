@@ -3,6 +3,7 @@
 #include <QStandardPaths>
 #include <QDir>
 #include <QPointer>
+#include <utility>
 #include "ConfigManager.h"
 
 NetworkManager::NetworkManager(QObject* parent)
@@ -25,6 +26,22 @@ NetworkManager& NetworkManager::getInstance()
     return instance;
 }
 
+void NetworkManager::setGetRequestHandlerForTesting(TestGetRequestHandler handler)
+{
+    m_testGetRequestHandler = std::move(handler);
+}
+
+void NetworkManager::setDownloadRequestHandlerForTesting(TestDownloadRequestHandler handler)
+{
+    m_testDownloadRequestHandler = std::move(handler);
+}
+
+void NetworkManager::resetTestHooks()
+{
+    m_testGetRequestHandler = nullptr;
+    m_testDownloadRequestHandler = nullptr;
+}
+
 void NetworkManager::sendGetRequest(const QString& url, NetworkResponseCallback callback, const QString& userAgent)
 {
     sendGetRequest(url, nullptr, callback, userAgent);
@@ -39,6 +56,17 @@ void NetworkManager::sendGetRequest(const QString& url,
 
     // Set user agent
     QString effectiveUserAgent = userAgent.isEmpty() ? m_globalUserAgent : userAgent;
+    QPointer<QObject> contextGuard(context);
+    const NetworkResponseCallback safeCallback = [callback, context, contextGuard](const QByteArray& data, bool success) {
+        if (callback && (!context || contextGuard)) {
+            callback(data, success);
+        }
+    };
+
+    if (m_testGetRequestHandler && m_testGetRequestHandler(url, effectiveUserAgent, safeCallback)) {
+        return;
+    }
+
     request.setHeader(QNetworkRequest::UserAgentHeader, effectiveUserAgent);
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
     request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
@@ -50,7 +78,6 @@ void NetworkManager::sendGetRequest(const QString& url,
     QTimer* timer = createTimeoutTimer(reply);
     
     // Connect finished signal
-    QPointer<QObject> contextGuard(context);
     connect(reply, &QNetworkReply::finished, this, [this, reply, callback, timer, context, contextGuard]() {
         timer->stop();
         timer->deleteLater();
@@ -150,6 +177,31 @@ void NetworkManager::downloadFileWithStatus(const QString& url,
 {
     qDebug() << "NetworkManager: Starting download from:" << url;
     qDebug() << "NetworkManager: Save path:" << savePath;
+    QPointer<QObject> contextGuard(context);
+    const DownloadProgressCallback safeProgressCallback =
+        [progressCallback, context, contextGuard](qint64 bytesReceived, qint64 bytesTotal) {
+            if (progressCallback && (!context || contextGuard)) {
+                progressCallback(bytesReceived, bytesTotal);
+            }
+        };
+    const DownloadFinishedCallback safeFinishedCallback =
+        [finishedCallback, context, contextGuard](bool success, const QString& errorMessage, int statusCode) {
+            if (finishedCallback && (!context || contextGuard)) {
+                finishedCallback(success, errorMessage, statusCode);
+            }
+        };
+
+    QString effectiveUserAgent = userAgent.isEmpty() ? m_globalUserAgent : userAgent;
+    if (m_testDownloadRequestHandler &&
+        m_testDownloadRequestHandler(url,
+                                     savePath,
+                                     effectiveUserAgent,
+                                     resumeFrom,
+                                     keepPartialOnAbort,
+                                     safeProgressCallback,
+                                     safeFinishedCallback)) {
+        return;
+    }
     
     // Ensure directory exists
     QFileInfo fileInfo(savePath);
@@ -165,8 +217,8 @@ void NetworkManager::downloadFileWithStatus(const QString& url,
         : (QIODevice::WriteOnly | QIODevice::Truncate);
     if (!file->open(openMode)) {
         qDebug() << "NetworkManager: Cannot create file:" << file->errorString();
-        if (finishedCallback) {
-            finishedCallback(false, "Cannot create file: " + file->errorString(), 0);
+        if (safeFinishedCallback) {
+            safeFinishedCallback(false, "Cannot create file: " + file->errorString(), 0);
         }
         delete file;
         return;
@@ -176,7 +228,6 @@ void NetworkManager::downloadFileWithStatus(const QString& url,
     QNetworkRequest request((QUrl(url)));
     
     // Set user agent
-    QString effectiveUserAgent = userAgent.isEmpty() ? m_globalUserAgent : userAgent;
     request.setHeader(QNetworkRequest::UserAgentHeader, effectiveUserAgent);
     request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
     
@@ -192,7 +243,6 @@ void NetworkManager::downloadFileWithStatus(const QString& url,
     // Start download
     QNetworkReply* reply = m_networkManager->get(request);
     m_currentDownloadReply = reply; // Save current download reply
-    QPointer<QObject> contextGuard(context);
     
     // Set timeout
     QTimer* timer = createTimeoutTimer(reply);
@@ -226,12 +276,12 @@ void NetworkManager::downloadFileWithStatus(const QString& url,
     connect(reply, &QNetworkReply::metaDataChanged, this, normalizeResponseMode);
     
     // Connect progress signal
-    connect(reply, &QNetworkReply::downloadProgress, this, [progressCallback, timer, effectiveResumeFrom, context, contextGuard](qint64 bytesReceived, qint64 bytesTotal) {
+    connect(reply, &QNetworkReply::downloadProgress, this, [safeProgressCallback, timer, effectiveResumeFrom](qint64 bytesReceived, qint64 bytesTotal) {
         timer->start(); // Reset timer
         const qint64 logicalReceived = *effectiveResumeFrom + bytesReceived;
         const qint64 logicalTotal = (bytesTotal > 0) ? (*effectiveResumeFrom + bytesTotal) : 0;
-        if (progressCallback && (!context || contextGuard)) {
-            progressCallback(logicalReceived, logicalTotal);
+        if (safeProgressCallback) {
+            safeProgressCallback(logicalReceived, logicalTotal);
         }
     });
     
@@ -245,7 +295,7 @@ void NetworkManager::downloadFileWithStatus(const QString& url,
     });
     
     // Connect finished signal
-    connect(reply, &QNetworkReply::finished, this, [this, reply, file, finishedCallback, timer, bytesWritten, effectiveResumeFrom, responseModeChecked, normalizeResponseMode, url, savePath, keepPartialOnAbort, context, contextGuard]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, file, timer, bytesWritten, effectiveResumeFrom, responseModeChecked, normalizeResponseMode, url, savePath, keepPartialOnAbort, safeFinishedCallback]() {
         normalizeResponseMode();
         timer->stop();
         timer->deleteLater();
@@ -289,8 +339,8 @@ void NetworkManager::downloadFileWithStatus(const QString& url,
                     delete bytesWritten;
                     delete effectiveResumeFrom;
                     delete responseModeChecked;
-                    if (finishedCallback && (!context || contextGuard)) {
-                        finishedCallback(false, "Server returned HTML page instead of file - download link may be invalid", httpStatus);
+                    if (safeFinishedCallback) {
+                        safeFinishedCallback(false, "Server returned HTML page instead of file - download link may be invalid", httpStatus);
                     }
                     reply->deleteLater();
                     file->deleteLater();
@@ -304,15 +354,15 @@ void NetworkManager::downloadFileWithStatus(const QString& url,
                 delete bytesWritten;
                 delete effectiveResumeFrom;
                 delete responseModeChecked;
-                if (finishedCallback && (!context || contextGuard)) {
-                    finishedCallback(false, "Downloaded file is empty - server may have returned no content", httpStatus);
+                if (safeFinishedCallback) {
+                    safeFinishedCallback(false, "Downloaded file is empty - server may have returned no content", httpStatus);
                 }
             } else {
                 delete bytesWritten;
                 delete effectiveResumeFrom;
                 delete responseModeChecked;
-                if (finishedCallback && (!context || contextGuard)) {
-                    finishedCallback(true, QString(), httpStatus);
+                if (safeFinishedCallback) {
+                    safeFinishedCallback(true, QString(), httpStatus);
                 }
             }
         } else {
@@ -323,8 +373,8 @@ void NetworkManager::downloadFileWithStatus(const QString& url,
                     delete bytesWritten;
                     delete effectiveResumeFrom;
                     delete responseModeChecked;
-                    if (finishedCallback && (!context || contextGuard)) {
-                        finishedCallback(true, QString(), httpStatus);
+                    if (safeFinishedCallback) {
+                        safeFinishedCallback(true, QString(), httpStatus);
                     }
                     file->deleteLater();
                     reply->deleteLater();
@@ -342,8 +392,8 @@ void NetworkManager::downloadFileWithStatus(const QString& url,
             delete bytesWritten;
             delete effectiveResumeFrom;
             delete responseModeChecked;
-            if (finishedCallback && (!context || contextGuard)) {
-                finishedCallback(false, reply->errorString(), httpStatus);
+            if (safeFinishedCallback) {
+                safeFinishedCallback(false, reply->errorString(), httpStatus);
             }
         }
         
