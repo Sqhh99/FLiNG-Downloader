@@ -1335,8 +1335,16 @@ void Backend::loadGameMappings()
         GameMapping mapping;
         mapping.chineseName = record.chineseSimplified;
         mapping.englishName = record.english;
-        mapping.normalizedEnglish = record.normalizedEnglish;
         mapping.japaneseName = record.japanese;
+        mapping.chineseNameLower = mapping.chineseName.toLower();
+        mapping.englishNameLower = mapping.englishName.toLower();
+        mapping.japaneseNameLower = mapping.japaneseName.toLower();
+        mapping.chineseNameNormalized = TranslationTextUtils::normalizeLookupText(mapping.chineseName);
+        mapping.englishNameNormalized = TranslationTextUtils::normalizeLookupText(mapping.englishName);
+        mapping.japaneseNameNormalized = TranslationTextUtils::normalizeLookupText(mapping.japaneseName);
+        mapping.normalizedEnglish = record.normalizedEnglish.isEmpty()
+            ? mapping.englishNameNormalized
+            : record.normalizedEnglish.toLower();
         m_gameMappings.append(mapping);
     }
 
@@ -1368,12 +1376,12 @@ QVariantList Backend::getSuggestionItems(const QString& keyword, int maxResults)
         return results;
     }
 
-    if (!TranslationTextUtils::hasNormalizedLookupText(trimmedKeyword)) {
+    const QString normalizedKeyword = TranslationTextUtils::normalizeLookupText(trimmedKeyword);
+    if (normalizedKeyword.isEmpty()) {
         return results;
     }
 
     const QString lowerKeyword = trimmedKeyword.toLower();
-    const QString normalizedKeyword = TranslationTextUtils::normalizeLookupText(trimmedKeyword);
     const ConfigManager::Language language = ConfigManager::getInstance().getCurrentLanguage();
     QSet<QString> addedSearchKeywords;
 
@@ -1386,19 +1394,19 @@ QVariantList Backend::getSuggestionItems(const QString& keyword, int maxResults)
 
         const bool chineseMatched =
             !mapping.chineseName.isEmpty() &&
-            (mapping.chineseName.toLower().contains(lowerKeyword) ||
-             TranslationTextUtils::normalizeLookupText(mapping.chineseName).contains(normalizedKeyword));
+            (mapping.chineseNameLower.contains(lowerKeyword) ||
+             mapping.chineseNameNormalized.contains(normalizedKeyword));
         const bool englishMatched =
             !mapping.englishName.isEmpty() &&
-            (mapping.englishName.toLower().contains(lowerKeyword) ||
-             TranslationTextUtils::normalizeLookupText(mapping.englishName).contains(normalizedKeyword));
+            (mapping.englishNameLower.contains(lowerKeyword) ||
+             mapping.englishNameNormalized.contains(normalizedKeyword));
         const bool normalizedEnglishMatched =
             !mapping.normalizedEnglish.isEmpty() &&
-            mapping.normalizedEnglish.toLower().contains(normalizedKeyword);
+            mapping.normalizedEnglish.contains(normalizedKeyword);
         const bool japaneseMatched =
             !mapping.japaneseName.isEmpty() &&
-            (mapping.japaneseName.toLower().contains(lowerKeyword) ||
-             TranslationTextUtils::normalizeLookupText(mapping.japaneseName).contains(normalizedKeyword));
+            (mapping.japaneseNameLower.contains(lowerKeyword) ||
+             mapping.japaneseNameNormalized.contains(normalizedKeyword));
 
         if (chineseMatched) {
             matched = true;

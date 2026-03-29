@@ -288,6 +288,12 @@ private:
         QString englishName;
         QString normalizedEnglish;
         QString japaneseName;
+        QString chineseNameLower;
+        QString englishNameLower;
+        QString japaneseNameLower;
+        QString chineseNameNormalized;
+        QString englishNameNormalized;
+        QString japaneseNameNormalized;
     };
     QList<GameMapping> m_gameMappings;
     void loadGameMappings();

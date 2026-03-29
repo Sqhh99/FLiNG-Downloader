@@ -56,6 +56,7 @@ void DatabaseUpdateManager::downloadDatabase(const DatabaseReleaseInfo& releaseI
     NetworkManager::getInstance().downloadFile(
         releaseInfo.downloadUrl,
         dbPath,
+        this,
         [progressCallback](qint64 bytesReceived, qint64 bytesTotal) {
             if (progressCallback) {
                 progressCallback(bytesReceived, bytesTotal);
@@ -79,6 +80,7 @@ void DatabaseUpdateManager::fetchLatestReleaseFromGithub(const QString& currentV
 {
     NetworkManager::getInstance().sendGetRequest(
         QString::fromLatin1(kGithubLatestReleaseUrl),
+        this,
         [this, currentVersion, callback](const QByteArray& responseData, bool success) {
             if (!success) {
                 fetchLatestReleaseFromGitee(currentVersion,
@@ -111,6 +113,7 @@ void DatabaseUpdateManager::fetchLatestReleaseFromGitee(const QString& currentVe
 {
     NetworkManager::getInstance().sendGetRequest(
         QString::fromLatin1(kGiteeLatestReleaseUrl),
+        this,
         [this, currentVersion, previousError, callback](const QByteArray& responseData, bool success) {
             if (!success) {
                 if (callback) {

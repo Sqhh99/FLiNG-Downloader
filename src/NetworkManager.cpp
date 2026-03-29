@@ -2,6 +2,7 @@
 #include <QDebug>
 #include <QStandardPaths>
 #include <QDir>
+#include <QPointer>
 #include "ConfigManager.h"
 
 NetworkManager::NetworkManager(QObject* parent)
@@ -26,6 +27,14 @@ NetworkManager& NetworkManager::getInstance()
 
 void NetworkManager::sendGetRequest(const QString& url, NetworkResponseCallback callback, const QString& userAgent)
 {
+    sendGetRequest(url, nullptr, callback, userAgent);
+}
+
+void NetworkManager::sendGetRequest(const QString& url,
+                                    QObject* context,
+                                    NetworkResponseCallback callback,
+                                    const QString& userAgent)
+{
     QNetworkRequest request((QUrl(url)));
 
     // Set user agent
@@ -41,19 +50,20 @@ void NetworkManager::sendGetRequest(const QString& url, NetworkResponseCallback 
     QTimer* timer = createTimeoutTimer(reply);
     
     // Connect finished signal
-    connect(reply, &QNetworkReply::finished, this, [this, reply, callback, timer]() {
+    QPointer<QObject> contextGuard(context);
+    connect(reply, &QNetworkReply::finished, this, [this, reply, callback, timer, context, contextGuard]() {
         timer->stop();
         timer->deleteLater();
         
         if (reply->error() == QNetworkReply::NoError) {
             // Read response data
             QByteArray responseData = reply->readAll();
-            if (callback) {
+            if (callback && (!context || contextGuard)) {
                 callback(responseData, true);
             }
         } else {
             qDebug() << "Network request failed:" << reply->errorString();
-            if (callback) {
+            if (callback && (!context || contextGuard)) {
                 callback(QByteArray(), false);
             }
         }
@@ -77,9 +87,29 @@ void NetworkManager::downloadFile(const QString& url,
                                   qint64 resumeFrom,
                                   bool keepPartialOnAbort)
 {
+    downloadFile(url,
+                 savePath,
+                 nullptr,
+                 progressCallback,
+                 finishedCallback,
+                 userAgent,
+                 resumeFrom,
+                 keepPartialOnAbort);
+}
+
+void NetworkManager::downloadFile(const QString& url,
+                                  const QString& savePath,
+                                  QObject* context,
+                                  DownloadProgressCallback progressCallback,
+                                  std::function<void(bool, const QString&)> finishedCallback,
+                                  const QString& userAgent,
+                                  qint64 resumeFrom,
+                                  bool keepPartialOnAbort)
+{
     downloadFileWithStatus(
         url,
         savePath,
+        context,
         progressCallback,
         [finishedCallback](bool success, const QString& errorMsg, int) {
             if (finishedCallback) {
@@ -93,6 +123,25 @@ void NetworkManager::downloadFile(const QString& url,
 
 void NetworkManager::downloadFileWithStatus(const QString& url,
                                             const QString& savePath,
+                                            DownloadProgressCallback progressCallback,
+                                            DownloadFinishedCallback finishedCallback,
+                                            const QString& userAgent,
+                                            qint64 resumeFrom,
+                                            bool keepPartialOnAbort)
+{
+    downloadFileWithStatus(url,
+                           savePath,
+                           nullptr,
+                           progressCallback,
+                           finishedCallback,
+                           userAgent,
+                           resumeFrom,
+                           keepPartialOnAbort);
+}
+
+void NetworkManager::downloadFileWithStatus(const QString& url,
+                                            const QString& savePath,
+                                            QObject* context,
                                             DownloadProgressCallback progressCallback,
                                             DownloadFinishedCallback finishedCallback,
                                             const QString& userAgent,
@@ -143,6 +192,7 @@ void NetworkManager::downloadFileWithStatus(const QString& url,
     // Start download
     QNetworkReply* reply = m_networkManager->get(request);
     m_currentDownloadReply = reply; // Save current download reply
+    QPointer<QObject> contextGuard(context);
     
     // Set timeout
     QTimer* timer = createTimeoutTimer(reply);
@@ -176,11 +226,11 @@ void NetworkManager::downloadFileWithStatus(const QString& url,
     connect(reply, &QNetworkReply::metaDataChanged, this, normalizeResponseMode);
     
     // Connect progress signal
-    connect(reply, &QNetworkReply::downloadProgress, this, [progressCallback, timer, effectiveResumeFrom](qint64 bytesReceived, qint64 bytesTotal) {
+    connect(reply, &QNetworkReply::downloadProgress, this, [progressCallback, timer, effectiveResumeFrom, context, contextGuard](qint64 bytesReceived, qint64 bytesTotal) {
         timer->start(); // Reset timer
         const qint64 logicalReceived = *effectiveResumeFrom + bytesReceived;
         const qint64 logicalTotal = (bytesTotal > 0) ? (*effectiveResumeFrom + bytesTotal) : 0;
-        if (progressCallback) {
+        if (progressCallback && (!context || contextGuard)) {
             progressCallback(logicalReceived, logicalTotal);
         }
     });
@@ -195,7 +245,7 @@ void NetworkManager::downloadFileWithStatus(const QString& url,
     });
     
     // Connect finished signal
-    connect(reply, &QNetworkReply::finished, this, [this, reply, file, finishedCallback, timer, bytesWritten, effectiveResumeFrom, responseModeChecked, normalizeResponseMode, url, savePath, keepPartialOnAbort]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, file, finishedCallback, timer, bytesWritten, effectiveResumeFrom, responseModeChecked, normalizeResponseMode, url, savePath, keepPartialOnAbort, context, contextGuard]() {
         normalizeResponseMode();
         timer->stop();
         timer->deleteLater();
@@ -239,7 +289,7 @@ void NetworkManager::downloadFileWithStatus(const QString& url,
                     delete bytesWritten;
                     delete effectiveResumeFrom;
                     delete responseModeChecked;
-                    if (finishedCallback) {
+                    if (finishedCallback && (!context || contextGuard)) {
                         finishedCallback(false, "Server returned HTML page instead of file - download link may be invalid", httpStatus);
                     }
                     reply->deleteLater();
@@ -254,14 +304,14 @@ void NetworkManager::downloadFileWithStatus(const QString& url,
                 delete bytesWritten;
                 delete effectiveResumeFrom;
                 delete responseModeChecked;
-                if (finishedCallback) {
+                if (finishedCallback && (!context || contextGuard)) {
                     finishedCallback(false, "Downloaded file is empty - server may have returned no content", httpStatus);
                 }
             } else {
                 delete bytesWritten;
                 delete effectiveResumeFrom;
                 delete responseModeChecked;
-                if (finishedCallback) {
+                if (finishedCallback && (!context || contextGuard)) {
                     finishedCallback(true, QString(), httpStatus);
                 }
             }
@@ -273,7 +323,7 @@ void NetworkManager::downloadFileWithStatus(const QString& url,
                     delete bytesWritten;
                     delete effectiveResumeFrom;
                     delete responseModeChecked;
-                    if (finishedCallback) {
+                    if (finishedCallback && (!context || contextGuard)) {
                         finishedCallback(true, QString(), httpStatus);
                     }
                     file->deleteLater();
@@ -292,7 +342,7 @@ void NetworkManager::downloadFileWithStatus(const QString& url,
             delete bytesWritten;
             delete effectiveResumeFrom;
             delete responseModeChecked;
-            if (finishedCallback) {
+            if (finishedCallback && (!context || contextGuard)) {
                 finishedCallback(false, reply->errorString(), httpStatus);
             }
         }

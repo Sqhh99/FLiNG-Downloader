@@ -52,6 +52,7 @@ void AppUpdateManager::downloadInstaller(const AppReleaseInfo& releaseInfo,
     NetworkManager::getInstance().downloadFile(
         releaseInfo.installerDownloadUrl,
         installerPath,
+        this,
         [progressCallback](qint64 bytesReceived, qint64 bytesTotal) {
             if (progressCallback) {
                 progressCallback(bytesReceived, bytesTotal);
@@ -155,6 +156,7 @@ void AppUpdateManager::fetchLatestReleaseFromGithub(const QString& currentVersio
 {
     NetworkManager::getInstance().sendGetRequest(
         QString::fromLatin1(kGithubLatestReleaseUrl),
+        this,
         [this, currentVersion, callback](const QByteArray& responseData, bool success) {
             if (!success) {
                 fetchLatestReleaseFromGitee(currentVersion,
@@ -184,6 +186,7 @@ void AppUpdateManager::fetchLatestReleaseFromGitee(const QString& currentVersion
 {
     NetworkManager::getInstance().sendGetRequest(
         QString::fromLatin1(kGiteeLatestReleaseUrl),
+        this,
         [this, currentVersion, previousError, callback](const QByteArray& responseData, bool success) {
             if (!success) {
                 if (callback) {
