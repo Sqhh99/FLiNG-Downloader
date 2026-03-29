@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QObject>
+#include <QHash>
 #include <QMap>
 #include <QMutex>
 #include <QString>
@@ -11,6 +12,8 @@ struct GameMappingInfo {
     QString english;
     QString chinese;
     QString japanese;
+    QString normalizedChinese;
+    QString normalizedJapanese;
     QString normalizedEnglish;
     QString category;
     bool isTranslated = false;
@@ -44,11 +47,14 @@ private:
     GameMappingManager(const GameMappingManager&) = delete;
     GameMappingManager& operator=(const GameMappingManager&) = delete;
 
+    void addLookupValue(QHash<QString, QString>& lookup, const QString& key, const QString& english);
     bool loadBuiltinMappings();
     double calculateSimilarity(const QString& str1, const QString& str2) const;
 
 private:
     QMap<QString, GameMappingInfo> m_builtinMappings;
+    QHash<QString, QString> m_exactLookupToEnglish;
+    QHash<QString, QString> m_normalizedLookupToEnglish;
     mutable QMutex m_mutex;
     bool m_initialized;
 };

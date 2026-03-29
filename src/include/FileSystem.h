@@ -173,7 +173,8 @@ public:
 
         for (const QString& root : candidateRoots) {
             const QString candidate = QDir(root).absoluteFilePath(cleanRelativePath);
-            if (QFileInfo::exists(candidate)) {
+            const QFileInfo candidateInfo(candidate);
+            if (candidateInfo.isFile() && candidateInfo.isReadable()) {
                 return QDir::cleanPath(candidate);
             }
         }

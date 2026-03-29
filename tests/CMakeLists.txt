@@ -13,6 +13,7 @@ set(TEST_SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/test_support.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/unit/backend_test.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/unit/download_manager_test.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/file_system_test.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/unit/game_mapping_manager_test.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/unit/app_update_manager_test.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/unit/translation_database_test.cpp"

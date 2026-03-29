@@ -137,7 +137,7 @@ Item {
                     anchors.top: parent.top
                     anchors.bottom: parent.bottom
                     anchors.leftMargin: downloadedTable.columnWidthFor(0) + downloadedTable.columnWidthFor(1) + downloadedTable.columnWidthFor(2) + 10
-                    width: downloadedTable.columnWidthFor(3)
+                    width: Math.max(0, downloadedTable.columnWidthFor(3) - 10)
                     spacing: 8
                     
                     // 打开文件夹按钮

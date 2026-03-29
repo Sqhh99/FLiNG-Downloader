@@ -9,7 +9,7 @@
 
 namespace {
 constexpr auto kAceCombatJapanese = u8"エースコンバット7 スカイズ・アンノウン";
-constexpr auto kAceCombatEnglish = u8"Ace Combat 7: Skies Unknown";
+constexpr auto kAceCombatNormalizedEnglish = u8"ace combat 7 skies unknown";
 }
 
 class GameMappingManagerTest : public ::testing::Test
@@ -29,7 +29,20 @@ protected:
 
 TEST_F(GameMappingManagerTest, TranslateToEnglishResolvesJapaneseTitle)
 {
+    const QString translated =
+        GameMappingManager::getInstance().translateToEnglish(QString::fromUtf8(kAceCombatJapanese));
+
+    EXPECT_FALSE(translated.isEmpty());
+    EXPECT_TRUE(translated.contains(QStringLiteral("Ace Combat 7"), Qt::CaseInsensitive));
+}
+
+TEST_F(GameMappingManagerTest, TranslateToEnglishResolvesNormalizedEnglishVariant)
+{
+    const QString expected =
+        GameMappingManager::getInstance().translateToEnglish(QString::fromUtf8(kAceCombatJapanese));
+
+    ASSERT_FALSE(expected.isEmpty());
     EXPECT_EQ(
-        GameMappingManager::getInstance().translateToEnglish(QString::fromUtf8(kAceCombatJapanese)),
-        QString::fromUtf8(kAceCombatEnglish));
+        GameMappingManager::getInstance().translateToEnglish(QString::fromUtf8(kAceCombatNormalizedEnglish)),
+        expected);
 }

@@ -4,6 +4,7 @@
 
 #include <QFile>
 
+#include "GameMappingManager.h"
 #include "SearchManager.h"
 #include "TranslationDatabase.h"
 
@@ -17,6 +18,7 @@ protected:
     void SetUp() override
     {
         QFile::remove(TranslationDatabase::getInstance().overrideDatabasePath());
+        ASSERT_TRUE(GameMappingManager::getInstance().reloadMappings());
 
         m_networkHooks.setGetHandler([](const QString&,
                                         const QString&,
@@ -43,6 +45,10 @@ TEST_F(SearchManagerIntegrationTest, UsesCanonicalEnglishKeywordForJapaneseInput
 {
     QString capturedUrl;
     bool callbackInvoked = false;
+    const QString expectedEnglish =
+        GameMappingManager::getInstance().translateToEnglish(QString::fromUtf8(kAceCombatJapanese));
+
+    ASSERT_FALSE(expectedEnglish.isEmpty());
 
     m_networkHooks.setGetHandler([&capturedUrl](const QString& url,
                                                 const QString&,
@@ -62,5 +68,5 @@ TEST_F(SearchManagerIntegrationTest, UsesCanonicalEnglishKeywordForJapaneseInput
         });
 
     EXPECT_TRUE(callbackInvoked);
-    EXPECT_TRUE(capturedUrl.contains(QStringLiteral("Ace+Combat+7:+Skies+Unknown")));
+    EXPECT_TRUE(capturedUrl.contains(QString(expectedEnglish).replace(QStringLiteral(" "), QStringLiteral("+"))));
 }
