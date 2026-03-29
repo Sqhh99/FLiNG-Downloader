@@ -222,52 +222,52 @@
     <message>
         <location filename="../../src/Backend.cpp" line="589"/>
         <source>Failed to launch installer</source>
-        <translation type="unfinished"></translation>
+        <translation>インストーラーの起動に失敗しました</translation>
     </message>
     <message>
         <location filename="../../src/Backend.cpp" line="609"/>
         <source>Checking database updates...</source>
-        <translation type="unfinished"></translation>
+        <translation>データベース更新を確認中...</translation>
     </message>
     <message>
         <location filename="../../src/Backend.cpp" line="628"/>
         <source>Failed to check database updates</source>
-        <translation type="unfinished"></translation>
+        <translation>データベース更新の確認に失敗しました</translation>
     </message>
     <message>
         <location filename="../../src/Backend.cpp" line="641"/>
         <source>New database version available: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>新しいデータベース版があります: %1</translation>
     </message>
     <message>
         <location filename="../../src/Backend.cpp" line="642"/>
         <source>You are using the latest database version</source>
-        <translation type="unfinished"></translation>
+        <translation>最新のデータベース版を使用しています</translation>
     </message>
     <message>
         <location filename="../../src/Backend.cpp" line="658"/>
         <source>Downloading database update...</source>
-        <translation type="unfinished"></translation>
+        <translation>データベース更新をダウンロード中...</translation>
     </message>
     <message>
         <location filename="../../src/Backend.cpp" line="679"/>
         <source>Failed to download database update</source>
-        <translation type="unfinished"></translation>
+        <translation>データベース更新のダウンロードに失敗しました</translation>
     </message>
     <message>
         <location filename="../../src/Backend.cpp" line="690"/>
         <source>Failed to activate database update</source>
-        <translation type="unfinished"></translation>
+        <translation>データベース更新の適用に失敗しました</translation>
     </message>
     <message>
         <location filename="../../src/Backend.cpp" line="699"/>
         <source>Database updated, but failed to reload data</source>
-        <translation type="unfinished"></translation>
+        <translation>データベースは更新されましたが、データの再読み込みに失敗しました</translation>
     </message>
     <message>
         <location filename="../../src/Backend.cpp" line="710"/>
         <source>Database updated successfully: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>データベースの更新が完了しました: %1</translation>
     </message>
     <message>
         <location filename="../../src/Backend.cpp" line="1091"/>
@@ -1188,7 +1188,7 @@
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="299"/>
         <source>主题</source>
-        <translation type="unfinished">テーマ</translation>
+        <translation>テーマ</translation>
     </message>
     <message>
         <source>Dark</source>
@@ -1209,47 +1209,47 @@
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="312"/>
         <source>浅色</source>
-        <translation type="unfinished"></translation>
+        <translation>ライト</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="313"/>
         <source>深色</source>
-        <translation type="unfinished"></translation>
+        <translation>ダーク</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="314"/>
         <source>海洋</source>
-        <translation type="unfinished"></translation>
+        <translation>オーシャン</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="315"/>
         <source>日落</source>
-        <translation type="unfinished"></translation>
+        <translation>夕焼け</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="316"/>
         <source>森林</source>
-        <translation type="unfinished"></translation>
+        <translation>森林</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="317"/>
         <source>薰衣草</source>
-        <translation type="unfinished"></translation>
+        <translation>ラベンダー</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="318"/>
         <source>玫瑰</source>
-        <translation type="unfinished"></translation>
+        <translation>ローズ</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="319"/>
         <source>午夜</source>
-        <translation type="unfinished"></translation>
+        <translation>深夜</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="320"/>
         <source>摩卡</source>
-        <translation type="unfinished"></translation>
+        <translation>モカ</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="383"/>
@@ -1310,55 +1310,55 @@
         <location filename="../../qml/components/SettingsDialog.qml" line="635"/>
         <location filename="../../qml/components/SettingsDialog.qml" line="752"/>
         <source>自动检查</source>
-        <translation type="unfinished"></translation>
+        <translation>自動確認</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="660"/>
         <location filename="../../qml/components/SettingsDialog.qml" line="787"/>
         <source>最新: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>最新: %1</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="667"/>
         <location filename="../../qml/components/SettingsDialog.qml" line="794"/>
         <source>源: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>提供元: %1</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="674"/>
         <location filename="../../qml/components/SettingsDialog.qml" line="801"/>
         <source>发布: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>公開: %1</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="738"/>
         <source>翻译数据库更新</source>
-        <translation type="unfinished"></translation>
+        <translation>翻訳データベース更新</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="760"/>
         <source>当前版本: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>現在の版: %1</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="763"/>
         <source>未知</source>
-        <translation type="unfinished"></translation>
+        <translation>不明</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="772"/>
         <source>点击“检查更新”获取最新数据库版本信息</source>
-        <translation type="unfinished"></translation>
+        <translation>「データベース更新を確認」をクリックして最新のデータベース版情報を取得</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="825"/>
         <source>检查数据库更新</source>
-        <translation type="unfinished"></translation>
+        <translation>データベース更新を確認</translation>
     </message>
     <message>
         <location filename="../../qml/components/SettingsDialog.qml" line="835"/>
         <source>下载并应用</source>
-        <translation type="unfinished"></translation>
+        <translation>ダウンロードして適用</translation>
     </message>
     <message>
         <source>FLiNG Downloader</source>
@@ -1519,47 +1519,47 @@
     <message>
         <location filename="../../qml/themes/ThemeProvider.qml" line="259"/>
         <source>浅色</source>
-        <translation type="unfinished"></translation>
+        <translation>ライト</translation>
     </message>
     <message>
         <location filename="../../qml/themes/ThemeProvider.qml" line="260"/>
         <source>深色</source>
-        <translation type="unfinished"></translation>
+        <translation>ダーク</translation>
     </message>
     <message>
         <location filename="../../qml/themes/ThemeProvider.qml" line="261"/>
         <source>海洋</source>
-        <translation type="unfinished"></translation>
+        <translation>オーシャン</translation>
     </message>
     <message>
         <location filename="../../qml/themes/ThemeProvider.qml" line="262"/>
         <source>日落</source>
-        <translation type="unfinished"></translation>
+        <translation>夕焼け</translation>
     </message>
     <message>
         <location filename="../../qml/themes/ThemeProvider.qml" line="263"/>
         <source>森林</source>
-        <translation type="unfinished"></translation>
+        <translation>森林</translation>
     </message>
     <message>
         <location filename="../../qml/themes/ThemeProvider.qml" line="264"/>
         <source>薰衣草</source>
-        <translation type="unfinished"></translation>
+        <translation>ラベンダー</translation>
     </message>
     <message>
         <location filename="../../qml/themes/ThemeProvider.qml" line="265"/>
         <source>玫瑰</source>
-        <translation type="unfinished"></translation>
+        <translation>ローズ</translation>
     </message>
     <message>
         <location filename="../../qml/themes/ThemeProvider.qml" line="266"/>
         <source>午夜</source>
-        <translation type="unfinished"></translation>
+        <translation>深夜</translation>
     </message>
     <message>
         <location filename="../../qml/themes/ThemeProvider.qml" line="267"/>
         <source>摩卡</source>
-        <translation type="unfinished"></translation>
+        <translation>モカ</translation>
     </message>
 </context>
 </TS>
