@@ -17,6 +17,18 @@ constexpr const char* kGiteeLatestReleaseUrl =
     "https://gitee.com/api/v5/repos/sqhh99/fli-ng-downloader/releases/latest";
 constexpr const char* kInstallerSuffix = "-win-x64-setup.exe";
 constexpr const char* kInstallerPrefix = "FLiNG-Downloader-v";
+
+QString joinErrorMessages(const QString& previousError, const QString& nextError)
+{
+    if (previousError.isEmpty()) {
+        return nextError;
+    }
+    if (nextError.isEmpty()) {
+        return previousError;
+    }
+
+    return QStringLiteral("%1; %2").arg(previousError, nextError);
+}
 }
 
 AppUpdateManager::AppUpdateManager(QObject* parent)
@@ -193,7 +205,7 @@ void AppUpdateManager::fetchLatestReleaseFromGitee(const QString& currentVersion
                     callback(false,
                              false,
                              AppReleaseInfo(),
-                             previousError + tr("; Gitee release request failed"));
+                             joinErrorMessages(previousError, tr("Gitee release request failed")));
                 }
                 return;
             }
@@ -204,7 +216,9 @@ void AppUpdateManager::fetchLatestReleaseFromGitee(const QString& currentVersion
                     callback(false,
                              false,
                              AppReleaseInfo(),
-                             previousError + tr("; Gitee release response did not contain a valid installer asset"));
+                             joinErrorMessages(
+                                 previousError,
+                                 tr("Gitee release response did not contain a valid installer asset")));
                 }
                 return;
             }

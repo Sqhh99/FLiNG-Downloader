@@ -92,3 +92,36 @@ TEST_F(AppUpdateManagerTest, ParsesGithubReleaseResponse)
     EXPECT_EQ(releaseInfo.installerAssetName,
               QStringLiteral("FLiNG-Downloader-v1.2.0-win-x64-setup.exe"));
 }
+
+TEST_F(AppUpdateManagerTest, CombinesGithubAndGiteeErrorsWithoutLeadingTranslatedSeparator)
+{
+    bool callbackInvoked = false;
+    bool success = true;
+    QString errorMessage;
+
+    m_networkHooks.setGetHandler([](const QString&, const QString&, NetworkResponseCallback callback) {
+        if (callback) {
+            callback(QByteArray(), false);
+        }
+        return true;
+    });
+
+    AppUpdateManager manager;
+    manager.checkForUpdates(
+        QStringLiteral("1.1.0"),
+        [&callbackInvoked, &success, &errorMessage](
+            bool ok,
+            bool,
+            const AppReleaseInfo&,
+            const QString& error) {
+            callbackInvoked = true;
+            success = ok;
+            errorMessage = error;
+        });
+
+    EXPECT_TRUE(callbackInvoked);
+    EXPECT_FALSE(success);
+    EXPECT_EQ(
+        errorMessage,
+        QStringLiteral("GitHub release request failed; Gitee release request failed"));
+}

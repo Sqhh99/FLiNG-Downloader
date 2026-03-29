@@ -88,3 +88,36 @@ TEST_F(DatabaseUpdateManagerIntegrationTest, FallsBackToGiteeWhenGithubFails)
     EXPECT_EQ(releaseInfo.source, QStringLiteral("gitee"));
     EXPECT_EQ(releaseInfo.assetName, QStringLiteral("fling_translations.db"));
 }
+
+TEST_F(DatabaseUpdateManagerIntegrationTest, CombinesGithubAndGiteeErrorsWithoutLeadingTranslatedSeparator)
+{
+    bool callbackInvoked = false;
+    bool success = true;
+    QString errorMessage;
+
+    m_networkHooks.setGetHandler([](const QString&, const QString&, NetworkResponseCallback callback) {
+        if (callback) {
+            callback(QByteArray(), false);
+        }
+        return true;
+    });
+
+    DatabaseUpdateManager manager;
+    manager.checkForUpdates(
+        QStringLiteral("1.0.0"),
+        [&callbackInvoked, &success, &errorMessage](
+            bool ok,
+            bool,
+            const DatabaseReleaseInfo&,
+            const QString& error) {
+            callbackInvoked = true;
+            success = ok;
+            errorMessage = error;
+        });
+
+    EXPECT_TRUE(callbackInvoked);
+    EXPECT_FALSE(success);
+    EXPECT_EQ(
+        errorMessage,
+        QStringLiteral("GitHub database release request failed; Gitee database release request failed"));
+}

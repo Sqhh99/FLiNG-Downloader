@@ -15,6 +15,18 @@ constexpr const char* kGithubLatestReleaseUrl =
 constexpr const char* kGiteeLatestReleaseUrl =
     "https://gitee.com/api/v5/repos/sqhh99/game-mappings-updater/releases/latest";
 constexpr const char* kDatabaseAssetName = "fling_translations.db";
+
+QString joinErrorMessages(const QString& previousError, const QString& nextError)
+{
+    if (previousError.isEmpty()) {
+        return nextError;
+    }
+    if (nextError.isEmpty()) {
+        return previousError;
+    }
+
+    return QStringLiteral("%1; %2").arg(previousError, nextError);
+}
 }
 
 DatabaseUpdateManager::DatabaseUpdateManager(QObject* parent)
@@ -120,7 +132,7 @@ void DatabaseUpdateManager::fetchLatestReleaseFromGitee(const QString& currentVe
                     callback(false,
                              false,
                              DatabaseReleaseInfo(),
-                             previousError + tr("; Gitee database release request failed"));
+                             joinErrorMessages(previousError, tr("Gitee database release request failed")));
                 }
                 return;
             }
@@ -133,7 +145,9 @@ void DatabaseUpdateManager::fetchLatestReleaseFromGitee(const QString& currentVe
                         false,
                         false,
                         DatabaseReleaseInfo(),
-                        previousError + tr("; Gitee database release response did not contain a valid database asset"));
+                        joinErrorMessages(
+                            previousError,
+                            tr("Gitee database release response did not contain a valid database asset")));
                 }
                 return;
             }

@@ -8,7 +8,7 @@ namespace TranslationTextUtils {
 inline QString normalizeLookupText(const QString& value)
 {
     static const QRegularExpression kIgnoredChars(
-        QStringLiteral("[\\s\\-_:：·'\"()\\[\\]{}.,!?/\\\\]+"));
+        QStringLiteral("[\\s\\-_:：·・'\"()\\[\\]{}.,!?/\\\\]+"));
 
     QString normalized = value.toLower().trimmed();
     normalized.remove(kIgnoredChars);
