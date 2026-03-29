@@ -101,3 +101,32 @@ TEST_F(TranslationDatabaseTest, PrefersOverrideWhenItIsNewer)
     EXPECT_EQ(QDir::cleanPath(database.databasePath()), QDir::cleanPath(overridePath));
     EXPECT_EQ(database.currentReleaseTag(), QStringLiteral("999.0.0"));
 }
+
+TEST_F(TranslationDatabaseTest, RejectsDatabaseMissingRequiredGamesColumns)
+{
+    TranslationDatabase& database = TranslationDatabase::getInstance();
+    const QString overridePath = database.overrideDatabasePath();
+    QString errorMessage;
+
+    ASSERT_TRUE(TestSupport::createTranslationDatabaseMissingNormalizedEnglish(
+        overridePath,
+        QStringLiteral("999.0.0")));
+
+    EXPECT_FALSE(database.isValidDatabaseFile(overridePath, &errorMessage));
+    EXPECT_TRUE(errorMessage.contains(QStringLiteral("games.normalized_english")));
+}
+
+TEST_F(TranslationDatabaseTest, RejectsUnsupportedSchemaVersion)
+{
+    TranslationDatabase& database = TranslationDatabase::getInstance();
+    const QString overridePath = database.overrideDatabasePath();
+    QString errorMessage;
+
+    ASSERT_TRUE(TestSupport::createTranslationDatabase(
+        overridePath,
+        QStringLiteral("999.0.0"),
+        QStringLiteral("2")));
+
+    EXPECT_FALSE(database.isValidDatabaseFile(overridePath, &errorMessage));
+    EXPECT_TRUE(errorMessage.contains(QStringLiteral("Unsupported schema_version")));
+}

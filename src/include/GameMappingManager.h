@@ -31,6 +31,7 @@ public:
 
     // Resolve Chinese, Japanese, or English variants to the FLiNG English title.
     QString translateToEnglish(const QString& input);
+    QString translateToEnglishForSearch(const QString& input);
 
     // Compatibility wrapper around the synchronous local DB lookup.
     void translateToEnglishAsync(const QString& input, std::function<void(const QString&)> callback);
@@ -41,6 +42,7 @@ public:
     bool reloadMappings();
 
 private:
+    QString translateToEnglishInternal(const QString& input, bool allowContainsFallback);
     GameMappingManager(QObject* parent = nullptr);
     ~GameMappingManager() = default;
 

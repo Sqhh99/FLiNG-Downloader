@@ -70,3 +70,31 @@ TEST_F(SearchManagerIntegrationTest, UsesCanonicalEnglishKeywordForJapaneseInput
     EXPECT_TRUE(callbackInvoked);
     EXPECT_TRUE(capturedUrl.contains(QString(expectedEnglish).replace(QStringLiteral(" "), QStringLiteral("+"))));
 }
+
+TEST_F(SearchManagerIntegrationTest, PreservesBroadLatinQueriesForSiteSearch)
+{
+    QString capturedUrl;
+    bool callbackInvoked = false;
+    const QString query = QStringLiteral("ace combat");
+
+    m_networkHooks.setGetHandler([&capturedUrl](const QString& url,
+                                                const QString&,
+                                                NetworkResponseCallback callback) {
+        capturedUrl = url;
+        if (callback) {
+            callback(QByteArray(), false);
+        }
+        return true;
+    });
+
+    SearchManager::getInstance().searchModifiers(
+        query,
+        [&callbackInvoked](const QList<ModifierInfo>& modifiers) {
+            callbackInvoked = true;
+            EXPECT_TRUE(modifiers.isEmpty());
+        });
+
+    EXPECT_TRUE(callbackInvoked);
+    EXPECT_TRUE(capturedUrl.contains(QStringLiteral("ace+combat")));
+    EXPECT_FALSE(capturedUrl.contains(QStringLiteral("Ace+Combat+7")));
+}

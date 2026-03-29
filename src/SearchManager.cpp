@@ -63,10 +63,10 @@ void SearchManager::searchModifiers(const QString& searchTerm,
         return;
     }
     
-    // Resolve Chinese, Japanese, or English variants to the canonical FLiNG English title
-    // before searching the website. Unknown titles fall back to the original query text.
+    // Canonical remapping is restricted to exact / normalized-exact matches so that
+    // broad Latin queries still behave like site searches instead of collapsing to one title.
     GameMappingManager& mappingManager = GameMappingManager::getInstance();
-    const QString englishTerm = mappingManager.translateToEnglish(searchTerm);
+    const QString englishTerm = mappingManager.translateToEnglishForSearch(searchTerm);
     performSearch(!englishTerm.isEmpty() ? englishTerm : searchTerm, callback);
 }
 

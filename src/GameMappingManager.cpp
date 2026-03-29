@@ -63,7 +63,17 @@ bool GameMappingManager::initialize()
 QString GameMappingManager::translateToEnglish(const QString& input)
 {
     QMutexLocker locker(&m_mutex);
+    return translateToEnglishInternal(input, true);
+}
 
+QString GameMappingManager::translateToEnglishForSearch(const QString& input)
+{
+    QMutexLocker locker(&m_mutex);
+    return translateToEnglishInternal(input, false);
+}
+
+QString GameMappingManager::translateToEnglishInternal(const QString& input, bool allowContainsFallback)
+{
     if (input.isEmpty()) {
         return QString();
     }
@@ -87,6 +97,10 @@ QString GameMappingManager::translateToEnglish(const QString& input)
     auto normalizedMatch = m_normalizedLookupToEnglish.constFind(normalizedInput);
     if (normalizedMatch != m_normalizedLookupToEnglish.constEnd()) {
         return normalizedMatch.value();
+    }
+
+    if (!allowContainsFallback) {
+        return QString();
     }
 
     for (auto it = m_builtinMappings.constBegin(); it != m_builtinMappings.constEnd(); ++it) {

@@ -112,7 +112,7 @@ bool writeFileBytes(const QString& path, const QByteArray& bytes)
     return true;
 }
 
-bool createTranslationDatabase(const QString& path, const QString& releaseTag)
+bool createTranslationDatabase(const QString& path, const QString& releaseTag, const QString& schemaVersion)
 {
     const QFileInfo fileInfo(path);
     if (!QDir().mkpath(fileInfo.absolutePath())) {
@@ -141,7 +141,7 @@ bool createTranslationDatabase(const QString& path, const QString& releaseTag)
         metadataInsert.exec();
         metadataInsert.reset();
         metadataInsert.bind(1, "schema_version");
-        metadataInsert.bind(2, "1");
+        metadataInsert.bind(2, toUtf8String(schemaVersion));
         metadataInsert.exec();
 
         SQLite::Statement gameInsert(
@@ -152,6 +152,53 @@ bool createTranslationDatabase(const QString& path, const QString& releaseTag)
         gameInsert.bind(2, "samplegame");
         gameInsert.bind(3, "示例游戏");
         gameInsert.bind(4, "サンプルゲーム");
+        gameInsert.exec();
+    } catch (const SQLite::Exception&) {
+        QFile::remove(path);
+        return false;
+    }
+
+    return true;
+}
+
+bool createTranslationDatabaseMissingNormalizedEnglish(const QString& path, const QString& releaseTag)
+{
+    const QFileInfo fileInfo(path);
+    if (!QDir().mkpath(fileInfo.absolutePath())) {
+        return false;
+    }
+
+    QFile::remove(path);
+
+    try {
+        SQLite::Database db(
+            toUtf8String(path),
+            SQLite::OPEN_READWRITE | SQLite::OPEN_CREATE);
+
+        db.exec("CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL)");
+        db.exec("CREATE TABLE games ("
+                "english TEXT NOT NULL, "
+                "chinese_simplified TEXT, "
+                "japanese TEXT)");
+
+        SQLite::Statement metadataInsert(
+            db,
+            "INSERT INTO metadata(key, value) VALUES (?, ?)");
+        metadataInsert.bind(1, "release_tag");
+        metadataInsert.bind(2, toUtf8String(releaseTag));
+        metadataInsert.exec();
+        metadataInsert.reset();
+        metadataInsert.bind(1, "schema_version");
+        metadataInsert.bind(2, "1");
+        metadataInsert.exec();
+
+        SQLite::Statement gameInsert(
+            db,
+            "INSERT INTO games(english, chinese_simplified, japanese) "
+            "VALUES (?, ?, ?)");
+        gameInsert.bind(1, "Sample Game");
+        gameInsert.bind(2, "示例游戏");
+        gameInsert.bind(3, "サンプルゲーム");
         gameInsert.exec();
     } catch (const SQLite::Exception&) {
         QFile::remove(path);
