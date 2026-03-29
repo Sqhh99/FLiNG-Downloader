@@ -63,7 +63,8 @@ void SearchManager::searchModifiers(const QString& searchTerm,
         return;
     }
     
-    // Check for Chinese characters and translate if needed.
+    // Unknown Chinese titles now fall back to the original query text.
+    // This is intentional after migrating to the bundled SQLite-only mapping source.
     GameMappingManager& mappingManager = GameMappingManager::getInstance();
     if (mappingManager.containsChinese(searchTerm)) {
         QString englishTerm = mappingManager.translateToEnglish(searchTerm);

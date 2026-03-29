@@ -131,6 +131,7 @@ set(PROJECT_HEADERS
     src/include/SearchManager.h
     src/include/LanguageManager.h
     src/include/TranslationDatabase.h
+    src/include/TranslationTextUtils.h
     src/include/GameMappingManager.h
     src/include/CoverExtractor.h
     src/include/Backend.h

@@ -3,18 +3,9 @@
 #include <QDebug>
 #include <QMetaObject>
 #include <QMutexLocker>
-#include <QRegularExpression>
 
 #include "TranslationDatabase.h"
-
-namespace {
-QString normalizeLookupText(const QString& value)
-{
-    QString normalized = value.toLower().trimmed();
-    normalized.remove(QRegularExpression(QStringLiteral("[\\s\\-_:：·'\"()\\[\\]{}.,!?/\\\\]+")));
-    return normalized;
-}
-}
+#include "TranslationTextUtils.h"
 
 GameMappingManager& GameMappingManager::getInstance()
 {
@@ -59,18 +50,32 @@ QString GameMappingManager::translateToEnglish(const QString& chinese)
     if (trimmedInput.isEmpty()) {
         return QString();
     }
-    const QString normalizedInput = normalizeLookupText(trimmedInput);
+    const QString normalizedInput = TranslationTextUtils::normalizeLookupText(trimmedInput);
+    const bool canUseNormalizedMatch = !normalizedInput.isEmpty();
 
     auto exactMatch = m_builtinMappings.constFind(trimmedInput);
     if (exactMatch != m_builtinMappings.constEnd()) {
         return exactMatch.value().english;
     }
 
+    if (!TranslationTextUtils::hasNormalizedLookupText(trimmedInput)) {
+        return QString();
+    }
+
     for (auto it = m_builtinMappings.constBegin(); it != m_builtinMappings.constEnd(); ++it) {
-        const QString normalizedKey = normalizeLookupText(it.key());
-        if (trimmedInput.contains(it.key()) || it.key().contains(trimmedInput) ||
-            normalizedInput == normalizedKey ||
-            normalizedInput.contains(normalizedKey) || normalizedKey.contains(normalizedInput)) {
+        const bool rawMatch = trimmedInput.contains(it.key()) || it.key().contains(trimmedInput);
+        bool normalizedMatch = false;
+
+        if (canUseNormalizedMatch) {
+            const QString normalizedKey = TranslationTextUtils::normalizeLookupText(it.key());
+            if (!normalizedKey.isEmpty()) {
+                normalizedMatch = normalizedInput == normalizedKey ||
+                                  normalizedInput.contains(normalizedKey) ||
+                                  normalizedKey.contains(normalizedInput);
+            }
+        }
+
+        if (rawMatch || normalizedMatch) {
             return it.value().english;
         }
     }
@@ -138,11 +143,6 @@ QStringList GameMappingManager::getAllChineseNames() const
 {
     QMutexLocker locker(&m_mutex);
     return m_builtinMappings.keys();
-}
-
-QStringList GameMappingManager::getAllAliases() const
-{
-    return {};
 }
 
 bool GameMappingManager::loadBuiltinMappings()

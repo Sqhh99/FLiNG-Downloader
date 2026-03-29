@@ -17,17 +17,8 @@
 #include "LanguageManager.h"
 #include "DownloadManager.h"
 #include "TranslationDatabase.h"
-#include <QRegularExpression>
+#include "TranslationTextUtils.h"
 #include <QSet>
-
-namespace {
-QString normalizeLookupText(const QString& value)
-{
-    QString normalized = value.toLower().trimmed();
-    normalized.remove(QRegularExpression(QStringLiteral("[\\s\\-_:：·'\"()\\[\\]{}.,!?/\\\\]+")));
-    return normalized;
-}
-}
 
 Backend::Backend(QObject* parent)
     : QObject(parent)
@@ -1099,8 +1090,12 @@ QStringList Backend::getSuggestions(const QString& keyword, int maxResults)
         return results;
     }
 
+    if (!TranslationTextUtils::hasNormalizedLookupText(trimmedKeyword)) {
+        return results;
+    }
+
     const QString lowerKeyword = trimmedKeyword.toLower();
-    const QString normalizedKeyword = normalizeLookupText(trimmedKeyword);
+    const QString normalizedKeyword = TranslationTextUtils::normalizeLookupText(trimmedKeyword);
     QSet<QString> addedNames;
 
     for (const GameMapping& mapping : m_gameMappings) {
@@ -1114,18 +1109,18 @@ QStringList Backend::getSuggestions(const QString& keyword, int maxResults)
         const bool chineseMatched =
             !mapping.chineseName.isEmpty() &&
             (mapping.chineseName.toLower().contains(lowerKeyword) ||
-             normalizeLookupText(mapping.chineseName).contains(normalizedKeyword));
+             TranslationTextUtils::normalizeLookupText(mapping.chineseName).contains(normalizedKeyword));
         const bool englishMatched =
             !mapping.englishName.isEmpty() &&
             (mapping.englishName.toLower().contains(lowerKeyword) ||
-             normalizeLookupText(mapping.englishName).contains(normalizedKeyword));
+             TranslationTextUtils::normalizeLookupText(mapping.englishName).contains(normalizedKeyword));
         const bool normalizedEnglishMatched =
             !mapping.normalizedEnglish.isEmpty() &&
             mapping.normalizedEnglish.toLower().contains(normalizedKeyword);
         const bool japaneseMatched =
             !mapping.japaneseName.isEmpty() &&
             (mapping.japaneseName.toLower().contains(lowerKeyword) ||
-             normalizeLookupText(mapping.japaneseName).contains(normalizedKeyword));
+             TranslationTextUtils::normalizeLookupText(mapping.japaneseName).contains(normalizedKeyword));
 
         if (chineseMatched) {
             matched = true;

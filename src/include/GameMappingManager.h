@@ -26,13 +26,12 @@ public:
     // Translate a Chinese game name to the FLiNG English title.
     QString translateToEnglish(const QString& chinese);
 
-    // Compatibility wrapper around the synchronous local lookup.
+    // Compatibility wrapper around the synchronous local DB lookup.
     void translateToEnglishAsync(const QString& chinese, std::function<void(const QString&)> callback);
 
     QString fuzzyMatch(const QString& input) const;
     bool containsChinese(const QString& text) const;
     QStringList getAllChineseNames() const;
-    QStringList getAllAliases() const;
     bool reloadMappings();
 
 private:
