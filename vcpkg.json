@@ -18,7 +18,9 @@
       "default-features": false,
       "features": ["jpeg", "png", "webp"]
     },
-    "pugixml"
+    "pugixml",
+    "gtest",
+    "benchmark"
   ],
   "builtin-baseline": "64e1fbee7d9f40eab5d112aaff648c4dcffe9e47",
   "overrides": []

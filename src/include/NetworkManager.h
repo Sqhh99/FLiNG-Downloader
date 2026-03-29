@@ -15,6 +15,16 @@
 using NetworkResponseCallback = std::function<void(const QByteArray&, bool)>;
 using DownloadProgressCallback = std::function<void(qint64, qint64)>;
 using DownloadFinishedCallback = std::function<void(bool, const QString&, int)>;
+using TestGetRequestHandler =
+    std::function<bool(const QString&, const QString&, NetworkResponseCallback)>;
+using TestDownloadRequestHandler =
+    std::function<bool(const QString&,
+                       const QString&,
+                       const QString&,
+                       qint64,
+                       bool,
+                       DownloadProgressCallback,
+                       DownloadFinishedCallback)>;
 
 class NetworkManager : public QObject
 {
@@ -81,6 +91,11 @@ public:
     // Get global user agent
     QString getGlobalUserAgent() const;
 
+    // Test hooks
+    void setGetRequestHandlerForTesting(TestGetRequestHandler handler);
+    void setDownloadRequestHandlerForTesting(TestDownloadRequestHandler handler);
+    void resetTestHooks();
+
 private:
     NetworkManager(QObject* parent = nullptr);
     ~NetworkManager();
@@ -97,6 +112,8 @@ private:
     int m_timeoutInterval;
     QString m_globalUserAgent;
     QNetworkReply* m_currentDownloadReply;
+    TestGetRequestHandler m_testGetRequestHandler;
+    TestDownloadRequestHandler m_testDownloadRequestHandler;
 
 private slots:
     void onTimeoutTriggered();

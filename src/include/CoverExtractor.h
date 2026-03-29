@@ -58,11 +58,12 @@ private:
     static cv::Mat removeCoverBorders(const cv::Mat& coverImage);
     
     // Helper analysis methods
-    static std::vector<CoverCandidate> findCoverCandidates(const cv::Mat& roi);
+    static std::vector<CoverCandidate> findCoverCandidates(const cv::Mat& roi, const cv::Mat& grayRoi);
     static std::vector<CoverCandidate> findCoverByColorSegmentation(const cv::Mat& roi);
-    static int detectCoverRightBoundary(const cv::Mat& roi);
+    static int detectCoverRightBoundary(const cv::Mat& roi, const cv::Mat& grayRoi);
     static cv::Mat applyRobustEdgeDetection(const cv::Mat& gray);
     static double calculateRegionQuality(const cv::Mat& region);
+    static double calculateRegionQuality(const cv::Mat& region, const cv::Mat& grayRegion);
     
     // Image conversion tools
     static QPixmap matToQPixmap(const cv::Mat& mat);
