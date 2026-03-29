@@ -98,6 +98,9 @@ jobs:
           $exePath = Join-Path $workspace "build\ninja-release\FLiNG Downloader.exe"
           $launcherPath = Join-Path $workspace "build\ninja-release\FLiNG Launcher.exe"
           $qmlSourceDir = Join-Path $workspace "qml"
+          $translationDbSource = Join-Path $workspace "resources\fling_translations.db"
+          $translationDbDir = Join-Path $appDir "resources"
+          $translationDbDest = Join-Path $translationDbDir "fling_translations.db"
 
           if (!(Test-Path $exePath)) {
             throw "Executable not found: $exePath"
@@ -108,15 +111,20 @@ jobs:
           if (!(Test-Path $qmlSourceDir)) {
             throw "QML source dir not found: $qmlSourceDir"
           }
+          if (!(Test-Path $translationDbSource)) {
+            throw "Translation database not found: $translationDbSource"
+          }
 
           New-Item -ItemType Directory -Force -Path $distDir | Out-Null
           New-Item -ItemType Directory -Force -Path $appDir | Out-Null
+          New-Item -ItemType Directory -Force -Path $translationDbDir | Out-Null
 
           $rootLauncherPath = Join-Path $distDir "FLiNG Downloader.exe"
           $appExePath = Join-Path $appDir "FLiNG Downloader.exe"
 
           Copy-Item -Path $launcherPath -Destination $rootLauncherPath -Force
           Copy-Item -Path $exePath -Destination $appExePath -Force
+          Copy-Item -Path $translationDbSource -Destination $translationDbDest -Force
 
           & windeployqt.exe --release --compiler-runtime --no-translations --no-opengl-sw --qmldir "$qmlSourceDir" --dir "$appDir" "$appExePath"
           if ($LASTEXITCODE -ne 0) {
@@ -237,6 +245,10 @@ jobs:
             if (!(Test-Path $runtimePath)) {
               throw "Missing deployed runtime file: $runtimePath"
             }
+          }
+
+          if (!(Test-Path $translationDbDest)) {
+            throw "Missing bundled translation database: $translationDbDest"
           }
 
           # Ensure MSVC runtime is present for /MD-built main app.

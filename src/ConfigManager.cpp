@@ -185,9 +185,7 @@ void ConfigManager::migrateLegacyDataFilesIfNeeded()
     const QString targetDir = FileSystem::getInstance().getDataDirectory();
     const QStringList filesToMigrate = {
         "downloaded_modifiers.json",
-        "downloaded_modifiers.ini",
-        "user_game_mappings.json",
-        "translation_cache.json"
+        "downloaded_modifiers.ini"
     };
 
     bool migratedAny = false;

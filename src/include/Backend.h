@@ -144,7 +144,7 @@ public slots:
     Q_INVOKABLE void setLanguage(int languageIndex);
     Q_INVOKABLE void setAutoCheckAppUpdates(bool enabled);
     
-    // Search suggestions - obtained from game_mappings.json
+    // Search suggestions - obtained from fling_translations.db
     Q_INVOKABLE QStringList getSuggestions(const QString& keyword, int maxResults = 8);
 
 
@@ -241,11 +241,12 @@ private:
     qreal m_appUpdateProgress = 0.0;
     QString m_appUpdateStatusText;
     
-    // Game name mapping data (Chinese-English search suggestions)
+    // Game name mapping data loaded from the bundled SQLite database.
     struct GameMapping {
-        QString chineseName;   // Chinese name
-        QString englishName;   // English name
-        QStringList aliases;   // Alias list
+        QString chineseName;
+        QString englishName;
+        QString normalizedEnglish;
+        QString japaneseName;
     };
     QList<GameMapping> m_gameMappings;
     void loadGameMappings();

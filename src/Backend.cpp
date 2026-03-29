@@ -7,8 +7,8 @@
 #include <QDebug>
 #include <QFile>
 #include <QFileInfo>
-#include <QJsonDocument>
 #include <QJsonArray>
+#include <QJsonDocument>
 #include <QJsonObject>
 #include <QTimer>
 #include "FileSystem.h"
@@ -16,8 +16,18 @@
 #include "ThemeManager.h"
 #include "LanguageManager.h"
 #include "DownloadManager.h"
+#include "TranslationDatabase.h"
 #include <QRegularExpression>
 #include <QSet>
+
+namespace {
+QString normalizeLookupText(const QString& value)
+{
+    QString normalized = value.toLower().trimmed();
+    normalized.remove(QRegularExpression(QStringLiteral("[\\s\\-_:：·'\"()\\[\\]{}.,!?/\\\\]+")));
+    return normalized;
+}
+}
 
 Backend::Backend(QObject* parent)
     : QObject(parent)
@@ -1052,91 +1062,95 @@ void Backend::saveDownloadedModifiers()
     file.close();
 }
 
-// Load game name mapping database
+// Load game names from the bundled translation database.
 void Backend::loadGameMappings()
 {
     m_gameMappings.clear();
-    
-    QFile file(":/resources/game_mappings.json");
-    if (!file.open(QIODevice::ReadOnly)) {
-        qWarning() << "Backend: Cannot open game mappings file";
+
+    const QList<TranslationGameRecord> records = TranslationDatabase::getInstance().loadAllGames();
+    if (records.isEmpty()) {
+        qWarning() << "Backend: No game mappings loaded from translation database";
         return;
     }
-    
-    QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
-    file.close();
-    
-    if (!doc.isObject()) {
-        qWarning() << "Backend: Invalid game mappings format";
-        return;
-    }
-    
-    QJsonObject rootObj = doc.object();
-    QJsonObject mappings = rootObj["mappings"].toObject();
-    
-    for (const QString& chineseName : mappings.keys()) {
-        QJsonObject gameObj = mappings[chineseName].toObject();
-        
-        GameMapping mapping;
-        mapping.chineseName = chineseName;
-        mapping.englishName = gameObj["english"].toString();
-        
-        QJsonArray aliasArray = gameObj["aliases"].toArray();
-        for (const QJsonValue& val : aliasArray) {
-            mapping.aliases.append(val.toString());
+
+    for (const TranslationGameRecord& record : records) {
+        if (record.english.isEmpty() && record.chineseSimplified.isEmpty() && record.japanese.isEmpty()) {
+            continue;
         }
-        
+
+        GameMapping mapping;
+        mapping.chineseName = record.chineseSimplified;
+        mapping.englishName = record.english;
+        mapping.normalizedEnglish = record.normalizedEnglish;
+        mapping.japaneseName = record.japanese;
         m_gameMappings.append(mapping);
     }
+
+    qDebug() << "Backend: Loaded" << m_gameMappings.size() << "game mappings from SQLite";
 }
 
-// Get search suggestions - supports fuzzy matching for Chinese and English
+// Get search suggestions - supports Chinese, English, normalized English, and Japanese.
 QStringList Backend::getSuggestions(const QString& keyword, int maxResults)
 {
     QStringList results;
-    
-    if (keyword.isEmpty()) {
+
+    const QString trimmedKeyword = keyword.trimmed();
+    if (trimmedKeyword.isEmpty()) {
         return results;
     }
-    
-    QString lowerKeyword = keyword.toLower();
-    
-    // Track added names to avoid duplicates
+
+    const QString lowerKeyword = trimmedKeyword.toLower();
+    const QString normalizedKeyword = normalizeLookupText(trimmedKeyword);
     QSet<QString> addedNames;
-    
+
     for (const GameMapping& mapping : m_gameMappings) {
-        if (results.size() >= maxResults) break;
-        
+        if (results.size() >= maxResults) {
+            break;
+        }
+
         bool matched = false;
         QString displayName;
-        
-        // Check Chinese name match
-        if (mapping.chineseName.toLower().contains(lowerKeyword)) {
+
+        const bool chineseMatched =
+            !mapping.chineseName.isEmpty() &&
+            (mapping.chineseName.toLower().contains(lowerKeyword) ||
+             normalizeLookupText(mapping.chineseName).contains(normalizedKeyword));
+        const bool englishMatched =
+            !mapping.englishName.isEmpty() &&
+            (mapping.englishName.toLower().contains(lowerKeyword) ||
+             normalizeLookupText(mapping.englishName).contains(normalizedKeyword));
+        const bool normalizedEnglishMatched =
+            !mapping.normalizedEnglish.isEmpty() &&
+            mapping.normalizedEnglish.toLower().contains(normalizedKeyword);
+        const bool japaneseMatched =
+            !mapping.japaneseName.isEmpty() &&
+            (mapping.japaneseName.toLower().contains(lowerKeyword) ||
+             normalizeLookupText(mapping.japaneseName).contains(normalizedKeyword));
+
+        if (chineseMatched) {
             matched = true;
             displayName = mapping.chineseName;
             if (!mapping.englishName.isEmpty()) {
                 displayName += " (" + mapping.englishName + ")";
             }
         }
-        // Check English name match
-        else if (mapping.englishName.toLower().contains(lowerKeyword)) {
+        else if (englishMatched || normalizedEnglishMatched) {
             matched = true;
             displayName = mapping.englishName;
             if (!mapping.chineseName.isEmpty()) {
                 displayName += " (" + mapping.chineseName + ")";
             }
         }
-        // Check alias match
-        else {
-            for (const QString& alias : mapping.aliases) {
-                if (alias.toLower().contains(lowerKeyword)) {
-                    matched = true;
-                    displayName = mapping.chineseName + " (" + alias + ")";
-                    break;
-                }
+        else if (japaneseMatched) {
+            matched = true;
+            displayName = mapping.japaneseName;
+            if (!mapping.englishName.isEmpty()) {
+                displayName += " (" + mapping.englishName + ")";
+            } else if (!mapping.chineseName.isEmpty()) {
+                displayName += " (" + mapping.chineseName + ")";
             }
         }
-        
+
         if (matched && !addedNames.contains(displayName)) {
             results.append(displayName);
             addedNames.insert(displayName);

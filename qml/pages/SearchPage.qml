@@ -33,7 +33,7 @@ Item {
             return
         }
         
-        // 使用 backend 的 getSuggestions 方法从 game_mappings.json 获取建议
+        // 使用 backend 的 getSuggestions 方法从 SQLite 翻译库获取建议
         var suggestions = backend.getSuggestions(keyword, 8)
         console.log("updateSuggestions:", keyword, "-> found", suggestions.length, "suggestions")
         

@@ -11,6 +11,7 @@ endif()
 
 set(VCPKG_TARGET_TRIPLET "x64-windows-static-md" CACHE STRING "Vcpkg triplet")
 set(VCPKG_INSTALLED_DIR "${CMAKE_SOURCE_DIR}/third_party" CACHE PATH "Vcpkg installed directory")
+set(VCPKG_APPLOCAL_DEPS OFF CACHE BOOL "Disable vcpkg applocal copy step; runtime deployment is handled separately" FORCE)
 
 project("FLiNGDownloader" LANGUAGES CXX)
 
@@ -82,6 +83,7 @@ endif()
 find_package(ZLIB REQUIRED)
 find_package(CURL CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
+find_package(SQLiteCpp CONFIG REQUIRED)
 find_package(OpenCV CONFIG REQUIRED)
 find_package(pugixml CONFIG REQUIRED)
 
@@ -108,8 +110,8 @@ set(PROJECT_SOURCES
     src/ModifierInfoManager.cpp
     src/SearchManager.cpp
     src/LanguageManager.cpp
+    src/TranslationDatabase.cpp
     src/GameMappingManager.cpp
-    src/translator.cpp
     src/CoverExtractor.cpp
     src/Backend.cpp
     src/ModifierListModel.cpp
@@ -128,8 +130,8 @@ set(PROJECT_HEADERS
     src/include/ModifierInfoManager.h
     src/include/SearchManager.h
     src/include/LanguageManager.h
+    src/include/TranslationDatabase.h
     src/include/GameMappingManager.h
-    src/include/translator.h
     src/include/CoverExtractor.h
     src/include/Backend.h
     src/include/ModifierListModel.h
@@ -174,6 +176,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     # Third-party Libraries
     CURL::libcurl
     nlohmann_json::nlohmann_json
+    SQLiteCpp
     pugixml::pugixml
     ${OpenCV_LIBS}
 )
@@ -267,7 +270,6 @@ qt_add_qml_module(${PROJECT_NAME}
         resources/icons/language.png
         resources/icons/pause.png
         resources/icons/step-forward.png
-        resources/game_mappings.json
         resources/translations/flingdownloader_en_US.qm
         resources/translations/flingdownloader_ja_JP.qm
 )
