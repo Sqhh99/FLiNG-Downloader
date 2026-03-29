@@ -94,7 +94,9 @@ QList<TranslationGameRecord> TranslationDatabase::loadAllGames() const
     QList<TranslationGameRecord> results;
     const QString path = databasePath();
     if (path.isEmpty()) {
-        qWarning() << "TranslationDatabase: bundled database not found near application directory";
+        qWarning() << "TranslationDatabase: no valid translation database found"
+                   << "Bundled candidate:" << bundledDatabasePath()
+                   << "Override candidate:" << overrideDatabasePath();
         return results;
     }
 
