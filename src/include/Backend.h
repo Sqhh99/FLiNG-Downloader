@@ -17,6 +17,7 @@
 #include "LanguageManager.h"
 #include "CoverExtractor.h"
 #include "AppUpdateManager.h"
+#include "DatabaseUpdateManager.h"
 
 class QGuiApplication;
 class QTimer;
@@ -62,6 +63,16 @@ class Backend : public QObject
     Q_PROPERTY(bool appUpdateDownloading READ appUpdateDownloading NOTIFY appUpdateStateChanged)
     Q_PROPERTY(qreal appUpdateProgress READ appUpdateProgress NOTIFY appUpdateStateChanged)
     Q_PROPERTY(QString appUpdateStatusText READ appUpdateStatusText NOTIFY appUpdateStateChanged)
+    Q_PROPERTY(bool autoCheckDatabaseUpdates READ autoCheckDatabaseUpdates WRITE setAutoCheckDatabaseUpdates NOTIFY autoCheckDatabaseUpdatesChanged)
+    Q_PROPERTY(QString databaseCurrentVersion READ databaseCurrentVersion NOTIFY databaseUpdateStateChanged)
+    Q_PROPERTY(bool databaseUpdateChecking READ databaseUpdateChecking NOTIFY databaseUpdateStateChanged)
+    Q_PROPERTY(bool databaseUpdateAvailable READ databaseUpdateAvailable NOTIFY databaseUpdateStateChanged)
+    Q_PROPERTY(QString databaseLatestVersion READ databaseLatestVersion NOTIFY databaseUpdateStateChanged)
+    Q_PROPERTY(QString databaseUpdateSource READ databaseUpdateSource NOTIFY databaseUpdateStateChanged)
+    Q_PROPERTY(QString databaseUpdatePublishedAt READ databaseUpdatePublishedAt NOTIFY databaseUpdateStateChanged)
+    Q_PROPERTY(bool databaseUpdateDownloading READ databaseUpdateDownloading NOTIFY databaseUpdateStateChanged)
+    Q_PROPERTY(qreal databaseUpdateProgress READ databaseUpdateProgress NOTIFY databaseUpdateStateChanged)
+    Q_PROPERTY(QString databaseUpdateStatusText READ databaseUpdateStatusText NOTIFY databaseUpdateStateChanged)
     
     // Download directory
     Q_PROPERTY(QString downloadPath READ downloadPath WRITE setDownloadPath NOTIFY downloadPathChanged)
@@ -108,6 +119,16 @@ public:
     bool appUpdateDownloading() const { return m_appUpdateDownloading; }
     qreal appUpdateProgress() const { return m_appUpdateProgress; }
     QString appUpdateStatusText() const { return m_appUpdateStatusText; }
+    bool autoCheckDatabaseUpdates() const;
+    QString databaseCurrentVersion() const { return m_databaseCurrentVersion; }
+    bool databaseUpdateChecking() const { return m_databaseUpdateChecking; }
+    bool databaseUpdateAvailable() const { return m_databaseUpdateAvailable; }
+    QString databaseLatestVersion() const { return m_databaseLatestVersion; }
+    QString databaseUpdateSource() const { return m_databaseUpdateSource; }
+    QString databaseUpdatePublishedAt() const { return m_databaseUpdatePublishedAt; }
+    bool databaseUpdateDownloading() const { return m_databaseUpdateDownloading; }
+    qreal databaseUpdateProgress() const { return m_databaseUpdateProgress; }
+    QString databaseUpdateStatusText() const { return m_databaseUpdateStatusText; }
     
     // Download directory
     QString downloadPath() const;
@@ -138,11 +159,14 @@ public slots:
     Q_INVOKABLE void checkForUpdates();
     Q_INVOKABLE void checkAppUpdate();
     Q_INVOKABLE void downloadAppUpdate();
+    Q_INVOKABLE void checkDatabaseUpdate();
+    Q_INVOKABLE void downloadDatabaseUpdate();
 
     // Settings
     Q_INVOKABLE void setTheme(int themeIndex);
     Q_INVOKABLE void setLanguage(int languageIndex);
     Q_INVOKABLE void setAutoCheckAppUpdates(bool enabled);
+    Q_INVOKABLE void setAutoCheckDatabaseUpdates(bool enabled);
     
     // Search suggestions - obtained from fling_translations.db
     Q_INVOKABLE QStringList getSuggestions(const QString& keyword, int maxResults = 8);
@@ -164,6 +188,8 @@ signals:
     void downloadFolderSelectionRequested();  // Request to show folder selection dialog
     void autoCheckAppUpdatesChanged();
     void appUpdateStateChanged();
+    void autoCheckDatabaseUpdatesChanged();
+    void databaseUpdateStateChanged();
 
 private slots:
     void onDownloadProgress(qint64 bytesReceived, qint64 bytesTotal);
@@ -190,6 +216,8 @@ private:
     void finishSearchRequest(quint64 requestId, const QList<ModifierInfo>& modifiers);
     void loadDownloadedModifiers();
     void saveDownloadedModifiers();
+    void refreshCurrentDatabaseVersion();
+    bool reloadTranslationDatabase();
 
 private:
     QGuiApplication* m_app = nullptr;
@@ -240,6 +268,18 @@ private:
     bool m_appUpdateDownloading = false;
     qreal m_appUpdateProgress = 0.0;
     QString m_appUpdateStatusText;
+
+    DatabaseUpdateManager* m_databaseUpdateManager = nullptr;
+    DatabaseReleaseInfo m_latestDatabaseRelease;
+    QString m_databaseCurrentVersion;
+    bool m_databaseUpdateChecking = false;
+    bool m_databaseUpdateAvailable = false;
+    QString m_databaseLatestVersion;
+    QString m_databaseUpdateSource;
+    QString m_databaseUpdatePublishedAt;
+    bool m_databaseUpdateDownloading = false;
+    qreal m_databaseUpdateProgress = 0.0;
+    QString m_databaseUpdateStatusText;
     
     // Game name mapping data loaded from the bundled SQLite database.
     struct GameMapping {

@@ -344,6 +344,16 @@ ApplicationWindow {
         appUpdateDownloading: backend ? backend.appUpdateDownloading : false
         appUpdateProgress: backend ? backend.appUpdateProgress : 0
         appUpdateStatusText: backend ? backend.appUpdateStatusText : ""
+        autoCheckDatabaseUpdates: backend ? backend.autoCheckDatabaseUpdates : true
+        databaseCurrentVersion: backend ? backend.databaseCurrentVersion : ""
+        databaseUpdateChecking: backend ? backend.databaseUpdateChecking : false
+        databaseUpdateAvailable: backend ? backend.databaseUpdateAvailable : false
+        databaseLatestVersion: backend ? backend.databaseLatestVersion : ""
+        databaseUpdateSource: backend ? backend.databaseUpdateSource : ""
+        databaseUpdatePublishedAt: backend ? backend.databaseUpdatePublishedAt : ""
+        databaseUpdateDownloading: backend ? backend.databaseUpdateDownloading : false
+        databaseUpdateProgress: backend ? backend.databaseUpdateProgress : 0
+        databaseUpdateStatusText: backend ? backend.databaseUpdateStatusText : ""
         
         onThemeChanged: function(index) {
             ThemeProvider.currentTheme = index
@@ -364,12 +374,24 @@ ApplicationWindow {
             if (backend) backend.setAutoCheckAppUpdates(enabled)
         }
 
+        onAutoCheckDatabaseUpdatesToggled: function(enabled) {
+            if (backend) backend.setAutoCheckDatabaseUpdates(enabled)
+        }
+
         onCheckAppUpdateRequested: {
             if (backend) backend.checkAppUpdate()
         }
 
         onDownloadAppUpdateRequested: {
             if (backend) backend.downloadAppUpdate()
+        }
+
+        onCheckDatabaseUpdateRequested: {
+            if (backend) backend.checkDatabaseUpdate()
+        }
+
+        onDownloadDatabaseUpdateRequested: {
+            if (backend) backend.downloadDatabaseUpdate()
         }
     }
     

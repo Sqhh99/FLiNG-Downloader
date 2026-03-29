@@ -106,6 +106,7 @@ set(PROJECT_SOURCES
     src/FileSystem.cpp
     src/UpdateManager.cpp
     src/AppUpdateManager.cpp
+    src/DatabaseUpdateManager.cpp
     src/DownloadManager.cpp
     src/ModifierInfoManager.cpp
     src/SearchManager.cpp
@@ -126,6 +127,7 @@ set(PROJECT_HEADERS
     src/include/FileSystem.h
     src/include/UpdateManager.h
     src/include/AppUpdateManager.h
+    src/include/DatabaseUpdateManager.h
     src/include/DownloadManager.h
     src/include/ModifierInfoManager.h
     src/include/SearchManager.h

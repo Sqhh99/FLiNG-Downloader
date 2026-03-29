@@ -23,20 +23,33 @@ Dialog {
     property bool appUpdateDownloading: false
     property real appUpdateProgress: 0
     property string appUpdateStatusText: ""
+    property bool autoCheckDatabaseUpdates: true
+    property string databaseCurrentVersion: ""
+    property bool databaseUpdateChecking: false
+    property bool databaseUpdateAvailable: false
+    property string databaseLatestVersion: ""
+    property string databaseUpdateSource: ""
+    property string databaseUpdatePublishedAt: ""
+    property bool databaseUpdateDownloading: false
+    property real databaseUpdateProgress: 0
+    property string databaseUpdateStatusText: ""
     
     signal themeChanged(int index)
     signal languageChangedSignal(int index)  // 重命名避免冲突
     signal browseDownloadPath()
     signal autoCheckUpdatesToggled(bool enabled)
+    signal autoCheckDatabaseUpdatesToggled(bool enabled)
     signal checkAppUpdateRequested()
     signal downloadAppUpdateRequested()
+    signal checkDatabaseUpdateRequested()
+    signal downloadDatabaseUpdateRequested()
     signal settingsApplied()
     
     title: qsTr("设置")
     modal: true
     anchors.centerIn: parent
     width: 600
-    height: 500
+    height: 560
     
     // 自定义背景
     background: Rectangle {
@@ -488,166 +501,351 @@ Dialog {
                 }
             }
             
-            // 关于页
+            // 关于页 - 使用 Flickable 实现滚动，紧凑卡片式布局
             Item {
                 ColumnLayout {
                     anchors.fill: parent
                     anchors.margins: ThemeProvider.spacingMedium
-                    spacing: ThemeProvider.spacingMedium
-                    
+                    spacing: ThemeProvider.spacingSmall
+
                     Text {
                         text: qsTr("关于")
                         font.pixelSize: ThemeProvider.fontSizeTitle
                         font.bold: true
                         color: ThemeProvider.textPrimary
                     }
-                    
+
                     Rectangle {
                         Layout.fillWidth: true
                         height: 1
                         color: ThemeProvider.borderColor
                     }
-                    
-                    ColumnLayout {
+
+                    // 可滚动内容区
+                    Flickable {
                         Layout.fillWidth: true
-                        spacing: ThemeProvider.spacingSmall
-                        
-                        Text {
-                            text: qsTr("FLiNG Downloader")
-                            font.pixelSize: ThemeProvider.fontSizeMedium
-                            color: ThemeProvider.textSecondary
-                        }
-                        
-                        Text {
-                            text: qsTr("版本: %1").arg(settingsDialog.appVersion.length > 0 ? settingsDialog.appVersion : "0.0.0-dev")
-                            font.pixelSize: ThemeProvider.fontSizeMedium
-                            color: ThemeProvider.textSecondary
-                        }
-                        
-                        Text {
-                            text: qsTr("作者: Sqhh99")
-                            font.pixelSize: ThemeProvider.fontSizeMedium
-                            color: ThemeProvider.textSecondary
+                        Layout.fillHeight: true
+                        contentWidth: width
+                        contentHeight: aboutContentColumn.implicitHeight
+                        clip: true
+                        boundsBehavior: Flickable.StopAtBounds
+                        flickableDirection: Flickable.VerticalFlick
+
+                        ScrollBar.vertical: ScrollBar {
+                            policy: ScrollBar.AsNeeded
+                            width: 4
+
+                            contentItem: Rectangle {
+                                implicitWidth: 4
+                                radius: 2
+                                color: ThemeProvider.textDisabled
+                                opacity: 0.5
+                            }
                         }
 
-                        Rectangle {
-                            Layout.fillWidth: true
-                            height: 1
-                            color: ThemeProvider.borderColor
-                        }
-
-                        Text {
-                            text: qsTr("软件更新")
-                            font.pixelSize: ThemeProvider.fontSizeMedium
-                            color: ThemeProvider.textPrimary
-                            font.bold: true
-                        }
-
-                        RowLayout {
+                        ColumnLayout {
+                            id: aboutContentColumn
+                            width: parent.width
                             spacing: ThemeProvider.spacingSmall
 
-                            StyledSwitch {
-                                id: autoUpdateSwitch
-                                checked: settingsDialog.autoCheckUpdates
-                                onToggled: settingsDialog.autoCheckUpdatesToggled(checked)
-                            }
-
-                            Text {
-                                text: qsTr("启动时自动检查更新")
-                                font.pixelSize: ThemeProvider.fontSizeMedium
-                                color: ThemeProvider.textSecondary
-                            }
-                        }
-
-                        Text {
-                            text: settingsDialog.appUpdateStatusText.length > 0
-                                ? settingsDialog.appUpdateStatusText
-                                : qsTr("点击“检查更新”获取最新版本信息")
-                            font.pixelSize: ThemeProvider.fontSizeMedium
-                            color: ThemeProvider.textSecondary
-                            wrapMode: Text.WordWrap
-                            Layout.fillWidth: true
-                        }
-
-                        Text {
-                            visible: settingsDialog.appLatestVersion.length > 0
-                            text: qsTr("最新版本: %1").arg(settingsDialog.appLatestVersion)
-                            font.pixelSize: ThemeProvider.fontSizeMedium
-                            color: ThemeProvider.textSecondary
-                        }
-
-                        Text {
-                            visible: settingsDialog.appUpdateSource.length > 0
-                            text: qsTr("更新源: %1").arg(settingsDialog.appUpdateSource)
-                            font.pixelSize: ThemeProvider.fontSizeMedium
-                            color: ThemeProvider.textSecondary
-                        }
-
-                        Text {
-                            visible: settingsDialog.appUpdatePublishedAt.length > 0
-                            text: qsTr("发布时间: %1").arg(settingsDialog.appUpdatePublishedAt)
-                            font.pixelSize: ThemeProvider.fontSizeMedium
-                            color: ThemeProvider.textSecondary
-                            wrapMode: Text.WrapAnywhere
-                            Layout.fillWidth: true
-                        }
-
-                        ProgressIndicator {
-                            visible: settingsDialog.appUpdateDownloading
-                            Layout.fillWidth: true
-                            showText: true
-                            statusText: Math.round(Math.max(0, Math.min(1, settingsDialog.appUpdateProgress)) * 100) + "%"
-                            value: Math.max(0, Math.min(1, settingsDialog.appUpdateProgress))
-                        }
-
-                        RowLayout {
-                            spacing: ThemeProvider.spacingSmall
-
-                            StyledButton {
-                                text: settingsDialog.appUpdateChecking
-                                    ? qsTr("检查中...")
-                                    : qsTr("检查更新")
-                                buttonType: "secondary"
-                                enabled: !settingsDialog.appUpdateChecking && !settingsDialog.appUpdateDownloading
-                                onClicked: settingsDialog.checkAppUpdateRequested()
-                            }
-
-                            StyledButton {
-                                visible: settingsDialog.appUpdateAvailable
-                                text: settingsDialog.appUpdateDownloading
-                                    ? qsTr("下载中...")
-                                    : qsTr("下载并安装")
-                                enabled: settingsDialog.appUpdateAvailable
-                                    && !settingsDialog.appUpdateChecking
-                                    && !settingsDialog.appUpdateDownloading
-                                onClicked: settingsDialog.downloadAppUpdateRequested()
-                            }
-                        }
-
-                        Item {
-                            Layout.fillWidth: true
-                            height: 24
-
-                            Text {
+                            // ── 应用信息（紧凑单行） ──
+                            RowLayout {
                                 Layout.fillWidth: true
-                                text: qsTr("开源地址: https://github.com/Sqhh99/FLiNG-Downloader")
-                                font.pixelSize: ThemeProvider.fontSizeMedium
-                                color: ThemeProvider.primaryColor
-                                font.underline: true
-                                elide: Text.ElideMiddle
-                                horizontalAlignment: Text.AlignLeft
-                                verticalAlignment: Text.AlignVCenter
+                                spacing: ThemeProvider.spacingMedium
+
+                                Text {
+                                    text: "FLiNG Downloader"
+                                    font.pixelSize: ThemeProvider.fontSizeMedium
+                                    font.bold: true
+                                    color: ThemeProvider.textPrimary
+                                }
+
+                                Text {
+                                    text: "v" + (settingsDialog.appVersion.length > 0 ? settingsDialog.appVersion : "0.0.0-dev")
+                                    font.pixelSize: ThemeProvider.fontSizeSmall
+                                    color: ThemeProvider.textSecondary
+                                }
+
+                                Item { Layout.fillWidth: true }
+
+                                Text {
+                                    text: qsTr("作者: Sqhh99")
+                                    font.pixelSize: ThemeProvider.fontSizeSmall
+                                    color: ThemeProvider.textSecondary
+                                }
                             }
 
-                            MouseArea {
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: Qt.openUrlExternally("https://github.com/Sqhh99/FLiNG-Downloader")
+                            // 开源地址
+                            Item {
+                                Layout.fillWidth: true
+                                height: 20
+
+                                Text {
+                                    anchors.fill: parent
+                                    text: "GitHub: https://github.com/Sqhh99/FLiNG-Downloader"
+                                    font.pixelSize: ThemeProvider.fontSizeSmall
+                                    color: ThemeProvider.primaryColor
+                                    font.underline: true
+                                    elide: Text.ElideMiddle
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: Qt.openUrlExternally("https://github.com/Sqhh99/FLiNG-Downloader")
+                                }
                             }
+
+                            // ── 软件更新卡片 ──
+                            Rectangle {
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: appUpdateContent.implicitHeight + 20
+                                radius: ThemeProvider.radiusSmall
+                                color: ThemeProvider.backgroundColor
+                                border.color: ThemeProvider.borderColor
+
+                                ColumnLayout {
+                                    id: appUpdateContent
+                                    anchors.fill: parent
+                                    anchors.margins: 10
+                                    spacing: 6
+
+                                    // 标题行 + 自动检查开关
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: ThemeProvider.spacingSmall
+
+                                        Text {
+                                            text: qsTr("软件更新")
+                                            font.pixelSize: ThemeProvider.fontSizeMedium
+                                            font.bold: true
+                                            color: ThemeProvider.textPrimary
+                                        }
+
+                                        Item { Layout.fillWidth: true }
+
+                                        StyledSwitch {
+                                            id: autoUpdateSwitch
+                                            checked: settingsDialog.autoCheckUpdates
+                                            onToggled: settingsDialog.autoCheckUpdatesToggled(checked)
+                                        }
+
+                                        Text {
+                                            text: qsTr("自动检查")
+                                            font.pixelSize: ThemeProvider.fontSizeSmall
+                                            color: ThemeProvider.textSecondary
+                                        }
+                                    }
+
+                                    // 状态文本
+                                    Text {
+                                        text: settingsDialog.appUpdateStatusText.length > 0
+                                            ? settingsDialog.appUpdateStatusText
+                                            : qsTr("点击“检查更新”获取最新版本信息")
+                                        font.pixelSize: ThemeProvider.fontSizeSmall
+                                        color: ThemeProvider.textSecondary
+                                        wrapMode: Text.WordWrap
+                                        Layout.fillWidth: true
+                                    }
+
+                                    // 更新详情（合并为一行，仅在有信息时显示）
+                                    RowLayout {
+                                        visible: settingsDialog.appLatestVersion.length > 0
+                                        spacing: ThemeProvider.spacingMedium
+                                        Layout.fillWidth: true
+
+                                        Text {
+                                            visible: settingsDialog.appLatestVersion.length > 0
+                                            text: qsTr("最新: %1").arg(settingsDialog.appLatestVersion)
+                                            font.pixelSize: ThemeProvider.fontSizeSmall
+                                            color: ThemeProvider.textSecondary
+                                        }
+
+                                        Text {
+                                            visible: settingsDialog.appUpdateSource.length > 0
+                                            text: qsTr("源: %1").arg(settingsDialog.appUpdateSource)
+                                            font.pixelSize: ThemeProvider.fontSizeSmall
+                                            color: ThemeProvider.textSecondary
+                                        }
+
+                                        Text {
+                                            visible: settingsDialog.appUpdatePublishedAt.length > 0
+                                            text: qsTr("发布: %1").arg(settingsDialog.appUpdatePublishedAt)
+                                            font.pixelSize: ThemeProvider.fontSizeSmall
+                                            color: ThemeProvider.textSecondary
+                                            elide: Text.ElideRight
+                                            Layout.fillWidth: true
+                                        }
+                                    }
+
+                                    // 下载进度
+                                    ProgressIndicator {
+                                        visible: settingsDialog.appUpdateDownloading
+                                        Layout.fillWidth: true
+                                        showText: true
+                                        statusText: Math.round(Math.max(0, Math.min(1, settingsDialog.appUpdateProgress)) * 100) + "%"
+                                        value: Math.max(0, Math.min(1, settingsDialog.appUpdateProgress))
+                                    }
+
+                                    // 操作按钮
+                                    RowLayout {
+                                        spacing: ThemeProvider.spacingSmall
+
+                                        StyledButton {
+                                            text: settingsDialog.appUpdateChecking
+                                                ? qsTr("检查中...")
+                                                : qsTr("检查更新")
+                                            buttonType: "secondary"
+                                            enabled: !settingsDialog.appUpdateChecking && !settingsDialog.appUpdateDownloading
+                                            onClicked: settingsDialog.checkAppUpdateRequested()
+                                        }
+
+                                        StyledButton {
+                                            visible: settingsDialog.appUpdateAvailable
+                                            text: settingsDialog.appUpdateDownloading
+                                                ? qsTr("下载中...")
+                                                : qsTr("下载并安装")
+                                            enabled: settingsDialog.appUpdateAvailable
+                                                && !settingsDialog.appUpdateChecking
+                                                && !settingsDialog.appUpdateDownloading
+                                            onClicked: settingsDialog.downloadAppUpdateRequested()
+                                        }
+                                    }
+                                }
+                            }
+
+                            // ── 翻译数据库更新卡片 ──
+                            Rectangle {
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: dbUpdateContent.implicitHeight + 20
+                                radius: ThemeProvider.radiusSmall
+                                color: ThemeProvider.backgroundColor
+                                border.color: ThemeProvider.borderColor
+
+                                ColumnLayout {
+                                    id: dbUpdateContent
+                                    anchors.fill: parent
+                                    anchors.margins: 10
+                                    spacing: 6
+
+                                    // 标题行 + 自动检查开关
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: ThemeProvider.spacingSmall
+
+                                        Text {
+                                            text: qsTr("翻译数据库更新")
+                                            font.pixelSize: ThemeProvider.fontSizeMedium
+                                            font.bold: true
+                                            color: ThemeProvider.textPrimary
+                                        }
+
+                                        Item { Layout.fillWidth: true }
+
+                                        StyledSwitch {
+                                            checked: settingsDialog.autoCheckDatabaseUpdates
+                                            onToggled: settingsDialog.autoCheckDatabaseUpdatesToggled(checked)
+                                        }
+
+                                        Text {
+                                            text: qsTr("自动检查")
+                                            font.pixelSize: ThemeProvider.fontSizeSmall
+                                            color: ThemeProvider.textSecondary
+                                        }
+                                    }
+
+                                    // 当前版本
+                                    Text {
+                                        text: qsTr("当前版本: %1").arg(
+                                                  settingsDialog.databaseCurrentVersion.length > 0
+                                                  ? settingsDialog.databaseCurrentVersion
+                                                  : qsTr("未知"))
+                                        font.pixelSize: ThemeProvider.fontSizeSmall
+                                        color: ThemeProvider.textSecondary
+                                    }
+
+                                    // 状态文本
+                                    Text {
+                                        text: settingsDialog.databaseUpdateStatusText.length > 0
+                                            ? settingsDialog.databaseUpdateStatusText
+                                            : qsTr("点击“检查更新”获取最新数据库版本信息")
+                                        font.pixelSize: ThemeProvider.fontSizeSmall
+                                        color: ThemeProvider.textSecondary
+                                        wrapMode: Text.WordWrap
+                                        Layout.fillWidth: true
+                                    }
+
+                                    // 更新详情（合并为一行）
+                                    RowLayout {
+                                        visible: settingsDialog.databaseLatestVersion.length > 0
+                                        spacing: ThemeProvider.spacingMedium
+                                        Layout.fillWidth: true
+
+                                        Text {
+                                            visible: settingsDialog.databaseLatestVersion.length > 0
+                                            text: qsTr("最新: %1").arg(settingsDialog.databaseLatestVersion)
+                                            font.pixelSize: ThemeProvider.fontSizeSmall
+                                            color: ThemeProvider.textSecondary
+                                        }
+
+                                        Text {
+                                            visible: settingsDialog.databaseUpdateSource.length > 0
+                                            text: qsTr("源: %1").arg(settingsDialog.databaseUpdateSource)
+                                            font.pixelSize: ThemeProvider.fontSizeSmall
+                                            color: ThemeProvider.textSecondary
+                                        }
+
+                                        Text {
+                                            visible: settingsDialog.databaseUpdatePublishedAt.length > 0
+                                            text: qsTr("发布: %1").arg(settingsDialog.databaseUpdatePublishedAt)
+                                            font.pixelSize: ThemeProvider.fontSizeSmall
+                                            color: ThemeProvider.textSecondary
+                                            elide: Text.ElideRight
+                                            Layout.fillWidth: true
+                                        }
+                                    }
+
+                                    // 下载进度
+                                    ProgressIndicator {
+                                        visible: settingsDialog.databaseUpdateDownloading
+                                        Layout.fillWidth: true
+                                        showText: true
+                                        statusText: Math.round(Math.max(0, Math.min(1, settingsDialog.databaseUpdateProgress)) * 100) + "%"
+                                        value: Math.max(0, Math.min(1, settingsDialog.databaseUpdateProgress))
+                                    }
+
+                                    // 操作按钮
+                                    RowLayout {
+                                        spacing: ThemeProvider.spacingSmall
+
+                                        StyledButton {
+                                            text: settingsDialog.databaseUpdateChecking
+                                                ? qsTr("检查中...")
+                                                : qsTr("检查数据库更新")
+                                            buttonType: "secondary"
+                                            enabled: !settingsDialog.databaseUpdateChecking && !settingsDialog.databaseUpdateDownloading
+                                            onClicked: settingsDialog.checkDatabaseUpdateRequested()
+                                        }
+
+                                        StyledButton {
+                                            visible: settingsDialog.databaseUpdateAvailable
+                                            text: settingsDialog.databaseUpdateDownloading
+                                                ? qsTr("下载中...")
+                                                : qsTr("下载并应用")
+                                            enabled: settingsDialog.databaseUpdateAvailable
+                                                && !settingsDialog.databaseUpdateChecking
+                                                && !settingsDialog.databaseUpdateDownloading
+                                            onClicked: settingsDialog.downloadDatabaseUpdateRequested()
+                                        }
+                                    }
+                                }
+                            }
+
+                            // 底部留白
+                            Item { height: 4; Layout.fillWidth: true }
                         }
                     }
-                    
-                    Item { Layout.fillHeight: true }
                 }
             }
         }

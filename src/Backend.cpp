@@ -26,6 +26,7 @@ Backend::Backend(QObject* parent)
     , m_downloadedModifierModel(new DownloadedModifierModel(this))
     , m_coverExtractor(new CoverExtractor(this))
     , m_appUpdateManager(new AppUpdateManager(this))
+    , m_databaseUpdateManager(new DatabaseUpdateManager(this))
 {
     // Speed calculation timer - fires every second
     m_speedUpdateTimer = new QTimer(this);
@@ -64,12 +65,19 @@ Backend::Backend(QObject* parent)
     });
 
     loadGameMappings();
+    refreshCurrentDatabaseVersion();
     loadDownloadedModifiers();
     fetchRecentModifiers();
 
     if (autoCheckAppUpdates()) {
         QTimer::singleShot(1500, this, [this]() {
             checkAppUpdate();
+        });
+    }
+
+    if (autoCheckDatabaseUpdates()) {
+        QTimer::singleShot(2200, this, [this]() {
+            checkDatabaseUpdate();
         });
     }
 }
@@ -145,6 +153,11 @@ QVariantList Backend::downloadTasks() const
 bool Backend::autoCheckAppUpdates() const
 {
     return ConfigManager::getInstance().getAutoCheckUpdates();
+}
+
+bool Backend::autoCheckDatabaseUpdates() const
+{
+    return ConfigManager::getInstance().getAutoCheckDatabaseUpdates();
 }
 
 void Backend::searchModifiers(const QString& keyword)
@@ -585,6 +598,121 @@ void Backend::downloadAppUpdate()
         });
 }
 
+void Backend::checkDatabaseUpdate()
+{
+    if (m_databaseUpdateChecking || m_databaseUpdateDownloading || !m_databaseUpdateManager) {
+        return;
+    }
+
+    refreshCurrentDatabaseVersion();
+    m_databaseUpdateChecking = true;
+    m_databaseUpdateStatusText = tr("Checking database updates...");
+    emit databaseUpdateStateChanged();
+    emit statusMessage(m_databaseUpdateStatusText);
+
+    m_databaseUpdateManager->checkForUpdates(
+        m_databaseCurrentVersion,
+        [this](bool success,
+               bool updateAvailable,
+               const DatabaseReleaseInfo& releaseInfo,
+               const QString& errorMessage) {
+            m_databaseUpdateChecking = false;
+
+            if (!success) {
+                m_databaseUpdateAvailable = false;
+                m_latestDatabaseRelease = DatabaseReleaseInfo();
+                m_databaseLatestVersion.clear();
+                m_databaseUpdateSource.clear();
+                m_databaseUpdatePublishedAt.clear();
+                m_databaseUpdateStatusText = errorMessage.isEmpty()
+                    ? tr("Failed to check database updates")
+                    : errorMessage;
+                emit databaseUpdateStateChanged();
+                emit statusMessage(m_databaseUpdateStatusText);
+                return;
+            }
+
+            m_latestDatabaseRelease = releaseInfo;
+            m_databaseUpdateAvailable = updateAvailable;
+            m_databaseLatestVersion = releaseInfo.version;
+            m_databaseUpdateSource = releaseInfo.source;
+            m_databaseUpdatePublishedAt = releaseInfo.publishedAt;
+            m_databaseUpdateStatusText = updateAvailable
+                ? tr("New database version available: %1").arg(releaseInfo.version)
+                : tr("You are using the latest database version");
+
+            emit databaseUpdateStateChanged();
+            emit statusMessage(m_databaseUpdateStatusText);
+        });
+}
+
+void Backend::downloadDatabaseUpdate()
+{
+    if (!m_databaseUpdateAvailable || m_databaseUpdateDownloading
+        || !m_latestDatabaseRelease.isValid() || !m_databaseUpdateManager) {
+        return;
+    }
+
+    m_databaseUpdateDownloading = true;
+    m_databaseUpdateProgress = 0.0;
+    m_databaseUpdateStatusText = tr("Downloading database update...");
+    emit databaseUpdateStateChanged();
+    emit statusMessage(m_databaseUpdateStatusText);
+
+    m_databaseUpdateManager->downloadDatabase(
+        m_latestDatabaseRelease,
+        [this](qint64 bytesReceived, qint64 bytesTotal) {
+            if (bytesTotal > 0) {
+                m_databaseUpdateProgress = qBound<qreal>(
+                    0.0,
+                    static_cast<qreal>(bytesReceived) / static_cast<qreal>(bytesTotal),
+                    1.0);
+            }
+            emit databaseUpdateStateChanged();
+        },
+        [this](bool success, const QString& databasePath, const QString& errorMessage) {
+            m_databaseUpdateDownloading = false;
+
+            if (!success) {
+                m_databaseUpdateProgress = 0.0;
+                m_databaseUpdateStatusText = errorMessage.isEmpty()
+                    ? tr("Failed to download database update")
+                    : errorMessage;
+                emit databaseUpdateStateChanged();
+                emit statusMessage(m_databaseUpdateStatusText);
+                return;
+            }
+
+            QString installError;
+            if (!TranslationDatabase::getInstance().installOverrideDatabase(databasePath, &installError)) {
+                m_databaseUpdateProgress = 0.0;
+                m_databaseUpdateStatusText = installError.isEmpty()
+                    ? tr("Failed to activate database update")
+                    : installError;
+                emit databaseUpdateStateChanged();
+                emit statusMessage(m_databaseUpdateStatusText);
+                return;
+            }
+
+            if (!reloadTranslationDatabase()) {
+                m_databaseUpdateProgress = 0.0;
+                m_databaseUpdateStatusText = tr("Database updated, but failed to reload data");
+                emit databaseUpdateStateChanged();
+                emit statusMessage(m_databaseUpdateStatusText);
+                return;
+            }
+
+            refreshCurrentDatabaseVersion();
+            m_databaseUpdateAvailable = false;
+            m_databaseLatestVersion = m_databaseCurrentVersion;
+            m_databaseUpdateProgress = 1.0;
+            m_databaseUpdateStatusText =
+                tr("Database updated successfully: %1").arg(m_databaseCurrentVersion);
+            emit databaseUpdateStateChanged();
+            emit statusMessage(m_databaseUpdateStatusText);
+        });
+}
+
 void Backend::setTheme(int themeIndex)
 {
     ConfigManager::Theme theme = static_cast<ConfigManager::Theme>(themeIndex);
@@ -613,6 +741,16 @@ void Backend::setAutoCheckAppUpdates(bool enabled)
 
     ConfigManager::getInstance().setAutoCheckUpdates(enabled);
     emit autoCheckAppUpdatesChanged();
+}
+
+void Backend::setAutoCheckDatabaseUpdates(bool enabled)
+{
+    if (enabled == autoCheckDatabaseUpdates()) {
+        return;
+    }
+
+    ConfigManager::getInstance().setAutoCheckDatabaseUpdates(enabled);
+    emit autoCheckDatabaseUpdatesChanged();
 }
 
 QString Backend::downloadPath() const
@@ -1078,6 +1216,22 @@ void Backend::loadGameMappings()
     }
 
     qDebug() << "Backend: Loaded" << m_gameMappings.size() << "game mappings from SQLite";
+}
+
+void Backend::refreshCurrentDatabaseVersion()
+{
+    m_databaseCurrentVersion = AppUpdateManager::normalizeVersion(
+        TranslationDatabase::getInstance().currentReleaseTag());
+}
+
+bool Backend::reloadTranslationDatabase()
+{
+    if (!GameMappingManager::getInstance().reloadMappings()) {
+        return false;
+    }
+
+    loadGameMappings();
+    return true;
 }
 
 // Get search suggestions - supports Chinese, English, normalized English, and Japanese.
