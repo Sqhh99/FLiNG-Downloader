@@ -170,6 +170,7 @@ public slots:
     
     // Search suggestions - obtained from fling_translations.db
     Q_INVOKABLE QStringList getSuggestions(const QString& keyword, int maxResults = 8);
+    Q_INVOKABLE QVariantList getSuggestionItems(const QString& keyword, int maxResults = 8);
 
 
 signals:

@@ -7,6 +7,36 @@
 #include "TranslationDatabase.h"
 #include "TranslationTextUtils.h"
 
+namespace {
+bool matchesLookupValue(const QString& input, const QString& normalizedInput, const QString& candidate)
+{
+    if (candidate.isEmpty()) {
+        return false;
+    }
+
+    if (input.compare(candidate, Qt::CaseInsensitive) == 0) {
+        return true;
+    }
+
+    if (input.contains(candidate, Qt::CaseInsensitive) || candidate.contains(input, Qt::CaseInsensitive)) {
+        return true;
+    }
+
+    if (normalizedInput.isEmpty()) {
+        return false;
+    }
+
+    const QString normalizedCandidate = TranslationTextUtils::normalizeLookupText(candidate);
+    if (normalizedCandidate.isEmpty()) {
+        return false;
+    }
+
+    return normalizedInput == normalizedCandidate ||
+           normalizedInput.contains(normalizedCandidate) ||
+           normalizedCandidate.contains(normalizedInput);
+}
+}
+
 GameMappingManager& GameMappingManager::getInstance()
 {
     static GameMappingManager instance;
@@ -38,20 +68,18 @@ bool GameMappingManager::initialize()
     return true;
 }
 
-QString GameMappingManager::translateToEnglish(const QString& chinese)
+QString GameMappingManager::translateToEnglish(const QString& input)
 {
     QMutexLocker locker(&m_mutex);
 
-    if (chinese.isEmpty()) {
+    if (input.isEmpty()) {
         return QString();
     }
 
-    const QString trimmedInput = chinese.trimmed();
+    const QString trimmedInput = input.trimmed();
     if (trimmedInput.isEmpty()) {
         return QString();
     }
-    const QString normalizedInput = TranslationTextUtils::normalizeLookupText(trimmedInput);
-    const bool canUseNormalizedMatch = !normalizedInput.isEmpty();
 
     auto exactMatch = m_builtinMappings.constFind(trimmedInput);
     if (exactMatch != m_builtinMappings.constEnd()) {
@@ -62,20 +90,17 @@ QString GameMappingManager::translateToEnglish(const QString& chinese)
         return QString();
     }
 
+    const QString normalizedInput = TranslationTextUtils::normalizeLookupText(trimmedInput);
+
     for (auto it = m_builtinMappings.constBegin(); it != m_builtinMappings.constEnd(); ++it) {
-        const bool rawMatch = trimmedInput.contains(it.key()) || it.key().contains(trimmedInput);
-        bool normalizedMatch = false;
+        const GameMappingInfo& info = it.value();
+        const bool matched =
+            matchesLookupValue(trimmedInput, normalizedInput, it.key()) ||
+            matchesLookupValue(trimmedInput, normalizedInput, info.english) ||
+            matchesLookupValue(trimmedInput, normalizedInput, info.japanese) ||
+            matchesLookupValue(trimmedInput, normalizedInput, info.normalizedEnglish);
 
-        if (canUseNormalizedMatch) {
-            const QString normalizedKey = TranslationTextUtils::normalizeLookupText(it.key());
-            if (!normalizedKey.isEmpty()) {
-                normalizedMatch = normalizedInput == normalizedKey ||
-                                  normalizedInput.contains(normalizedKey) ||
-                                  normalizedKey.contains(normalizedInput);
-            }
-        }
-
-        if (rawMatch || normalizedMatch) {
+        if (matched) {
             return it.value().english;
         }
     }
@@ -83,10 +108,10 @@ QString GameMappingManager::translateToEnglish(const QString& chinese)
     return QString();
 }
 
-void GameMappingManager::translateToEnglishAsync(const QString& chinese,
+void GameMappingManager::translateToEnglishAsync(const QString& input,
                                                  std::function<void(const QString&)> callback)
 {
-    const QString result = translateToEnglish(chinese);
+    const QString result = translateToEnglish(input);
     if (!callback) {
         return;
     }
@@ -161,6 +186,9 @@ bool GameMappingManager::loadBuiltinMappings()
 
         GameMappingInfo info;
         info.english = record.english;
+        info.chinese = record.chineseSimplified;
+        info.japanese = record.japanese;
+        info.normalizedEnglish = record.normalizedEnglish;
         info.category = QStringLiteral("database");
         m_builtinMappings.insert(record.chineseSimplified, info);
     }

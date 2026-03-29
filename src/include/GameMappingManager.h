@@ -9,6 +9,9 @@
 
 struct GameMappingInfo {
     QString english;
+    QString chinese;
+    QString japanese;
+    QString normalizedEnglish;
     QString category;
     bool isTranslated = false;
 };
@@ -23,11 +26,11 @@ public:
     // Load bundled translation mappings from the SQLite database.
     bool initialize();
 
-    // Translate a Chinese game name to the FLiNG English title.
-    QString translateToEnglish(const QString& chinese);
+    // Resolve Chinese, Japanese, or English variants to the FLiNG English title.
+    QString translateToEnglish(const QString& input);
 
     // Compatibility wrapper around the synchronous local DB lookup.
-    void translateToEnglishAsync(const QString& chinese, std::function<void(const QString&)> callback);
+    void translateToEnglishAsync(const QString& input, std::function<void(const QString&)> callback);
 
     QString fuzzyMatch(const QString& input) const;
     bool containsChinese(const QString& text) const;

@@ -20,6 +20,131 @@
 #include "TranslationTextUtils.h"
 #include <QSet>
 
+namespace {
+bool containsJapaneseScript(const QString& text)
+{
+    for (const QChar& ch : text) {
+        const ushort code = ch.unicode();
+        if ((code >= 0x3040 && code <= 0x309F) || (code >= 0x30A0 && code <= 0x30FF)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool containsLatinLetterOrDigit(const QString& text)
+{
+    for (const QChar& ch : text) {
+        if (ch.isLetterOrNumber() && ch.unicode() < 0x80) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool isEnglishLikeInput(const QString& text)
+{
+    return containsLatinLetterOrDigit(text) &&
+           !GameMappingManager::getInstance().containsChinese(text) &&
+           !containsJapaneseScript(text);
+}
+
+QString makeSuggestionDisplayText(const QString& chineseName,
+                                  const QString& englishName,
+                                  const QString& japaneseName,
+                                  const QString& query,
+                                  bool chineseMatched,
+                                  bool englishMatched,
+                                  bool normalizedEnglishMatched,
+                                  bool japaneseMatched,
+                                  ConfigManager::Language language)
+{
+    const bool englishInput = isEnglishLikeInput(query);
+
+    auto pickLocalizedSecondary = [&]() -> QString {
+        if (language == ConfigManager::Language::Japanese && !japaneseName.isEmpty()) {
+            return japaneseName;
+        }
+        if (language == ConfigManager::Language::Chinese && !chineseName.isEmpty()) {
+            return chineseName;
+        }
+        if (language == ConfigManager::Language::Japanese && !chineseName.isEmpty()) {
+            return chineseName;
+        }
+        if (language == ConfigManager::Language::Chinese && !japaneseName.isEmpty()) {
+            return japaneseName;
+        }
+        return QString();
+    };
+
+    if (language == ConfigManager::Language::English) {
+        return englishName;
+    }
+
+    if (englishInput || englishMatched || normalizedEnglishMatched) {
+        const QString secondary = pickLocalizedSecondary();
+        return secondary.isEmpty() ? englishName
+                                   : QStringLiteral("%1 (%2)").arg(englishName, secondary);
+    }
+
+    if (japaneseMatched && !japaneseName.isEmpty()) {
+        return englishName.isEmpty()
+                   ? japaneseName
+                   : QStringLiteral("%1 (%2)").arg(japaneseName, englishName);
+    }
+
+    if (chineseMatched && !chineseName.isEmpty()) {
+        return englishName.isEmpty()
+                   ? chineseName
+                   : QStringLiteral("%1 (%2)").arg(chineseName, englishName);
+    }
+
+    const QString localizedSecondary = pickLocalizedSecondary();
+    return localizedSecondary.isEmpty()
+               ? englishName
+               : QStringLiteral("%1 (%2)").arg(englishName, localizedSecondary);
+}
+
+QString makeSuggestionInputText(const QString& chineseName,
+                                const QString& englishName,
+                                const QString& japaneseName,
+                                const QString& query,
+                                bool chineseMatched,
+                                bool englishMatched,
+                                bool normalizedEnglishMatched,
+                                bool japaneseMatched,
+                                ConfigManager::Language language)
+{
+    const bool englishInput = isEnglishLikeInput(query);
+
+    if (language == ConfigManager::Language::English) {
+        return englishName;
+    }
+
+    if (englishInput || englishMatched || normalizedEnglishMatched) {
+        return englishName;
+    }
+
+    if (japaneseMatched && !japaneseName.isEmpty()) {
+        return japaneseName;
+    }
+
+    if (chineseMatched && !chineseName.isEmpty()) {
+        return chineseName;
+    }
+
+    if (language == ConfigManager::Language::Japanese && !japaneseName.isEmpty()) {
+        return japaneseName;
+    }
+
+    if (language == ConfigManager::Language::Chinese && !chineseName.isEmpty()) {
+        return chineseName;
+    }
+
+    return englishName;
+}
+}
+
 Backend::Backend(QObject* parent)
     : QObject(parent)
     , m_modifierListModel(new ModifierListModel(this))
@@ -1234,10 +1359,9 @@ bool Backend::reloadTranslationDatabase()
     return true;
 }
 
-// Get search suggestions - supports Chinese, English, normalized English, and Japanese.
-QStringList Backend::getSuggestions(const QString& keyword, int maxResults)
+QVariantList Backend::getSuggestionItems(const QString& keyword, int maxResults)
 {
-    QStringList results;
+    QVariantList results;
 
     const QString trimmedKeyword = keyword.trimmed();
     if (trimmedKeyword.isEmpty()) {
@@ -1250,7 +1374,8 @@ QStringList Backend::getSuggestions(const QString& keyword, int maxResults)
 
     const QString lowerKeyword = trimmedKeyword.toLower();
     const QString normalizedKeyword = TranslationTextUtils::normalizeLookupText(trimmedKeyword);
-    QSet<QString> addedNames;
+    const ConfigManager::Language language = ConfigManager::getInstance().getCurrentLanguage();
+    QSet<QString> addedSearchKeywords;
 
     for (const GameMapping& mapping : m_gameMappings) {
         if (results.size() >= maxResults) {
@@ -1258,7 +1383,6 @@ QStringList Backend::getSuggestions(const QString& keyword, int maxResults)
         }
 
         bool matched = false;
-        QString displayName;
 
         const bool chineseMatched =
             !mapping.chineseName.isEmpty() &&
@@ -1278,33 +1402,61 @@ QStringList Backend::getSuggestions(const QString& keyword, int maxResults)
 
         if (chineseMatched) {
             matched = true;
-            displayName = mapping.chineseName;
-            if (!mapping.englishName.isEmpty()) {
-                displayName += " (" + mapping.englishName + ")";
-            }
         }
         else if (englishMatched || normalizedEnglishMatched) {
             matched = true;
-            displayName = mapping.englishName;
-            if (!mapping.chineseName.isEmpty()) {
-                displayName += " (" + mapping.chineseName + ")";
-            }
         }
         else if (japaneseMatched) {
             matched = true;
-            displayName = mapping.japaneseName;
-            if (!mapping.englishName.isEmpty()) {
-                displayName += " (" + mapping.englishName + ")";
-            } else if (!mapping.chineseName.isEmpty()) {
-                displayName += " (" + mapping.chineseName + ")";
-            }
         }
 
-        if (matched && !addedNames.contains(displayName)) {
-            results.append(displayName);
-            addedNames.insert(displayName);
+        if (matched) {
+            const QString searchKeyword = mapping.englishName;
+            if (searchKeyword.isEmpty() || addedSearchKeywords.contains(searchKeyword)) {
+                continue;
+            }
+
+            QVariantMap item;
+            item["displayText"] = makeSuggestionDisplayText(
+                mapping.chineseName,
+                mapping.englishName,
+                mapping.japaneseName,
+                trimmedKeyword,
+                chineseMatched,
+                englishMatched,
+                normalizedEnglishMatched,
+                japaneseMatched,
+                language);
+            item["inputText"] = makeSuggestionInputText(
+                mapping.chineseName,
+                mapping.englishName,
+                mapping.japaneseName,
+                trimmedKeyword,
+                chineseMatched,
+                englishMatched,
+                normalizedEnglishMatched,
+                japaneseMatched,
+                language);
+            item["searchKeyword"] = searchKeyword;
+            results.append(item);
+            addedSearchKeywords.insert(searchKeyword);
         }
     }
     
+    return results;
+}
+
+// Legacy string-only suggestion API used by older QML code.
+QStringList Backend::getSuggestions(const QString& keyword, int maxResults)
+{
+    QStringList results;
+    const QVariantList items = getSuggestionItems(keyword, maxResults);
+    for (const QVariant& itemVariant : items) {
+        const QVariantMap item = itemVariant.toMap();
+        const QString displayText = item.value("displayText").toString();
+        if (!displayText.isEmpty()) {
+            results.append(displayText);
+        }
+    }
     return results;
 }

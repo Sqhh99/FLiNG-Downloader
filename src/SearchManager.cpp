@@ -63,15 +63,11 @@ void SearchManager::searchModifiers(const QString& searchTerm,
         return;
     }
     
-    // Unknown Chinese titles now fall back to the original query text.
-    // This is intentional after migrating to the bundled SQLite-only mapping source.
+    // Resolve Chinese, Japanese, or English variants to the canonical FLiNG English title
+    // before searching the website. Unknown titles fall back to the original query text.
     GameMappingManager& mappingManager = GameMappingManager::getInstance();
-    if (mappingManager.containsChinese(searchTerm)) {
-        QString englishTerm = mappingManager.translateToEnglish(searchTerm);
-        performSearch(!englishTerm.isEmpty() ? englishTerm : searchTerm, callback);
-    } else {
-        performSearch(searchTerm, callback);
-    }
+    const QString englishTerm = mappingManager.translateToEnglish(searchTerm);
+    performSearch(!englishTerm.isEmpty() ? englishTerm : searchTerm, callback);
 }
 
 // Execute actual search operation

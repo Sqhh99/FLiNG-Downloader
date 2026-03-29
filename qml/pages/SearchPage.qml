@@ -26,19 +26,19 @@ Item {
     // 标记：是否正在程序化设置文本（避免触发建议列表）
     property bool isProgrammaticTextChange: false
     
-    // 更新建议列表的函数 - 从游戏数据库获取建议（支持中英文）
+    // 更新建议列表的函数 - 从游戏数据库获取建议（支持中英日）
     function updateSuggestions(keyword) {
         suggestionsModel.clear()
         if (!backend || keyword.length < 1) {
             return
         }
         
-        // 使用 backend 的 getSuggestions 方法从 SQLite 翻译库获取建议
-        var suggestions = backend.getSuggestions(keyword, 8)
+        // 获取结构化建议，区分显示文本、输入框文本和实际搜索词
+        var suggestions = backend.getSuggestionItems(keyword, 8)
         console.log("updateSuggestions:", keyword, "-> found", suggestions.length, "suggestions")
         
         for (var i = 0; i < suggestions.length; i++) {
-            suggestionsModel.append({modelData: suggestions[i]})
+            suggestionsModel.append(suggestions[i])
         }
     }
     
@@ -266,33 +266,23 @@ Item {
                         if (searchPage.loading) {
                             return
                         }
-                        var searchKeyword = modelData
-                        var parenStart = modelData.indexOf("(")
-                        var parenEnd = modelData.indexOf(")")
-                        if (parenStart !== -1 && parenEnd !== -1) {
-                            var inParens = modelData.substring(parenStart + 1, parenEnd)
-                            var mainPart = modelData.substring(0, parenStart).trim()
-                            if (/[\u4e00-\u9fa5]/.test(mainPart)) {
-                                searchKeyword = inParens
-                            } else {
-                                searchKeyword = mainPart
-                            }
-                        }
+                        var selectedInputText = inputText || displayText || ""
+                        var selectedSearchKeyword = searchKeyword || selectedInputText
                         
                         searchPage.isProgrammaticTextChange = true
-                        searchInput.text = searchKeyword
+                        searchInput.text = selectedInputText
                         searchPage.isProgrammaticTextChange = false
                         
                         suggestionsPopup.close()
                         suggestionsList.currentIndex = -1
-                        searchRequested(searchKeyword)
+                        searchRequested(selectedSearchKeyword)
                     }
                     
                     Text {
                         anchors.left: parent.left
                         anchors.leftMargin: 10
                         anchors.verticalCenter: parent.verticalCenter
-                        text: modelData
+                        text: displayText || ""
                         font.pixelSize: ThemeProvider.fontSizeMedium
                         color: ThemeProvider.textPrimary
                         elide: Text.ElideRight
