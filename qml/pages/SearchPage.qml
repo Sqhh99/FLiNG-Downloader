@@ -313,7 +313,9 @@ Item {
                 model: searchPage.modifierModel
 
                 headers: [qsTr("游戏名称"), qsTr("更新日期"), qsTr("支持版本"), qsTr("选项数量"), qsTr("操作")]
-                columnWidths: [240, 100, 130, 80, 80]
+                columnWeights: [3, 2, 2, 2, 1]
+                headerTextHorizontalAlignment: Text.AlignLeft
+                headerTextLeftPadding: 10
 
                 delegate: Rectangle {
                     id: delegateRoot
@@ -339,7 +341,7 @@ Item {
                         anchors.left: parent.left
                         anchors.top: parent.top
                         anchors.bottom: parent.bottom
-                        width: parent.width - 80  // 减去操作列宽度
+                        width: parent.width - modifierTable.columnWidthFor(4)
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         enabled: !searchPage.loading
@@ -361,7 +363,7 @@ Item {
 
                         // 游戏名称
                         Item {
-                            width: modifierTable.columnWidths[0]
+                            width: modifierTable.columnWidthFor(0)
                             height: parent.height
 
                             Text {
@@ -371,13 +373,14 @@ Item {
                                 font.pixelSize: ThemeProvider.fontSizeMedium
                                 color: ThemeProvider.textPrimary
                                 verticalAlignment: Text.AlignVCenter
+                                horizontalAlignment: Text.AlignLeft
                                 elide: Text.ElideRight
                             }
                         }
 
                         // 更新日期
                         Item {
-                            width: modifierTable.columnWidths[1]
+                            width: modifierTable.columnWidthFor(1)
                             height: parent.height
 
                             Text {
@@ -387,13 +390,14 @@ Item {
                                 font.pixelSize: ThemeProvider.fontSizeMedium
                                 color: ThemeProvider.textSecondary
                                 verticalAlignment: Text.AlignVCenter
+                                horizontalAlignment: Text.AlignLeft
                                 elide: Text.ElideRight
                             }
                         }
 
                         // 支持版本
                         Item {
-                            width: modifierTable.columnWidths[2]
+                            width: modifierTable.columnWidthFor(2)
                             height: parent.height
 
                             Text {
@@ -403,13 +407,14 @@ Item {
                                 font.pixelSize: ThemeProvider.fontSizeMedium
                                 color: ThemeProvider.textSecondary
                                 verticalAlignment: Text.AlignVCenter
+                                horizontalAlignment: Text.AlignLeft
                                 elide: Text.ElideRight
                             }
                         }
 
                         // 选项数量
                         Item {
-                            width: modifierTable.columnWidths[3]
+                            width: modifierTable.columnWidthFor(3)
                             height: parent.height
 
                             Text {
@@ -419,18 +424,20 @@ Item {
                                 font.pixelSize: ThemeProvider.fontSizeMedium
                                 color: ThemeProvider.textSecondary
                                 verticalAlignment: Text.AlignVCenter
-                                horizontalAlignment: Text.AlignHCenter
+                                horizontalAlignment: Text.AlignLeft
                             }
                         }
 
                         // 操作按钮区 - 只有详情图标按钮
                         Item {
-                            width: modifierTable.columnWidths[4]
+                            width: modifierTable.columnWidthFor(4)
                             height: parent.height
 
                             // 详情按钮 - 仅图标
                             Rectangle {
-                                anchors.centerIn: parent
+                                anchors.left: parent.left
+                                anchors.leftMargin: 10
+                                anchors.verticalCenter: parent.verticalCenter
                                 width: 28
                                 height: 28
                                 radius: ThemeProvider.radiusSmall

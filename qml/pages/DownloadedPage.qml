@@ -28,9 +28,11 @@ Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             
-            // 简化为4列：名称、版本、下载日期、操作
+            // 4列布局：名称、版本、下载日期、操作
             headers: [qsTr("修改器名称"), qsTr("版本"), qsTr("下载日期"), qsTr("操作")]
-            columnWidths: [300, 200, 150, 80]
+            columnWeights: [3, 3, 2, 2]
+            headerTextHorizontalAlignment: Text.AlignLeft
+            headerTextLeftPadding: 10
             
             delegate: Item {
                 id: delegateRoot
@@ -59,7 +61,7 @@ Item {
                     
                     // 修改器名称
                     Item {
-                        width: downloadedTable.columnWidths[0]
+                        width: downloadedTable.columnWidthFor(0)
                         height: parent.height
                         
                         Text {
@@ -69,14 +71,14 @@ Item {
                             font.pixelSize: ThemeProvider.fontSizeMedium
                             color: ThemeProvider.textPrimary
                             verticalAlignment: Text.AlignVCenter
-                            horizontalAlignment: Text.AlignHCenter
+                            horizontalAlignment: Text.AlignLeft
                             elide: Text.ElideRight
                         }
                     }
                     
                     // 版本
                     Item {
-                        width: downloadedTable.columnWidths[1]
+                        width: downloadedTable.columnWidthFor(1)
                         height: parent.height
                         
                         Text {
@@ -86,14 +88,14 @@ Item {
                             font.pixelSize: ThemeProvider.fontSizeMedium
                             color: ThemeProvider.textSecondary
                             verticalAlignment: Text.AlignVCenter
-                            horizontalAlignment: Text.AlignHCenter
+                            horizontalAlignment: Text.AlignLeft
                             elide: Text.ElideRight
                         }
                     }
                     
                     // 下载日期
                     Item {
-                        width: downloadedTable.columnWidths[2]
+                        width: downloadedTable.columnWidthFor(2)
                         height: parent.height
                         
                         Text {
@@ -103,13 +105,13 @@ Item {
                             font.pixelSize: ThemeProvider.fontSizeMedium
                             color: ThemeProvider.textSecondary
                             verticalAlignment: Text.AlignVCenter
-                            horizontalAlignment: Text.AlignHCenter
+                            horizontalAlignment: Text.AlignLeft
                         }
                     }
                     
                     // 操作按钮占位
                     Item {
-                        width: downloadedTable.columnWidths[3]
+                        width: downloadedTable.columnWidthFor(3)
                         height: parent.height
                     }
                 }
@@ -120,7 +122,7 @@ Item {
                     anchors.left: parent.left
                     anchors.top: parent.top
                     anchors.bottom: parent.bottom
-                    width: downloadedTable.columnWidths[0] + downloadedTable.columnWidths[1] + downloadedTable.columnWidths[2]
+                    width: downloadedTable.columnWidthFor(0) + downloadedTable.columnWidthFor(1) + downloadedTable.columnWidthFor(2)
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     
@@ -128,21 +130,15 @@ Item {
                     onDoubleClicked: modifierDoubleClicked(delegateRoot.rowIndex)
                 }
                 
-                // 操作按钮 - 放在最上层，使用 anchors.right 定位
+                // 操作按钮 - 放在最上层，使用左侧定位并与表头对齐
                 Row {
                     id: actionButtons
-                    anchors.right: parent.right
+                    anchors.left: parent.left
                     anchors.top: parent.top
                     anchors.bottom: parent.bottom
-                    anchors.rightMargin: 10
-                    width: downloadedTable.columnWidths[3]
+                    anchors.leftMargin: downloadedTable.columnWidthFor(0) + downloadedTable.columnWidthFor(1) + downloadedTable.columnWidthFor(2) + 10
+                    width: downloadedTable.columnWidthFor(3)
                     spacing: 8
-                    
-                    // 居中
-                    Item {
-                        width: (parent.width - folderBtn.width - deleteBtn.width - 8) / 2
-                        height: parent.height
-                    }
                     
                     // 打开文件夹按钮
                     Rectangle {

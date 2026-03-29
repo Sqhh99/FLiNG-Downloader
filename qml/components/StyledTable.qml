@@ -11,6 +11,10 @@ Item {
     
     property var headers: []
     property var columnWidths: []
+    property var columnWeights: []
+    property int stretchColumn: -1
+    property int headerTextHorizontalAlignment: Text.AlignHCenter
+    property int headerTextLeftPadding: 0
     property alias model: listView.model
     property alias delegate: listView.delegate
     property alias currentIndex: listView.currentIndex
@@ -22,6 +26,51 @@ Item {
     
     implicitWidth: 400
     implicitHeight: 300
+
+    function baseColumnWidth(index) {
+        var configuredWidth = columnWidths[index]
+        if (configuredWidth !== undefined && configuredWidth !== null && configuredWidth > 0) {
+            return configuredWidth
+        }
+        return headers.length > 0 ? Math.floor(control.width / headers.length) : 0
+    }
+
+    function columnWidthFor(index) {
+        if (columnWeights && columnWeights.length === headers.length) {
+            var totalWeight = 0
+            for (var i = 0; i < columnWeights.length; ++i) {
+                totalWeight += Math.max(0, columnWeights[i] || 0)
+            }
+
+            if (totalWeight > 0) {
+                if (index === headers.length - 1) {
+                    var consumedWidth = 0
+                    for (var j = 0; j < index; ++j) {
+                        consumedWidth += Math.floor(control.width * Math.max(0, columnWeights[j] || 0) / totalWeight)
+                    }
+                    return Math.max(0, control.width - consumedWidth)
+                }
+
+                return Math.floor(control.width * Math.max(0, columnWeights[index] || 0) / totalWeight)
+            }
+        }
+
+        var baseWidth = baseColumnWidth(index)
+        if (stretchColumn < 0 || stretchColumn >= headers.length) {
+            return baseWidth
+        }
+
+        var totalBaseWidth = 0
+        for (var i = 0; i < headers.length; ++i) {
+            totalBaseWidth += baseColumnWidth(i)
+        }
+
+        var extraWidth = Math.max(0, control.width - totalBaseWidth)
+        if (index === stretchColumn) {
+            return baseWidth + extraWidth
+        }
+        return baseWidth
+    }
     
     Rectangle {
         id: container
@@ -48,18 +97,19 @@ Item {
                     model: headers
                     
                     Rectangle {
-                        width: columnWidths[index] || (control.width / headers.length)
+                        width: control.columnWidthFor(index)
                         height: headerHeight
                         color: "transparent"
                         
                         Text {
                             anchors.fill: parent
+                            anchors.leftMargin: control.headerTextHorizontalAlignment === Text.AlignLeft ? control.headerTextLeftPadding : 0
                             text: modelData
                             font.pixelSize: ThemeProvider.fontSizeMedium
                             font.bold: true
                             color: ThemeProvider.textSecondary
                             verticalAlignment: Text.AlignVCenter
-                            horizontalAlignment: Text.AlignHCenter
+                            horizontalAlignment: control.headerTextHorizontalAlignment
                             elide: Text.ElideRight
                         }
                         
