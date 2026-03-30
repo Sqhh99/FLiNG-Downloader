@@ -107,6 +107,27 @@ build.cmd benchmark --filter CoverExtractor/.*
 - `make-release.yml` はインストーラーとポータブル版を生成し、`fling_translations.db` を同梱します
 - インストーラー版とポータブル版の両方に、ランチャー、本体、外部リソースディレクトリが含まれます
 
+### バージョン公開
+
+- `v` で始まる tag を push すると、自動で `make-release.yml` が実行され、GitHub Release が作成されます
+- 正式版の例：
+
+```bash
+git tag v1.2.0
+git push origin v1.2.0
+```
+
+- プレリリース版の例：
+
+```bash
+git tag v1.2.0-beta.1
+git push origin v1.2.0-beta.1
+```
+
+- 固定ルール：
+  - `-` を含まない tag：正式版
+  - `-` を含む tag：GitHub の Pre-release
+
 ## セキュリティとプライバシー
 
 - Windows Defender による誤検知（例: `Win32/Wacapew.C!ml`）が発生する場合がありますが、誤検知です。
