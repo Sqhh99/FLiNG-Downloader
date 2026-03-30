@@ -44,11 +44,9 @@ if(FLING_BUILD_TESTS)
         Qt6::Core
         Qt6::Gui
         Qt6::Network
-        Qt6::Concurrent
         Qt6::Qml
         Qt6::Quick
         Qt6::QuickControls2
-        CURL::libcurl
         nlohmann_json::nlohmann_json
         SQLiteCpp
         pugixml::pugixml
@@ -57,7 +55,6 @@ if(FLING_BUILD_TESTS)
     )
 
     target_compile_definitions(${PROJECT_NAME}Tests PRIVATE
-        CURL_STATICLIB
         FLING_APP_VERSION="${APP_VERSION}"
     )
 
