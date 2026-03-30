@@ -131,6 +131,51 @@ jobs:
             throw "windeployqt failed with exit code $LASTEXITCODE"
           }
 
+          # Some CI environments drop vc_redist.x64.exe instead of app-local CRT DLLs.
+          # Force a self-contained package by copying the runtime DLLs into app/.
+          $vcruntimeDlls = Get-ChildItem -Path $appDir -File -Filter "vcruntime*.dll" -ErrorAction SilentlyContinue
+          $msvcpDlls = Get-ChildItem -Path $appDir -File -Filter "msvcp*.dll" -ErrorAction SilentlyContinue
+          if ($vcruntimeDlls.Count -eq 0 -or $msvcpDlls.Count -eq 0) {
+            $crtDir = $null
+
+            if ($env:VCToolsRedistDir) {
+              $candidateRoots = @(
+                $env:VCToolsRedistDir,
+                (Join-Path $env:VCToolsRedistDir "x64")
+              )
+
+              foreach ($candidateRoot in $candidateRoots) {
+                if (!(Test-Path $candidateRoot)) {
+                  continue
+                }
+
+                $candidateInfo = Get-Item -Path $candidateRoot
+                if ($candidateInfo.PSIsContainer -and $candidateInfo.Name -like "Microsoft.VC*.CRT") {
+                  $crtDir = $candidateInfo
+                  break
+                }
+
+                $crtDir = Get-ChildItem -Path $candidateRoot -Directory -Filter "Microsoft.VC*.CRT" |
+                  Sort-Object Name -Descending |
+                  Select-Object -First 1
+                if ($null -ne $crtDir) {
+                  break
+                }
+              }
+            }
+
+            if ($null -eq $crtDir) {
+              throw "MSVC CRT runtime DLLs were not deployed and VCToolsRedistDir did not resolve to a CRT directory"
+            }
+
+            Get-ChildItem -Path $crtDir.FullName -File | Where-Object {
+              $_.Name -like "vcruntime*.dll" -or
+              $_.Name -like "msvcp*.dll" -or
+              $_.Name -like "concrt*.dll"
+            } |
+              Copy-Item -Destination $appDir -Force
+          }
+
           $pluginRoot = $appDir
           $pluginProbeDir = Join-Path $appDir "plugins"
           if (Test-Path $pluginProbeDir) {
@@ -252,21 +297,20 @@ jobs:
           }
 
           # Ensure MSVC runtime is present for /MD-built main app.
-          # Accept either app-local runtime DLLs or the VC++ redistributable installer.
           $vcruntimeDlls = Get-ChildItem -Path $appDir -File -Filter "vcruntime*.dll" -ErrorAction SilentlyContinue
           $msvcpDlls = Get-ChildItem -Path $appDir -File -Filter "msvcp*.dll" -ErrorAction SilentlyContinue
           $vcRedistInApp = Join-Path $appDir "vc_redist.x64.exe"
           $vcRedistInDist = Join-Path $distDir "vc_redist.x64.exe"
 
-          $hasRuntimeDlls = ($vcruntimeDlls.Count -gt 0 -and $msvcpDlls.Count -gt 0)
-          $hasVcRedist = (Test-Path $vcRedistInApp) -or (Test-Path $vcRedistInDist)
-
-          if (-not $hasRuntimeDlls -and -not $hasVcRedist) {
-            throw "Missing MSVC runtime deployment in $distDir (expected either vcruntime*.dll + msvcp*.dll in app dir, or vc_redist.x64.exe)"
+          if ($vcruntimeDlls.Count -eq 0 -or $msvcpDlls.Count -eq 0) {
+            throw "Missing MSVC runtime deployment in $appDir (expected vcruntime*.dll + msvcp*.dll)"
           }
 
-          if (-not $hasRuntimeDlls -and $hasVcRedist) {
-            Write-Warning "MSVC runtime DLLs not found in app dir; relying on vc_redist.x64.exe in package"
+          if (Test-Path $vcRedistInApp) {
+            Remove-Item -Path $vcRedistInApp -Force
+          }
+          if (Test-Path $vcRedistInDist) {
+            Remove-Item -Path $vcRedistInDist -Force
           }
 
           $qwindowsPath = Join-Path (Join-Path $pluginRoot "platforms") "qwindows.dll"
