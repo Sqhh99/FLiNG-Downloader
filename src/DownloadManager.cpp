@@ -220,9 +220,8 @@ QString DownloadManager::detectFileFormat(const QString& filePath) const
     
     // Read file header bytes (magic number)
     QByteArray header = file.read(32);
-    file.close();
-    
     if (header.isEmpty()) {
+        file.close();
         return QString();
     }
     
@@ -260,11 +259,7 @@ QString DownloadManager::detectFileFormat(const QString& filePath) const
     }
     
     // TAR format detection
-    if (!file.open(QIODevice::ReadOnly)) {
-        return QString();
-    }
-
-    if (file.size() > 262) {
+    if (file.size() >= 262) {
         file.seek(257);
         QByteArray tarSignature = file.read(5);
         if (tarSignature == "ustar") {

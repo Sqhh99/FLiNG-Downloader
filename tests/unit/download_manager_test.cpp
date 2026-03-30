@@ -138,3 +138,25 @@ TEST_F(DownloadManagerTest, ConcurrentDownloadRequestsAreRejected)
     EXPECT_TRUE(firstSuccess);
     EXPECT_FALSE(DownloadManager::getInstance().isDownloading());
 }
+
+TEST_F(DownloadManagerTest, DetectFileFormatRecognizesMinimalTarHeader)
+{
+    QTemporaryDir tempDir;
+    ASSERT_TRUE(tempDir.isValid());
+
+    const QString tarPath = tempDir.filePath(QStringLiteral("archive.bin"));
+    QByteArray tarBytes(262, '\0');
+    tarBytes.replace(257, 5, "ustar");
+    ASSERT_TRUE(TestSupport::writeFileBytes(tarPath, tarBytes));
+
+    EXPECT_EQ(DownloadManager::getInstance().detectFileFormat(tarPath), QStringLiteral("tar"));
+}
+
+TEST_F(DownloadManagerTest, DetectFileFormatReturnsEmptyWhenFileCannotBeOpened)
+{
+    QTemporaryDir tempDir;
+    ASSERT_TRUE(tempDir.isValid());
+
+    const QString missingPath = tempDir.filePath(QStringLiteral("missing.tar"));
+    EXPECT_TRUE(DownloadManager::getInstance().detectFileFormat(missingPath).isEmpty());
+}
