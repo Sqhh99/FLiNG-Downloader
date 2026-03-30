@@ -107,6 +107,27 @@ build.cmd benchmark --filter CoverExtractor/.*
 - `make-release.yml` 会生成安装包与便携包，并携带 `fling_translations.db`
 - 便携包与安装包都包含启动器、主程序以及外置资源目录
 
+### 版本发布
+
+- 推送以 `v` 开头的 tag 会自动触发 `make-release.yml` 并创建 GitHub Release
+- 正式版 tag 示例：
+
+```bash
+git tag v1.2.0
+git push origin v1.2.0
+```
+
+- 预发布版 tag 示例：
+
+```bash
+git tag v1.2.0-beta.1
+git push origin v1.2.0-beta.1
+```
+
+- 规则固定为：
+  - 不含 `-` 的 tag：正式版
+  - 含 `-` 的 tag：GitHub Pre-release
+
 ## 安全与隐私
 
 - 可能被 Windows Defender 误报（如 `Win32/Wacapew.C!ml`），属误报，程序安全。

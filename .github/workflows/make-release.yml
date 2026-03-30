@@ -443,3 +443,4 @@ jobs:
             ${{ steps.portable.outputs.portable_zip }}
             ${{ steps.installer.outputs.installer_exe }}
           generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}

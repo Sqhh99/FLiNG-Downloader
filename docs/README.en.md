@@ -107,6 +107,27 @@ build.cmd benchmark --filter CoverExtractor/.*
 - `make-release.yml` produces installer and portable packages and includes `fling_translations.db`
 - Both installer and portable packages contain the launcher, main app, and external resource directory
 
+### Version Release
+
+- Pushing a tag that starts with `v` automatically triggers `make-release.yml` and creates a GitHub Release
+- Stable release example:
+
+```bash
+git tag v1.2.0
+git push origin v1.2.0
+```
+
+- Pre-release example:
+
+```bash
+git tag v1.2.0-beta.1
+git push origin v1.2.0-beta.1
+```
+
+- Fixed rule:
+  - tags without `-`: stable release
+  - tags containing `-`: GitHub pre-release
+
 ## Security & Privacy
 
 - Windows Defender may report a false positive (for example `Win32/Wacapew.C!ml`); this is a false alarm.
