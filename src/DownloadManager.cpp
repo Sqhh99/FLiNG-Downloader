@@ -260,7 +260,10 @@ QString DownloadManager::detectFileFormat(const QString& filePath) const
     }
     
     // TAR format detection
-    file.open(QIODevice::ReadOnly);
+    if (!file.open(QIODevice::ReadOnly)) {
+        return QString();
+    }
+
     if (file.size() > 262) {
         file.seek(257);
         QByteArray tarSignature = file.read(5);

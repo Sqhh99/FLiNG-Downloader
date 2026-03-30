@@ -83,7 +83,6 @@ if(MSVC)
 endif()
 
 find_package(ZLIB REQUIRED)
-find_package(CURL CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(SQLiteCpp CONFIG REQUIRED)
 find_package(OpenCV CONFIG REQUIRED)
@@ -99,7 +98,6 @@ find_package(Qt6 REQUIRED COMPONENTS
     Core
     Gui
     Network
-    Concurrent
     Qml
     Quick
     QuickControls2
@@ -182,13 +180,11 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Core
     Qt6::Gui
     Qt6::Network
-    Qt6::Concurrent
     Qt6::Qml
     Qt6::Quick
     Qt6::QuickControls2
     
     # Third-party Libraries
-    CURL::libcurl
     nlohmann_json::nlohmann_json
     SQLiteCpp
     pugixml::pugixml
@@ -196,7 +192,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 )
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE
-    CURL_STATICLIB
     FLING_APP_VERSION="${APP_VERSION}"
 )
 

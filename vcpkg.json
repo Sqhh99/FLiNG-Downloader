@@ -7,10 +7,6 @@
   "license": "AGPL-3.0-only",
   "supports": "windows & x64",
   "dependencies": [
-    {
-      "name": "curl",
-      "features": ["ssl"]
-    },
     "nlohmann-json",
     "sqlitecpp",
     {
