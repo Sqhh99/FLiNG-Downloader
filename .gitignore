@@ -101,7 +101,11 @@ ehthumbs.db
 Thumbs.db 
 
 # vcpkg installed packages
-third_party/
+third_party/vcpkg
+third_party/x64-windows
+third_party/x64-windows-static-md
+onnxruntime-win-*
+__cmake_systeminformation
 
 # Agents
 agents/

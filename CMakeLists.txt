@@ -103,6 +103,16 @@ find_package(Qt6 REQUIRED COMPONENTS
     QuickControls2
 )
 
+# ONNX Runtime (CPU) - downloaded automatically into third_party/ if missing.
+# Used by CoverExtractor for YOLO-based game cover detection.
+include(${CMAKE_SOURCE_DIR}/cmake/FetchONNXRuntime.cmake)
+
+# YOLOs-CPP is a header-only inference wrapper around ONNX Runtime + OpenCV.
+set(YOLOS_CPP_INCLUDE_DIRS
+    ${CMAKE_SOURCE_DIR}/third_party/YOLOs-CPP
+    ${CMAKE_SOURCE_DIR}/third_party/YOLOs-CPP/tools
+)
+
 set(PROJECT_SOURCES
     src/main.cpp
     src/ConfigManager.cpp
@@ -173,6 +183,8 @@ set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "FLiNG Downloader")
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}
     ${CMAKE_SOURCE_DIR}/src/include
+    ${YOLOS_CPP_INCLUDE_DIRS}
+    ${ONNXRUNTIME_INCLUDE_DIR}
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
@@ -189,10 +201,26 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     SQLiteCpp
     pugixml::pugixml
     ${OpenCV_LIBS}
+    ${ONNXRUNTIME_LIBRARY}
 )
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE
     FLING_APP_VERSION="${APP_VERSION}"
+)
+
+# Deploy ONNX Runtime shared library and the cover-detection model next to the
+# executable so CoverExtractor can load them via applicationDirPath() at runtime.
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${ONNXRUNTIME_SHARED_LIB}"
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/models"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_SOURCE_DIR}/resources/models/game-cover-v2.onnx"
+        "${CMAKE_SOURCE_DIR}/resources/models/game-cover.names"
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/models"
+    VERBATIM
 )
 
 if(MSVC)

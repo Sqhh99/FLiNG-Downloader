@@ -6,8 +6,52 @@
 #include <QDebug>
 #include <QBuffer>
 #include <QImageReader>
+#include <QCoreApplication>
 #include <algorithm>
+#include <memory>
+#include <mutex>
 #include <vector>
+
+#include "yolos/tasks/detection.hpp"
+
+namespace {
+
+// Confidence / IoU thresholds for the single-class game-cover detector.
+constexpr float kCoverConfThreshold = 0.25f;
+constexpr float kCoverIouThreshold = 0.45f;
+
+// Lazily-initialized, shared YOLO detector. Loading the ONNX model is a
+// one-time cost (tens to hundreds of ms); subsequent inferences reuse it.
+yolos::det::YOLODetector* coverDetector()
+{
+    static std::once_flag onceFlag;
+    static std::unique_ptr<yolos::det::YOLODetector> detector;
+
+    std::call_once(onceFlag, []() {
+        const QString baseDir = QCoreApplication::applicationDirPath();
+        const QString modelPath = baseDir + "/models/game-cover-v2.onnx";
+        const QString labelsPath = baseDir + "/models/game-cover.names";
+
+        if (!QFile::exists(modelPath)) {
+            qWarning() << "Cover detection model not found:" << modelPath;
+            return;
+        }
+
+        try {
+            detector = std::make_unique<yolos::det::YOLODetector>(
+                modelPath.toStdString(),
+                labelsPath.toStdString(),
+                /*useGPU=*/false);
+        } catch (const std::exception& e) {
+            qWarning() << "Failed to load cover detection model:" << e.what();
+            detector.reset();
+        }
+    });
+
+    return detector.get();
+}
+
+} // namespace
 
 CoverExtractor::CoverExtractor(QObject *parent)
     : QObject(parent)
@@ -71,621 +115,61 @@ QPixmap CoverExtractor::processTrainerImage(const QPixmap& originalImage)
     if (originalImage.isNull()) {
         return QPixmap();
     }
-    
-    cv::Mat image = qPixmapToMat(originalImage);
-    if (image.empty()) {
+
+    // qPixmapToMat returns RGB; the detector runs on a BGR copy internally.
+    cv::Mat rgb = qPixmapToMat(originalImage);
+    if (rgb.empty()) {
         return QPixmap();
     }
-    
-    cv::Mat cover = extractCoverByShapeAnalysis(image);
-    
+
+    cv::Mat cover = extractCoverByModel(rgb);
     if (cover.empty()) {
         return QPixmap();
     }
-    
+
     return matToQPixmap(cover);
 }
 
-cv::Mat CoverExtractor::extractCoverByShapeAnalysis(const cv::Mat& image)
+cv::Mat CoverExtractor::extractCoverByModel(const cv::Mat& rgbImage)
 {
     try {
-        int height = image.rows;
-        int width = image.cols;
-        
-        // Smart scaling
-        cv::Mat processImage = image;
-        float scale = 1.0f;
-        const int MAX_PROCESS_WIDTH = 600;
-        if (width > MAX_PROCESS_WIDTH) {
-            scale = static_cast<float>(MAX_PROCESS_WIDTH) / width;
-            cv::resize(image, processImage, cv::Size(), scale, scale, cv::INTER_AREA);
+        yolos::det::YOLODetector* detector = coverDetector();
+        if (!detector || rgbImage.empty()) {
+            return cv::Mat();
         }
-        
-        // Cover is usually in the left 30-35% of the image
-        int roiWidth = static_cast<int>(processImage.cols * 0.38);
-        int roiHeight = static_cast<int>(processImage.rows * 0.9);
-        cv::Rect roiRect(0, 0, roiWidth, roiHeight);
-        cv::Mat roi = processImage(roiRect);
-        cv::Mat grayRoi;
-        cv::cvtColor(roi, grayRoi, cv::COLOR_RGB2GRAY);
-        
-        // Detect cover right boundary
-        int coverRightBound = detectCoverRightBoundary(roi, grayRoi);
-        if (coverRightBound > 0 && coverRightBound < roiWidth * 0.95) {
-            // Shrink ROI to detected boundary
-            roiWidth = coverRightBound + 5;  // Leave some margin
-            roiRect = cv::Rect(0, 0, roiWidth, roiHeight);
-            roi = processImage(roiRect);
-            // Reuse existing grayRoi via sub-rect (same origin, narrower width)
-            grayRoi = grayRoi(cv::Rect(0, 0, roiWidth, roiHeight));
+
+        // YOLOs-CPP preprocessing expects BGR input (it converts BGR->RGB).
+        cv::Mat bgr;
+        cv::cvtColor(rgbImage, bgr, cv::COLOR_RGB2BGR);
+
+        std::vector<yolos::det::Detection> detections =
+            detector->detect(bgr, kCoverConfThreshold, kCoverIouThreshold);
+        if (detections.empty()) {
+            return cv::Mat();
         }
-        
-        // Find cover candidate regions
-        std::vector<CoverCandidate> candidates = findCoverCandidates(roi, grayRoi);
-        
-        // Filter out candidates that are clearly not covers (too wide)
-        candidates.erase(
-            std::remove_if(candidates.begin(), candidates.end(),
-                [roiWidth](const CoverCandidate& c) {
-                    // Cover width should not exceed 90% of ROI width
-                    return c.w > roiWidth * 0.92;
-                }),
-            candidates.end()
-        );
-        
-        // If main method fails, try color segmentation
-        if (candidates.empty()) {
-            candidates = findCoverByColorSegmentation(roi, grayRoi);
-            
-            // Apply same filter
-            candidates.erase(
-                std::remove_if(candidates.begin(), candidates.end(),
-                    [roiWidth](const CoverCandidate& c) {
-                        return c.w > roiWidth * 0.92;
-                    }),
-                candidates.end()
-            );
+
+        // Single-class model: pick the highest-confidence detection.
+        const auto best = std::max_element(
+            detections.begin(), detections.end(),
+            [](const yolos::det::Detection& a, const yolos::det::Detection& b) {
+                return a.conf < b.conf;
+            });
+
+        // Clamp the box to image bounds before cropping (defensive).
+        int x = std::max(0, best->box.x);
+        int y = std::max(0, best->box.y);
+        int w = std::min(best->box.width, rgbImage.cols - x);
+        int h = std::min(best->box.height, rgbImage.rows - y);
+        if (w <= 0 || h <= 0) {
+            return cv::Mat();
         }
-        
-        if (!candidates.empty()) {
-            // Select best candidate, preferring portrait orientation and not too wide
-            auto best_it = std::max_element(candidates.begin(), candidates.end(),
-                [](const CoverCandidate& a, const CoverCandidate& b) {
-                    double aspectA = static_cast<double>(a.w) / a.h;
-                    double aspectB = static_cast<double>(b.w) / b.h;
-                    
-                    // Bonus for portrait covers (aspect ratio 0.6-0.85 is ideal)
-                    double aspectBonusA = (aspectA >= 0.55 && aspectA <= 0.9) ? 1.5 : 1.0;
-                    double aspectBonusB = (aspectB >= 0.55 && aspectB <= 0.9) ? 1.5 : 1.0;
-                    
-                    double scoreA = a.area * a.quality * aspectBonusA;
-                    double scoreB = b.area * b.quality * aspectBonusB;
-                    return scoreA < scoreB;
-                });
-            
-            const CoverCandidate& best = *best_it;
-            
-            // Extract cover
-            cv::Mat cover;
-            if (scale < 1.0f) {
-                // Map back to original image
-                int origRoiWidth = static_cast<int>(width * 0.38);
-                if (coverRightBound > 0) {
-                    origRoiWidth = static_cast<int>((coverRightBound + 5) / scale);
-                }
-                int origRoiHeight = static_cast<int>(height * 0.9);
-                
-                cv::Rect coverRect(
-                    static_cast<int>(best.x / scale),
-                    static_cast<int>(best.y / scale),
-                    static_cast<int>(best.w / scale),
-                    static_cast<int>(best.h / scale)
-                );
-                
-                coverRect.x = std::max(0, std::min(coverRect.x, origRoiWidth - 1));
-                coverRect.y = std::max(0, std::min(coverRect.y, origRoiHeight - 1));
-                coverRect.width = std::min(coverRect.width, origRoiWidth - coverRect.x);
-                coverRect.height = std::min(coverRect.height, origRoiHeight - coverRect.y);
-                
-                cv::Rect origRoiRect(0, 0, 
-                    std::min(origRoiWidth, width), 
-                    std::min(origRoiHeight, height));
-                cv::Mat origRoi = image(origRoiRect);
-                cover = origRoi(coverRect).clone();
-            } else {
-                cv::Rect coverRect(best.x, best.y, best.w, best.h);
-                cover = roi(coverRect).clone();
-            }
-            
-            // Border optimization
-            if (cover.cols > 80 && cover.rows > 100) {
-                cv::Mat optimizedCover = removeCoverBorders(cover);
-                return optimizedCover.empty() ? cover : optimizedCover;
-            }
-            
-            return cover;
-        } else {
-            return extractFallbackByPosition(roi, grayRoi);
-        }
-        
+
+        // Crop from the RGB image so colors stay consistent with matToQPixmap.
+        return rgbImage(cv::Rect(x, y, w, h)).clone();
+
     } catch (const std::exception& e) {
+        qWarning() << "Model-based cover extraction failed:" << e.what();
         return cv::Mat();
-    }
-}
-
-// Detect cover right boundary (find the dividing line between cover and options list)
-int CoverExtractor::detectCoverRightBoundary(const cv::Mat& roi, const cv::Mat& gray)
-{
-    try {
-        int height = roi.rows;
-        int width = roi.cols;
-        
-        // Method 1: Detect vertical edges (cover right side usually has clear vertical boundary)
-        cv::Mat sobelX;
-        cv::Sobel(gray, sobelX, CV_16S, 1, 0, 3);
-        cv::Mat absSobelX;
-        cv::convertScaleAbs(sobelX, absSobelX);
-        
-        // Batch-compute column sums using cv::reduce (replaces per-column cv::sum loop)
-        cv::Mat colSums;
-        cv::reduce(absSobelX, colSums, 0, cv::REDUCE_SUM, CV_64F);
-        std::vector<double> colEdgeStrength(width);
-        const double invHeight = 1.0 / height;
-        for (int x = 0; x < width; ++x) {
-            colEdgeStrength[x] = colSums.at<double>(0, x) * invHeight;
-        }
-        
-        // Look for strong vertical edges in the 20%-80% range
-        int searchStart = static_cast<int>(width * 0.2);
-        int searchEnd = static_cast<int>(width * 0.85);
-        double avgAllCols = 0.0;
-        for (int i = searchStart; i < searchEnd; ++i) {
-            avgAllCols += colEdgeStrength[i];
-        }
-        avgAllCols /= std::max(1, searchEnd - searchStart);
-        
-        double maxStrength = 0;
-        int maxPos = -1;
-        
-        for (int x = searchStart; x < searchEnd; ++x) {
-            // Look for local maximum (edge)
-            if (colEdgeStrength[x] > maxStrength && colEdgeStrength[x] > 30) {
-                // Simple check: if this column's edge strength is significantly higher than average
-                if (colEdgeStrength[x] > avgAllCols * 1.5) {
-                    maxStrength = colEdgeStrength[x];
-                    maxPos = x;
-                }
-            }
-        }
-        
-        // Method 2: Detect color changes (cover area is colorful, options area is monotone)
-        if (maxPos < 0) {
-            // Batch-compute per-column stddev using channel-split + cv::reduce
-            // Instead of calling cv::meanStdDev per column, compute via sum and sum-of-squares
-            std::vector<cv::Mat> channels;
-            cv::split(roi, channels);
-            
-            std::vector<double> colColorVariance(width, 0);
-            const double invH = 1.0 / height;
-            
-            for (int c = 0; c < static_cast<int>(channels.size()) && c < 3; ++c) {
-                cv::Mat ch;
-                channels[c].convertTo(ch, CV_32F);  // CV_32F halves bandwidth vs CV_64F
-                
-                // Column mean: reduce to 1 row (output CV_64F for precision)
-                cv::Mat colMean;
-                cv::reduce(ch, colMean, 0, cv::REDUCE_SUM, CV_64F);
-                colMean *= invH;
-                
-                // Column sum-of-squares
-                cv::Mat chSq;
-                cv::multiply(ch, ch, chSq);
-                cv::Mat colSqSum;
-                cv::reduce(chSq, colSqSum, 0, cv::REDUCE_SUM, CV_64F);
-                
-                for (int x = 0; x < width; ++x) {
-                    double mean = colMean.at<double>(0, x);
-                    double variance = colSqSum.at<double>(0, x) * invH - mean * mean;
-                    colColorVariance[x] += std::sqrt(std::max(0.0, variance));
-                }
-            }
-            
-            // Find position where color variance suddenly drops (entering options area from cover)
-            for (int x = searchStart; x < searchEnd - 10; ++x) {
-                double leftVariance = 0, rightVariance = 0;
-                for (int i = 0; i < 10; ++i) {
-                    leftVariance += colColorVariance[x - 5 + i];
-                    rightVariance += colColorVariance[x + 5 + i];
-                }
-                leftVariance /= 10;
-                rightVariance /= 10;
-                
-                // If left side is colorful, right side is monotone
-                if (leftVariance > rightVariance * 1.8 && leftVariance > 20) {
-                    maxPos = x;
-                    break;
-                }
-            }
-        }
-        
-        return maxPos;
-        
-    } catch (const std::exception& e) {
-        return -1;
-    }
-}
-
-std::vector<CoverCandidate> CoverExtractor::findCoverCandidates(const cv::Mat& roi, const cv::Mat& gray)
-{
-    std::vector<CoverCandidate> candidates;
-    
-    try {
-        int height = roi.rows;
-        int width = roi.cols;
-        
-        // Apply robust edge detection
-        cv::Mat edges = applyRobustEdgeDetection(gray);
-        
-        // Find contours
-        std::vector<std::vector<cv::Point>> contours;
-        cv::findContours(edges, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
-        
-        // Dynamically set minimum area threshold based on image size
-        double minArea = std::max(3000.0, (width * height) * 0.01);
-        
-        for (size_t i = 0; i < contours.size(); ++i) {
-            double area = cv::contourArea(contours[i]);
-            
-            if (area > minArea) {
-                cv::Rect boundRect = cv::boundingRect(contours[i]);
-                double aspectRatio = static_cast<double>(boundRect.width) / boundRect.height;
-                
-                // Relaxed aspect ratio constraints for various cover types
-                bool validAspectRatio = (aspectRatio > 0.45 && aspectRatio < 1.3);
-                bool validSize = (boundRect.width > 60 && boundRect.height > 80);
-                bool validPosition = (boundRect.x >= 0 && boundRect.y >= 0);
-
-                if (validAspectRatio && validSize && validPosition) {
-                    cv::Mat coverRegion = roi(boundRect);
-                    double quality = calculateRegionQuality(coverRegion, gray(boundRect));
-                    
-                    double positionBonus = 1.0 + (1.0 - static_cast<double>(boundRect.x) / width) * 0.3;
-                    quality *= positionBonus;
-                    
-                    candidates.emplace_back(boundRect.x, boundRect.y, 
-                                          boundRect.width, boundRect.height,
-                                          area, quality, static_cast<int>(i));
-                    
-                    if (area > minArea * 5 && quality > 1.5) {
-                        break;
-                    }
-                }
-            }
-        }
-        
-        // Fallback strategy: relax conditions if no candidates found
-        if (candidates.empty() && !contours.empty()) {
-            for (size_t i = 0; i < contours.size(); ++i) {
-                double area = cv::contourArea(contours[i]);
-                
-                if (area > 1500) {
-                    cv::Rect boundRect = cv::boundingRect(contours[i]);
-
-                    if (boundRect.width > 40 && boundRect.height > 50) {
-                        cv::Mat coverRegion = roi(boundRect);
-                        double quality = calculateRegionQuality(coverRegion, gray(boundRect));
-                        
-                        candidates.emplace_back(boundRect.x, boundRect.y,
-                                              boundRect.width, boundRect.height,
-                                              area, quality, static_cast<int>(i));
-                    }
-                }
-            }
-        }
-        
-    } catch (const std::exception& e) {
-        // Silently handle exceptions
-    }
-    
-    return candidates;
-}
-
-// Use color segmentation method to find cover candidate regions
-std::vector<CoverCandidate> CoverExtractor::findCoverByColorSegmentation(const cv::Mat& roi, const cv::Mat& grayRoi)
-{
-    std::vector<CoverCandidate> candidates;
-    
-    try {
-        int height = roi.rows;
-        int width = roi.cols;
-        
-        // Use adaptive threshold for segmentation
-        cv::Mat binary;
-        cv::adaptiveThreshold(grayRoi, binary, 255, cv::ADAPTIVE_THRESH_GAUSSIAN_C, 
-                             cv::THRESH_BINARY, 15, -5);
-        
-        // Morphological operation: closing to fill holes
-        static const cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(5, 5));
-        cv::morphologyEx(binary, binary, cv::MORPH_CLOSE, kernel);
-        cv::morphologyEx(binary, binary, cv::MORPH_OPEN, kernel);
-        
-        // Find contours
-        std::vector<std::vector<cv::Point>> contours;
-        cv::findContours(binary, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
-        
-        double minArea = std::max(2000.0, (width * height) * 0.008);
-        
-        for (size_t i = 0; i < contours.size(); ++i) {
-            double area = cv::contourArea(contours[i]);
-            
-            if (area > minArea) {
-                cv::Rect boundRect = cv::boundingRect(contours[i]);
-                double aspectRatio = static_cast<double>(boundRect.width) / boundRect.height;
-                
-                // Check if it matches cover characteristics
-                if (aspectRatio > 0.4 && aspectRatio < 1.4 &&
-                    boundRect.width > 50 && boundRect.height > 70) {
-                    
-                    cv::Mat coverRegion = roi(boundRect);
-                    double quality = calculateRegionQuality(coverRegion, grayRoi(boundRect));
-                    
-                    // Color richness check
-                    cv::Scalar meanColor = cv::mean(coverRegion);
-                    double colorVariance = std::abs(meanColor[0] - meanColor[1]) + 
-                                          std::abs(meanColor[1] - meanColor[2]);
-                    
-                    // Covers usually have rich colors
-                    if (colorVariance > 5 || quality > 0.5) {
-                        candidates.emplace_back(boundRect.x, boundRect.y,
-                                              boundRect.width, boundRect.height,
-                                              area, quality, static_cast<int>(i));
-                    }
-                }
-            }
-        }
-        
-    } catch (const std::exception& e) {
-        qDebug() << "Color segmentation error:" << e.what();
-    }
-    
-    return candidates;
-}
-
-cv::Mat CoverExtractor::applyRobustEdgeDetection(const cv::Mat& gray)
-{
-    cv::Mat edges;
-    
-    try {
-        // Gaussian blur to reduce noise
-        cv::Mat blurred;
-        cv::GaussianBlur(gray, blurred, cv::Size(3, 3), 0);
-        
-        // Optimization: use single Canny edge detection instead of three (3x speed improvement)
-        cv::Canny(blurred, edges, 50, 120);
-        
-        // Simplified morphological operation (speed improvement)
-        static const cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3));
-        cv::morphologyEx(edges, edges, cv::MORPH_CLOSE, kernel);
-        
-    } catch (const std::exception& e) {
-        qDebug() << "Edge detection error:" << e.what();
-        return cv::Mat();
-    }
-    
-    return edges;
-}
-
-double CoverExtractor::calculateRegionQuality(const cv::Mat& region)
-{
-    try {
-        if (region.empty()) {
-            return 0.0;
-        }
-
-        cv::Mat grayRegion;
-        if (region.channels() == 1) {
-            grayRegion = region;
-        } else {
-            cv::cvtColor(region, grayRegion, cv::COLOR_RGB2GRAY);
-        }
-        return calculateRegionQuality(region, grayRegion);
-    } catch (const std::exception& e) {
-        qDebug() << "Quality calculation error:" << e.what();
-        return 0.5;
-    }
-}
-
-double CoverExtractor::calculateRegionQuality(const cv::Mat& region, const cv::Mat& grayRegion)
-{
-    try {
-        if (region.empty() || grayRegion.empty()) {
-            return 0.0;
-        }
-        
-        int height = region.rows;
-        int width = region.cols;
-        
-        // 1. Size score - covers usually have a certain size
-        double sizeScore = std::min(2.0, (width * height) / 40000.0);
-        
-        // 2. Aspect ratio score - game covers are usually portrait (0.6-0.85)
-        double aspectRatio = static_cast<double>(width) / height;
-        double aspectScore = 0.5;
-        if (aspectRatio >= 0.55 && aspectRatio <= 0.9) {
-            aspectScore = 1.5;  // Ideal portrait cover
-        } else if (aspectRatio >= 0.45 && aspectRatio <= 1.1) {
-            aspectScore = 1.0;  // Acceptable ratio
-        }
-        
-        // 3. Texture complexity score - covers usually have rich details
-        cv::Scalar meanScalar, stdScalar;
-        cv::meanStdDev(grayRegion, meanScalar, stdScalar);
-        double textureScore = std::min(2.0, stdScalar[0] / 25.0);
-        
-        // 4. Brightness score - covers are usually not too dark or too bright
-        double meanBrightness = meanScalar[0];
-        double brightnessScore = 0.3;
-        if (meanBrightness > 40 && meanBrightness < 200) {
-            brightnessScore = 1.0;
-        } else if (meanBrightness > 25 && meanBrightness < 230) {
-            brightnessScore = 0.7;
-        }
-        
-        // 5. Color richness score (fast calculation)
-        cv::Scalar meanColor = cv::mean(region);
-        double colorVariance = std::abs(meanColor[0] - meanColor[1]) + 
-                              std::abs(meanColor[1] - meanColor[2]) +
-                              std::abs(meanColor[0] - meanColor[2]);
-        double colorScore = std::min(1.5, colorVariance / 30.0);
-        
-        // Combined score
-        double qualityScore = (
-            sizeScore * 0.3 +      // Size weight
-            aspectScore * 0.25 +   // Aspect ratio weight
-            textureScore * 0.25 +  // Texture weight
-            brightnessScore * 0.1 + // Brightness weight
-            colorScore * 0.1       // Color weight
-        );
-        
-        return std::max(0.1, std::min(qualityScore, 10.0));
-        
-    } catch (const std::exception& e) {
-        qDebug() << "Quality calculation error:" << e.what();
-        return 0.5;
-    }
-}
-
-cv::Mat CoverExtractor::extractFallbackByPosition(const cv::Mat& roi, const cv::Mat& grayRoi)
-{
-    try {
-        int height = roi.rows;
-        int width = roi.cols;
-        
-        // More fallback positions, covering different modifier interface layouts
-        std::vector<cv::Rect> positions = {
-            // Standard top-left position
-            cv::Rect(static_cast<int>(width * 0.02), static_cast<int>(height * 0.08), 
-                    static_cast<int>(width * 0.4), static_cast<int>(height * 0.65)),
-            // Slightly right position
-            cv::Rect(static_cast<int>(width * 0.05), static_cast<int>(height * 0.1), 
-                    static_cast<int>(width * 0.35), static_cast<int>(height * 0.55)),
-            // Closer to edge
-            cv::Rect(static_cast<int>(width * 0.01), static_cast<int>(height * 0.05), 
-                    static_cast<int>(width * 0.45), static_cast<int>(height * 0.7)),
-            // Center-left
-            cv::Rect(static_cast<int>(width * 0.08), static_cast<int>(height * 0.12), 
-                    static_cast<int>(width * 0.32), static_cast<int>(height * 0.5)),
-            // Larger range
-            cv::Rect(static_cast<int>(width * 0.0), static_cast<int>(height * 0.02), 
-                    static_cast<int>(width * 0.5), static_cast<int>(height * 0.75))
-        };
-        
-        cv::Rect bestRect;
-        double bestScore = 0;
-        
-        for (size_t i = 0; i < positions.size(); ++i) {
-            cv::Rect pos = positions[i];
-            
-            // Ensure not exceeding boundaries
-            pos.x = std::max(0, std::min(pos.x, width - 1));
-            pos.y = std::max(0, std::min(pos.y, height - 1));
-            pos.width = std::min(pos.width, width - pos.x);
-            pos.height = std::min(pos.height, height - pos.y);
-            
-            if (pos.width > 40 && pos.height > 60) {
-                cv::Mat cover = roi(pos);
-                double score = calculateRegionQuality(cover, grayRoi(pos));
-                
-                if (score > bestScore) {
-                    bestScore = score;
-                    bestRect = pos;
-                }
-            }
-        }
-        
-        // Only clone once at the end for the best candidate
-        return bestScore > 0.5 ? roi(bestRect).clone() : cv::Mat();
-        
-    } catch (const std::exception& e) {
-        qDebug() << "Fallback position extraction failed:" << e.what();
-        return cv::Mat();
-    }
-}
-
-cv::Mat CoverExtractor::removeCoverBorders(const cv::Mat& coverImage)
-{
-    if (coverImage.empty()) {
-        return cv::Mat();
-    }
-    
-    try {
-        cv::Mat workingImage = coverImage;
-        double inverseScale = 1.0;
-        constexpr int kMaxBorderDetectionSide = 320;
-        const int longestSide = std::max(coverImage.cols, coverImage.rows);
-        if (longestSide > kMaxBorderDetectionSide) {
-            const double scale = static_cast<double>(kMaxBorderDetectionSide) / longestSide;
-            cv::resize(coverImage, workingImage, cv::Size(), scale, scale, cv::INTER_AREA);
-            inverseScale = 1.0 / scale;
-        }
-
-        // Convert to grayscale
-        cv::Mat gray;
-        cv::cvtColor(workingImage, gray, cv::COLOR_RGB2GRAY);
-        
-        // Edge detection
-        cv::Mat edges;
-        cv::Canny(gray, edges, 30, 100);
-        
-        // Morphological operation
-        static const cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3));
-        cv::morphologyEx(edges, edges, cv::MORPH_CLOSE, kernel);
-        
-        // Find contours
-        std::vector<std::vector<cv::Point>> contours;
-        cv::findContours(edges, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
-        
-        if (!contours.empty()) {
-            // Find largest contour (pre-compute areas to avoid redundant calculations)
-            size_t largestIdx = 0;
-            double largestArea = cv::contourArea(contours[0]);
-            for (size_t ci = 1; ci < contours.size(); ++ci) {
-                double a = cv::contourArea(contours[ci]);
-                if (a > largestArea) { largestArea = a; largestIdx = ci; }
-            }
-            
-            cv::Rect boundRect = cv::boundingRect(contours[largestIdx]);
-            if (inverseScale != 1.0) {
-                boundRect.x = static_cast<int>(boundRect.x * inverseScale);
-                boundRect.y = static_cast<int>(boundRect.y * inverseScale);
-                boundRect.width = static_cast<int>(boundRect.width * inverseScale);
-                boundRect.height = static_cast<int>(boundRect.height * inverseScale);
-            }
-            
-            // Check if crop area is reasonable
-            int originalArea = coverImage.rows * coverImage.cols;
-            int cropArea = boundRect.width * boundRect.height;
-            
-            if (cropArea > originalArea * 0.5 &&
-                boundRect.width > coverImage.cols * 0.6 &&
-                boundRect.height > coverImage.rows * 0.6) {
-                
-                // Add small margin
-                int margin = 3;
-                boundRect.x = std::max(0, boundRect.x - margin);
-                boundRect.y = std::max(0, boundRect.y - margin);
-                boundRect.width = std::min(coverImage.cols - boundRect.x, boundRect.width + 2 * margin);
-                boundRect.height = std::min(coverImage.rows - boundRect.y, boundRect.height + 2 * margin);
-                
-                return coverImage(boundRect).clone();
-            }
-        }
-        
-        return coverImage;
-        
-    } catch (const std::exception& e) {
-        qDebug() << "Border removal failed:" << e.what();
-        return coverImage;
     }
 }
 
