@@ -142,8 +142,15 @@ cv::Mat CoverExtractor::extractCoverByModel(const cv::Mat& rgbImage)
         cv::Mat bgr;
         cv::cvtColor(rgbImage, bgr, cv::COLOR_RGB2BGR);
 
-        std::vector<yolos::det::Detection> detections =
-            detector->detect(bgr, kCoverConfThreshold, kCoverIouThreshold);
+        // The detector is a shared singleton and detect() mutates its internal
+        // (mutable) preprocessing buffer, so serialize the inference call to
+        // keep it safe if ever invoked from multiple threads.
+        std::vector<yolos::det::Detection> detections;
+        {
+            static std::mutex inferenceMutex;
+            std::lock_guard<std::mutex> lock(inferenceMutex);
+            detections = detector->detect(bgr, kCoverConfThreshold, kCoverIouThreshold);
+        }
         if (detections.empty()) {
             return cv::Mat();
         }
