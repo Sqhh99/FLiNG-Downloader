@@ -94,8 +94,11 @@ jobs:
           $workspace = $env:GITHUB_WORKSPACE
           $distDir = Join-Path $workspace $env:DIST_DIR
           $appDir = Join-Path $distDir $env:APP_SUBDIR
-          $exePath = Join-Path $workspace "build\ninja-release\FLiNG Downloader.exe"
-          $launcherPath = Join-Path $workspace "build\ninja-release\FLiNG Launcher.exe"
+          $buildDir = Join-Path $workspace "build\ninja-release"
+          $exePath = Join-Path $buildDir "FLiNG Downloader.exe"
+          $launcherPath = Join-Path $buildDir "FLiNG Launcher.exe"
+          $onnxRuntimeDll = Join-Path $buildDir "onnxruntime.dll"
+          $modelsSourceDir = Join-Path $buildDir "models"
           $qmlSourceDir = Join-Path $workspace "qml"
           $translationDbSource = Join-Path $workspace "resources\fling_translations.db"
           $translationDbDir = Join-Path $appDir "resources"
@@ -113,6 +116,12 @@ jobs:
           if (!(Test-Path $translationDbSource)) {
             throw "Translation database not found: $translationDbSource"
           }
+          if (!(Test-Path $onnxRuntimeDll)) {
+            throw "ONNX Runtime DLL not found: $onnxRuntimeDll"
+          }
+          if (!(Test-Path $modelsSourceDir)) {
+            throw "Cover detection model dir not found: $modelsSourceDir"
+          }
 
           New-Item -ItemType Directory -Force -Path $distDir | Out-Null
           New-Item -ItemType Directory -Force -Path $appDir | Out-Null
@@ -124,6 +133,11 @@ jobs:
           Copy-Item -Path $launcherPath -Destination $rootLauncherPath -Force
           Copy-Item -Path $exePath -Destination $appExePath -Force
           Copy-Item -Path $translationDbSource -Destination $translationDbDest -Force
+
+          # ONNX Runtime + the YOLO cover-detection model are required by the app
+          # at runtime (CoverExtractor loads models/ next to the executable).
+          Copy-Item -Path $onnxRuntimeDll -Destination (Join-Path $appDir "onnxruntime.dll") -Force
+          Copy-Item -Path $modelsSourceDir -Destination (Join-Path $appDir "models") -Recurse -Force
 
           & windeployqt.exe --release --compiler-runtime --no-translations --no-opengl-sw --qmldir "$qmlSourceDir" --dir "$appDir" "$appExePath"
           if ($LASTEXITCODE -ne 0) {
@@ -293,6 +307,15 @@ jobs:
 
           if (!(Test-Path $translationDbDest)) {
             throw "Missing bundled translation database: $translationDbDest"
+          }
+
+          $onnxRuntimeDest = Join-Path $appDir "onnxruntime.dll"
+          if (!(Test-Path $onnxRuntimeDest)) {
+            throw "Missing bundled ONNX Runtime DLL: $onnxRuntimeDest"
+          }
+          $coverModelDest = Join-Path $appDir "models\game-cover-v2.onnx"
+          if (!(Test-Path $coverModelDest)) {
+            throw "Missing bundled cover detection model: $coverModelDest"
           }
 
           # Ensure MSVC runtime is present for /MD-built main app.

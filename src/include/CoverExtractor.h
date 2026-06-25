@@ -10,19 +10,10 @@
 #include <opencv2/imgproc.hpp>
 #include <opencv2/imgcodecs.hpp>
 
-struct CoverCandidate {
-    int x, y, w, h;
-    double area;
-    double quality;
-    int contourIndex;
-    
-    CoverCandidate(int x, int y, int w, int h, double area, double quality, int idx)
-        : x(x), y(y), w(w), h(h), area(area), quality(quality), contourIndex(idx) {}
-};
-
 /**
  * Game Cover Extractor
- * Uses shape analysis-based methods to intelligently extract game covers from modifier interface screenshots
+ * Uses a YOLO object-detection model (ONNX Runtime) to extract game covers
+ * from modifier interface screenshots.
  */
 class CoverExtractor : public QObject
 {
@@ -52,19 +43,11 @@ private slots:
     void onImageDownloaded();
 
 private:
-    // Core shape analysis methods
-    static cv::Mat extractCoverByShapeAnalysis(const cv::Mat& image);
-    static cv::Mat extractFallbackByPosition(const cv::Mat& roi, const cv::Mat& grayRoi);
-    static cv::Mat removeCoverBorders(const cv::Mat& coverImage);
-    
-    // Helper analysis methods
-    static std::vector<CoverCandidate> findCoverCandidates(const cv::Mat& roi, const cv::Mat& grayRoi);
-    static std::vector<CoverCandidate> findCoverByColorSegmentation(const cv::Mat& roi, const cv::Mat& grayRoi);
-    static int detectCoverRightBoundary(const cv::Mat& roi, const cv::Mat& grayRoi);
-    static cv::Mat applyRobustEdgeDetection(const cv::Mat& gray);
-    static double calculateRegionQuality(const cv::Mat& region);
-    static double calculateRegionQuality(const cv::Mat& region, const cv::Mat& grayRegion);
-    
+    // Detect and crop the game cover using the YOLO ONNX model.
+    // Input is RGB (as produced by qPixmapToMat); detection runs on a BGR copy
+    // internally. Returns the cropped cover in RGB, or an empty Mat on failure.
+    static cv::Mat extractCoverByModel(const cv::Mat& rgbImage);
+
     // Image conversion tools
     static QPixmap matToQPixmap(const cv::Mat& mat);
     static cv::Mat qPixmapToMat(const QPixmap& pixmap);

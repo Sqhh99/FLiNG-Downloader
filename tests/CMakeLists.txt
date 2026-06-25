@@ -38,6 +38,8 @@ if(FLING_BUILD_TESTS)
         ${CMAKE_SOURCE_DIR}/src/include
         ${CMAKE_SOURCE_DIR}/tests
         ${CMAKE_SOURCE_DIR}/tests/fixtures
+        ${YOLOS_CPP_INCLUDE_DIRS}
+        ${ONNXRUNTIME_INCLUDE_DIR}
     )
 
     target_link_libraries(${PROJECT_NAME}Tests PRIVATE
@@ -51,6 +53,7 @@ if(FLING_BUILD_TESTS)
         SQLiteCpp
         pugixml::pugixml
         ${OpenCV_LIBS}
+        ${ONNXRUNTIME_LIBRARY}
         GTest::gtest
     )
 
@@ -72,6 +75,21 @@ if(FLING_BUILD_TESTS)
             Advapi32.lib
         )
     endif()
+
+    # Deploy ONNX Runtime shared library and the cover-detection model next to
+    # the test executable (CoverExtractor loads them via applicationDirPath()).
+    add_custom_command(TARGET ${PROJECT_NAME}Tests POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${ONNXRUNTIME_SHARED_LIB}"
+            "$<TARGET_FILE_DIR:${PROJECT_NAME}Tests>"
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+            "$<TARGET_FILE_DIR:${PROJECT_NAME}Tests>/models"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_SOURCE_DIR}/resources/models/game-cover-v2.onnx"
+            "${CMAKE_SOURCE_DIR}/resources/models/game-cover.names"
+            "$<TARGET_FILE_DIR:${PROJECT_NAME}Tests>/models"
+        VERBATIM
+    )
 
     add_test(NAME ${PROJECT_NAME}Tests COMMAND $<TARGET_FILE:${PROJECT_NAME}Tests>)
 endif()
@@ -96,6 +114,8 @@ if(FLING_BUILD_BENCHMARKS)
     target_include_directories(FLiNGDownloaderBenchmarks PRIVATE
         ${CMAKE_SOURCE_DIR}/src/include
         ${CMAKE_SOURCE_DIR}/tests
+        ${YOLOS_CPP_INCLUDE_DIRS}
+        ${ONNXRUNTIME_INCLUDE_DIR}
     )
 
     target_link_libraries(FLiNGDownloaderBenchmarks PRIVATE
@@ -104,6 +124,7 @@ if(FLING_BUILD_BENCHMARKS)
         Qt6::Network
         benchmark::benchmark
         ${OpenCV_LIBS}
+        ${ONNXRUNTIME_LIBRARY}
     )
 
     target_compile_definitions(FLiNGDownloaderBenchmarks PRIVATE
@@ -120,4 +141,19 @@ if(FLING_BUILD_BENCHMARKS)
             Gdi32.lib
         )
     endif()
+
+    # Deploy ONNX Runtime shared library and the cover-detection model next to
+    # the benchmark executable (CoverExtractor loads them via applicationDirPath()).
+    add_custom_command(TARGET FLiNGDownloaderBenchmarks POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${ONNXRUNTIME_SHARED_LIB}"
+            "$<TARGET_FILE_DIR:FLiNGDownloaderBenchmarks>"
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+            "$<TARGET_FILE_DIR:FLiNGDownloaderBenchmarks>/models"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_SOURCE_DIR}/resources/models/game-cover-v2.onnx"
+            "${CMAKE_SOURCE_DIR}/resources/models/game-cover.names"
+            "$<TARGET_FILE_DIR:FLiNGDownloaderBenchmarks>/models"
+        VERBATIM
+    )
 endif()

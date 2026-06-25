@@ -79,5 +79,7 @@ jobs:
         name: FLiNG-Downloader-Windows-x64
         path: |
           build/ninja-release/FLiNG Downloader.exe
+          build/ninja-release/onnxruntime.dll
+          build/ninja-release/models/
           resources/fling_translations.db
         if-no-files-found: warn
