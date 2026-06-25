@@ -101,6 +101,7 @@ find_package(Qt6 REQUIRED COMPONENTS
     Qml
     Quick
     QuickControls2
+    Concurrent
 )
 
 # ONNX Runtime (CPU) - downloaded automatically into third_party/ if missing.
@@ -195,7 +196,8 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Qml
     Qt6::Quick
     Qt6::QuickControls2
-    
+    Qt6::Concurrent
+
     # Third-party Libraries
     nlohmann_json::nlohmann_json
     SQLiteCpp

@@ -19,6 +19,7 @@ Drawer {
     property var versions: []
     property int selectedVersionIndex: 0
     property string coverUrl: ""
+    property bool coverLoading: false
     
     // 加载状态：当 gameName 不为空且 versions 有数据时认为加载完成
     property bool isLoading: gameName.length > 0 && versions.length === 0
@@ -136,39 +137,63 @@ Drawer {
         // 封面和信息区
         RowLayout {
             Layout.fillWidth: true
-            Layout.preferredHeight: 140
             spacing: ThemeProvider.spacingMedium
-            
-            // 游戏封面
+
+            // 游戏封面：尺寸贴合实际图片（不裁剪、无多余背景）
             Rectangle {
-                Layout.preferredWidth: 100
-                Layout.preferredHeight: 140
+                // 封面比例不一，按图片真实比例在最大框内 contain 适配，
+                // 使外框恰好贴合渲染后的图片，左侧不再出现空白背景。
+                property int maxCoverW: 110
+                property int maxCoverH: 140
+                readonly property bool hasCover: coverImage.status === Image.Ready && coverUrl.length > 0
+                readonly property real coverAR: hasCover && coverImage.sourceSize.height > 0
+                    ? coverImage.sourceSize.width / coverImage.sourceSize.height
+                    : (100 / 140) // 加载中/无封面时按 3:4 占位
+                readonly property real fitH: Math.min(maxCoverH, maxCoverW / coverAR)
+                readonly property real fitW: fitH * coverAR
+
+                Layout.preferredWidth:  hasCover ? Math.round(fitW) : 100
+                Layout.preferredHeight: hasCover ? Math.round(fitH) : 140
+                Layout.alignment: Qt.AlignVCenter
                 radius: ThemeProvider.radiusSmall
-                color: ThemeProvider.backgroundColor
-                border.width: 1
+                // 占位态显示边框背景；封面加载后透明，避免框比图片大
+                color: hasCover ? "transparent" : ThemeProvider.backgroundColor
+                border.width: hasCover ? 0 : 1
                 border.color: ThemeProvider.borderColor
-                
+
                 Image {
                     id: coverImage
                     anchors.fill: parent
-                    anchors.margins: 2
+                    anchors.margins: 0
                     source: coverUrl
                     fillMode: Image.PreserveAspectFit
-                    
-                    Text {
-                        visible: coverImage.status === Image.Null || coverImage.status === Image.Error || coverUrl.length === 0
+
+                    // 未缓存封面下载/识别中：转圈 + “封面加载中”
+                    BusyIndicator {
                         anchors.centerIn: parent
-                        text: qsTr("暂无封面")
+                        anchors.verticalCenterOffset: -10
+                        running: detailDrawer.coverLoading && coverUrl.length === 0
+                        visible: running
+                        implicitWidth: 36
+                        implicitHeight: 36
+                    }
+
+                    // 占位文案：加载中显示“封面加载中”，否则“暂无封面”
+                    Text {
+                        visible: coverUrl.length === 0
+                        anchors.centerIn: parent
+                        anchors.verticalCenterOffset: detailDrawer.coverLoading ? 18 : 0
+                        text: detailDrawer.coverLoading ? qsTr("封面加载中") : qsTr("暂无封面")
                         font.pixelSize: ThemeProvider.fontSizeSmall
                         color: ThemeProvider.textDisabled
                     }
                 }
             }
             
-            // 信息列表
+            // 信息列表：与封面垂直居中对齐
             ColumnLayout {
                 Layout.fillWidth: true
-                Layout.fillHeight: true
+                Layout.alignment: Qt.AlignVCenter
                 spacing: ThemeProvider.spacingSmall
                 
                 // 游戏版本
@@ -215,11 +240,9 @@ Drawer {
                         color: ThemeProvider.textPrimary
                     }
                 }
-                
-                Item { Layout.fillHeight: true }
             }
         }
-        
+
         // 版本选择和下载
         GroupBox {
             Layout.fillWidth: true

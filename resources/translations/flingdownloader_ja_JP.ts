@@ -66,221 +66,216 @@
 <context>
     <name>AppUpdateManager</name>
     <message>
-        <location filename="../../src/AppUpdateManager.cpp" line="38"/>
+        <location filename="../../src/AppUpdateManager.cpp" line="50"/>
         <source>Update package information is incomplete</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/AppUpdateManager.cpp" line="46"/>
+        <location filename="../../src/AppUpdateManager.cpp" line="58"/>
         <source>Failed to create update cache directory</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/AppUpdateManager.cpp" line="161"/>
+        <location filename="../../src/AppUpdateManager.cpp" line="175"/>
         <source>GitHub release request failed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/AppUpdateManager.cpp" line="169"/>
+        <location filename="../../src/AppUpdateManager.cpp" line="183"/>
         <source>GitHub release response did not contain a valid installer asset</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/AppUpdateManager.cpp" line="193"/>
-        <source>; Gitee release request failed</source>
+        <location filename="../../src/AppUpdateManager.cpp" line="208"/>
+        <source>Gitee release request failed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/AppUpdateManager.cpp" line="204"/>
-        <source>; Gitee release response did not contain a valid installer asset</source>
+        <location filename="../../src/AppUpdateManager.cpp" line="221"/>
+        <source>Gitee release response did not contain a valid installer asset</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
     <name>Backend</name>
     <message>
-        <location filename="../../src/Backend.cpp" line="165"/>
+        <location filename="../../src/Backend.cpp" line="290"/>
         <source>Searching: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="176"/>
+        <location filename="../../src/Backend.cpp" line="301"/>
         <source>Loading modifiers...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="222"/>
+        <location filename="../../src/Backend.cpp" line="364"/>
         <source>Loading modifier details...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="238"/>
+        <location filename="../../src/Backend.cpp" line="380"/>
         <source>Details loaded</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="244"/>
+        <location filename="../../src/Backend.cpp" line="386"/>
         <source>Failed to load details</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="259"/>
+        <location filename="../../src/Backend.cpp" line="411"/>
         <source>No download version available</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="462"/>
+        <location filename="../../src/Backend.cpp" line="626"/>
         <source>File not found. Removed from downloaded list: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="985"/>
+        <location filename="../../src/Backend.cpp" line="1149"/>
         <source>Download complete: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="994"/>
+        <location filename="../../src/Backend.cpp" line="1158"/>
         <source>Download failed: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="417"/>
+        <location filename="../../src/Backend.cpp" line="576"/>
         <source>Extracting cover...</source>
-        <translation type="unfinished"></translation>
+        <translation>カバーを抽出中...</translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="281"/>
+        <location filename="../../src/Backend.cpp" line="433"/>
         <source>Added to download queue: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="429"/>
+        <location filename="../../src/Backend.cpp" line="591"/>
         <source>Cover extracted</source>
-        <translation type="unfinished"></translation>
+        <translation>カバーを抽出しました</translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="431"/>
-        <source>Failed to save cover</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../../src/Backend.cpp" line="434"/>
+        <location filename="../../src/Backend.cpp" line="595"/>
         <source>Failed to extract cover</source>
-        <translation type="unfinished"></translation>
+        <translation>カバーの抽出に失敗しました</translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="485"/>
+        <location filename="../../src/Backend.cpp" line="649"/>
         <source>Deleted: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="490"/>
-        <location filename="../../src/Backend.cpp" line="509"/>
+        <location filename="../../src/Backend.cpp" line="654"/>
+        <location filename="../../src/Backend.cpp" line="673"/>
         <source>Checking for updates...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="494"/>
+        <location filename="../../src/Backend.cpp" line="658"/>
         <source>Checking for updates... (%1/%2)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="498"/>
+        <location filename="../../src/Backend.cpp" line="662"/>
         <source>Update check complete</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="525"/>
+        <location filename="../../src/Backend.cpp" line="689"/>
         <source>Failed to check for updates</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="538"/>
+        <location filename="../../src/Backend.cpp" line="702"/>
         <source>New version available: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="539"/>
+        <location filename="../../src/Backend.cpp" line="703"/>
         <source>You are using the latest version</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="554"/>
+        <location filename="../../src/Backend.cpp" line="718"/>
         <source>Downloading installer...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="575"/>
+        <location filename="../../src/Backend.cpp" line="739"/>
         <source>Failed to download installer</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="583"/>
+        <location filename="../../src/Backend.cpp" line="747"/>
         <source>Installer downloaded. Launching setup...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="589"/>
+        <location filename="../../src/Backend.cpp" line="753"/>
         <source>Failed to launch installer</source>
         <translation>インストーラーの起動に失敗しました</translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="609"/>
+        <location filename="../../src/Backend.cpp" line="773"/>
         <source>Checking database updates...</source>
         <translation>データベース更新を確認中...</translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="628"/>
+        <location filename="../../src/Backend.cpp" line="792"/>
         <source>Failed to check database updates</source>
         <translation>データベース更新の確認に失敗しました</translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="641"/>
+        <location filename="../../src/Backend.cpp" line="805"/>
         <source>New database version available: %1</source>
         <translation>新しいデータベース版があります: %1</translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="642"/>
+        <location filename="../../src/Backend.cpp" line="806"/>
         <source>You are using the latest database version</source>
         <translation>最新のデータベース版を使用しています</translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="658"/>
+        <location filename="../../src/Backend.cpp" line="822"/>
         <source>Downloading database update...</source>
         <translation>データベース更新をダウンロード中...</translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="679"/>
+        <location filename="../../src/Backend.cpp" line="843"/>
         <source>Failed to download database update</source>
         <translation>データベース更新のダウンロードに失敗しました</translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="690"/>
+        <location filename="../../src/Backend.cpp" line="854"/>
         <source>Failed to activate database update</source>
         <translation>データベース更新の適用に失敗しました</translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="699"/>
+        <location filename="../../src/Backend.cpp" line="863"/>
         <source>Database updated, but failed to reload data</source>
         <translation>データベースは更新されましたが、データの再読み込みに失敗しました</translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="710"/>
+        <location filename="../../src/Backend.cpp" line="874"/>
         <source>Database updated successfully: %1</source>
         <translation>データベースの更新が完了しました: %1</translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="1091"/>
+        <location filename="../../src/Backend.cpp" line="1255"/>
         <source>Found %1 modifiers</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="1114"/>
+        <location filename="../../src/Backend.cpp" line="1278"/>
         <source>Download complete</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/Backend.cpp" line="1116"/>
+        <location filename="../../src/Backend.cpp" line="1280"/>
         <source>Download failed</source>
         <translation type="unfinished"></translation>
     </message>
@@ -301,71 +296,76 @@
 <context>
     <name>DatabaseUpdateManager</name>
     <message>
-        <location filename="../../src/DatabaseUpdateManager.cpp" line="37"/>
+        <location filename="../../src/DatabaseUpdateManager.cpp" line="49"/>
         <source>Database update information is incomplete</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/DatabaseUpdateManager.cpp" line="45"/>
+        <location filename="../../src/DatabaseUpdateManager.cpp" line="57"/>
         <source>Failed to create database update cache directory</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/DatabaseUpdateManager.cpp" line="85"/>
+        <location filename="../../src/DatabaseUpdateManager.cpp" line="99"/>
         <source>GitHub database release request failed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/DatabaseUpdateManager.cpp" line="95"/>
+        <location filename="../../src/DatabaseUpdateManager.cpp" line="109"/>
         <source>GitHub database release response did not contain a valid database asset</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/DatabaseUpdateManager.cpp" line="120"/>
-        <source>; Gitee database release request failed</source>
+        <location filename="../../src/DatabaseUpdateManager.cpp" line="135"/>
+        <source>Gitee database release request failed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/DatabaseUpdateManager.cpp" line="133"/>
-        <source>; Gitee database release response did not contain a valid database asset</source>
+        <location filename="../../src/DatabaseUpdateManager.cpp" line="150"/>
+        <source>Gitee database release response did not contain a valid database asset</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
     <name>DetailDrawer</name>
     <message>
-        <location filename="../../qml/components/DetailDrawer.qml" line="124"/>
+        <location filename="../../qml/components/DetailDrawer.qml" line="125"/>
         <source>关闭</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../qml/components/DetailDrawer.qml" line="161"/>
+        <location filename="../../qml/components/DetailDrawer.qml" line="186"/>
         <source>暂无封面</source>
-        <translation type="unfinished"></translation>
+        <translation>カバーなし</translation>
     </message>
     <message>
-        <location filename="../../qml/components/DetailDrawer.qml" line="178"/>
+        <location filename="../../qml/components/DetailDrawer.qml" line="186"/>
+        <source>封面加载中</source>
+        <translation>カバーを読み込み中...</translation>
+    </message>
+    <message>
+        <location filename="../../qml/components/DetailDrawer.qml" line="203"/>
         <source>游戏版本:</source>
         <translation type="unfinished">ゲームバージョン:</translation>
     </message>
     <message>
-        <location filename="../../qml/components/DetailDrawer.qml" line="193"/>
+        <location filename="../../qml/components/DetailDrawer.qml" line="218"/>
         <source>选项数量:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../qml/components/DetailDrawer.qml" line="208"/>
+        <location filename="../../qml/components/DetailDrawer.qml" line="233"/>
         <source>最后更新:</source>
         <translation type="unfinished">最終更新:</translation>
     </message>
     <message>
-        <location filename="../../qml/components/DetailDrawer.qml" line="226"/>
+        <location filename="../../qml/components/DetailDrawer.qml" line="249"/>
         <source>选择版本下载</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../qml/components/DetailDrawer.qml" line="92"/>
-        <location filename="../../qml/components/DetailDrawer.qml" line="252"/>
+        <location filename="../../qml/components/DetailDrawer.qml" line="93"/>
+        <location filename="../../qml/components/DetailDrawer.qml" line="275"/>
         <source>加载中...</source>
         <translation type="unfinished">読み込み中...</translation>
     </message>
@@ -374,7 +374,7 @@
         <translation type="obsolete">ダウンロード</translation>
     </message>
     <message>
-        <location filename="../../qml/components/DetailDrawer.qml" line="296"/>
+        <location filename="../../qml/components/DetailDrawer.qml" line="319"/>
         <source>修改器选项</source>
         <translation type="unfinished"></translation>
     </message>
@@ -991,7 +991,7 @@
         <translation type="unfinished">更新を確認中...</translation>
     </message>
     <message>
-        <location filename="../../qml/Main.qml" line="401"/>
+        <location filename="../../qml/Main.qml" line="402"/>
         <source>选择下载目录</source>
         <translation type="unfinished">ダウンロードディレクトリを選択</translation>
     </message>
@@ -1009,7 +1009,7 @@
     <message>
         <location filename="../../qml/pages/ModifierDetailPanel.qml" line="74"/>
         <source>暂无封面</source>
-        <translation type="unfinished"></translation>
+        <translation>カバーなし</translation>
     </message>
     <message>
         <location filename="../../qml/pages/ModifierDetailPanel.qml" line="74"/>
@@ -1111,7 +1111,7 @@
         <translation type="unfinished">名前で</translation>
     </message>
     <message>
-        <location filename="../../qml/pages/SearchPage.qml" line="520"/>
+        <location filename="../../qml/pages/SearchPage.qml" line="517"/>
         <source>加载中...</source>
         <translation type="unfinished">読み込み中...</translation>
     </message>
@@ -1125,28 +1125,28 @@
         <translation type="unfinished">全て表示</translation>
     </message>
     <message>
-        <location filename="../../qml/pages/SearchPage.qml" line="325"/>
+        <location filename="../../qml/pages/SearchPage.qml" line="315"/>
         <source>游戏名称</source>
         <translation type="unfinished">ゲーム名</translation>
     </message>
     <message>
-        <location filename="../../qml/pages/SearchPage.qml" line="325"/>
+        <location filename="../../qml/pages/SearchPage.qml" line="315"/>
         <source>更新日期</source>
         <translation type="unfinished">更新日</translation>
     </message>
     <message>
-        <location filename="../../qml/pages/SearchPage.qml" line="325"/>
+        <location filename="../../qml/pages/SearchPage.qml" line="315"/>
         <source>支持版本</source>
         <translation type="unfinished">対応バージョン</translation>
     </message>
     <message>
         <location filename="../../qml/pages/SearchPage.qml" line="187"/>
-        <location filename="../../qml/pages/SearchPage.qml" line="325"/>
+        <location filename="../../qml/pages/SearchPage.qml" line="315"/>
         <source>选项数量</source>
         <translation type="unfinished">オプション数</translation>
     </message>
     <message>
-        <location filename="../../qml/pages/SearchPage.qml" line="325"/>
+        <location filename="../../qml/pages/SearchPage.qml" line="315"/>
         <source>操作</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1493,7 +1493,7 @@
 <context>
     <name>StyledTable</name>
     <message>
-        <location filename="../../qml/components/StyledTable.qml" line="106"/>
+        <location filename="../../qml/components/StyledTable.qml" line="156"/>
         <source>暂无数据</source>
         <translation type="unfinished">利用可能なデータはありません</translation>
     </message>

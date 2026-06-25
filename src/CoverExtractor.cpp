@@ -1,12 +1,15 @@
 #include "CoverExtractor.h"
 #include "FileSystem.h"
 #include <QNetworkRequest>
+#include <QUrl>
 #include <QDir>
 #include <QCryptographicHash>
 #include <QDebug>
 #include <QBuffer>
 #include <QImageReader>
 #include <QCoreApplication>
+#include <QtConcurrent>
+#include <QFutureWatcher>
 #include <algorithm>
 #include <memory>
 #include <mutex>
@@ -56,7 +59,6 @@ yolos::det::YOLODetector* coverDetector()
 CoverExtractor::CoverExtractor(QObject *parent)
     : QObject(parent)
     , m_networkManager(new QNetworkAccessManager(this))
-    , m_callback(nullptr)
 {
 }
 
@@ -64,50 +66,71 @@ CoverExtractor::~CoverExtractor()
 {
 }
 
-void CoverExtractor::extractCoverFromTrainerImage(const QString& imageUrl, 
+void CoverExtractor::extractCoverFromTrainerImage(const QString& imageUrl,
                                                  std::function<void(const QPixmap&, bool)> callback)
 {
-    m_callback = callback;
-    
-    QNetworkRequest request(imageUrl);
-    request.setHeader(QNetworkRequest::UserAgentHeader, 
+    QNetworkRequest request{QUrl(imageUrl)};
+    request.setHeader(QNetworkRequest::UserAgentHeader,
                      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
-    
+
     QNetworkReply* reply = m_networkManager->get(request);
-    connect(reply, &QNetworkReply::finished, this, &CoverExtractor::onImageDownloaded);
+
+    // Bind the callback to this specific reply so overlapping requests never
+    // clobber one another (the previous shared-member design crossed results
+    // when modifiers were switched quickly).
+    connect(reply, &QNetworkReply::finished, this, [this, reply, callback]() {
+        reply->deleteLater();
+
+        if (reply->error() != QNetworkReply::NoError) {
+            callback(QPixmap(), false);
+            return;
+        }
+
+        const QByteArray imageData = reply->readAll();
+
+        // Decode + model inference are CPU-heavy; run them on a worker thread so
+        // the GUI stays responsive. QPixmap is GUI-only, so the worker returns a
+        // QImage and we convert it back here on the GUI thread.
+        auto* watcher = new QFutureWatcher<QImage>(this);
+        connect(watcher, &QFutureWatcher<QImage>::finished, this, [watcher, callback]() {
+            const QImage cover = watcher->result();
+            watcher->deleteLater();
+            if (cover.isNull()) {
+                callback(QPixmap(), false);
+            } else {
+                callback(QPixmap::fromImage(cover), true);
+            }
+        });
+        watcher->setFuture(
+            QtConcurrent::run(&CoverExtractor::extractCoverImageFromData, imageData));
+    });
 }
 
-void CoverExtractor::onImageDownloaded()
+QImage CoverExtractor::extractCoverImageFromData(const QByteArray& imageData)
 {
-    QNetworkReply* reply = qobject_cast<QNetworkReply*>(sender());
-    
-    if (!reply || !m_callback) {
-        if (reply) reply->deleteLater();
-        return;
+    QImage img;
+    if (!img.loadFromData(imageData)) {
+        return QImage();
     }
-    
-    if (reply->error() != QNetworkReply::NoError) {
-        m_callback(QPixmap(), false);
-        reply->deleteLater();
-        return;
+    if (img.format() != QImage::Format_RGB888) {
+        img = img.convertToFormat(QImage::Format_RGB888);
     }
-    
-    QByteArray imageData = reply->readAll();
-    reply->deleteLater();
-    
-    QPixmap originalPixmap;
-    if (!originalPixmap.loadFromData(imageData)) {
-        m_callback(QPixmap(), false);
-        return;
+
+    // Wrap the QImage buffer as an RGB cv::Mat (extractCoverByModel clones the
+    // crop, so the wrapper only needs to stay valid for the call).
+    cv::Mat rgb(img.height(), img.width(), CV_8UC3,
+                const_cast<uchar*>(img.bits()),
+                static_cast<size_t>(img.bytesPerLine()));
+
+    cv::Mat cover = extractCoverByModel(rgb);
+    if (cover.empty() || cover.channels() != 3) {
+        return QImage();
     }
-    
-    QPixmap coverPixmap = processTrainerImage(originalPixmap);
-    
-    if (!coverPixmap.isNull()) {
-        m_callback(coverPixmap, true);
-    } else {
-        m_callback(QPixmap(), false);
-    }
+
+    // Copy to detach the QImage from the cv::Mat's memory before it goes away.
+    QImage out(cover.data, cover.cols, cover.rows,
+               static_cast<int>(cover.step), QImage::Format_RGB888);
+    return out.copy();
 }
 
 QPixmap CoverExtractor::processTrainerImage(const QPixmap& originalImage)

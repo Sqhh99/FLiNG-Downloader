@@ -340,8 +340,25 @@ void Backend::selectModifier(int index)
     m_selectedIndex = index;
     m_selectedModifier = m_modifierListModel->getModifier(index);
     m_selectedVersionIndex = 0;
-    
+
     emit selectedModifierChanged();
+
+    // Resolve the cover immediately from the name (known now, before the detail
+    // request returns): show a cached cover instantly, otherwise clear the old
+    // cover and switch to the loading state so we never display the previous
+    // modifier's cover.
+    const QString gameId = coverGameId(m_selectedModifier.name);
+    m_coverRequestId = gameId;
+    if (!gameId.isEmpty() && !CoverExtractor::getCachedCover(gameId).isNull()) {
+        m_currentCoverPath = "file:///" + CoverExtractor::getCacheDirectory()
+                             + "/" + gameId + ".png";
+        m_coverLoading = false;
+    } else {
+        m_currentCoverPath.clear();
+        m_coverLoading = true;
+    }
+    emit coverExtracted();
+    emit coverLoadingChanged();
     
     if (!m_selectedModifier.url.isEmpty()) {
         emit statusMessage(tr("Loading modifier details..."));
@@ -363,13 +380,23 @@ void Backend::selectModifier(int index)
                     emit statusMessage(tr("Details loaded"));
                     
                     extractCover();
-                    
+
                     delete modifier;
                 } else {
                     emit statusMessage(tr("Failed to load details"));
+                    // Detail fetch failed: stop the cover spinner so it doesn't
+                    // hang forever on the placeholder.
+                    if (m_coverLoading) {
+                        m_coverLoading = false;
+                        emit coverLoadingChanged();
+                    }
                 }
             }
         );
+    } else if (m_coverLoading) {
+        // No detail URL to fetch a screenshot from: clear the loading state.
+        m_coverLoading = false;
+        emit coverLoadingChanged();
     }
 }
 
@@ -521,43 +548,55 @@ void Backend::removeDownloadTask(const QString& taskId)
 }
 
 // Cover extraction
+QString Backend::coverGameId(const QString& name)
+{
+    QString gameId = name;
+    gameId.replace(QRegularExpression("[^a-zA-Z0-9]"), "_");
+    return gameId;
+}
+
 void Backend::extractCover()
 {
+    const QString gameId = coverGameId(m_selectedModifier.name);
+
+    // Cached covers were already shown synchronously in selectModifier().
+    if (!gameId.isEmpty() && !CoverExtractor::getCachedCover(gameId).isNull()) {
+        return;
+    }
+
     if (m_selectedModifier.screenshotUrl.isEmpty()) {
+        // Nothing to fetch: stop the spinner and fall back to "暂无封面".
+        if (m_coverLoading) {
+            m_coverLoading = false;
+            emit coverLoadingChanged();
+        }
         return;
     }
-    
-    QString gameId = m_selectedModifier.name;
-    gameId.replace(QRegularExpression("[^a-zA-Z0-9]"), "_");
-    
-    QPixmap cachedCover = CoverExtractor::getCachedCover(gameId);
-    if (!cachedCover.isNull()) {
-        QString cachePath = CoverExtractor::getCacheDirectory();
-        QString coverFilePath = cachePath + "/" + gameId + ".png";
-        m_currentCoverPath = "file:///" + coverFilePath;
-        emit coverExtracted();
-        return;
-    }
-    
+
     emit statusMessage(tr("Extracting cover..."));
-    
+
     m_coverExtractor->extractCoverFromTrainerImage(
         m_selectedModifier.screenshotUrl,
         [this, gameId](const QPixmap& cover, bool success) {
-            if (success && !cover.isNull()) {
-                if (CoverExtractor::saveCoverToCache(gameId, cover)) {
-                    QString cachePath = CoverExtractor::getCacheDirectory();
-                    QString coverFilePath = cachePath + "/" + gameId + ".png";
-                    
-                    m_currentCoverPath = "file:///" + coverFilePath;
-                    emit coverExtracted();
-                    emit statusMessage(tr("Cover extracted"));
-                } else {
-                    emit statusMessage(tr("Failed to save cover"));
-                }
+            // Ignore results for a modifier the user has already navigated away
+            // from, so a late download never overwrites the current selection.
+            if (gameId != m_coverRequestId) {
+                return;
+            }
+
+            if (success && !cover.isNull() && CoverExtractor::saveCoverToCache(gameId, cover)) {
+                m_currentCoverPath = "file:///" + CoverExtractor::getCacheDirectory()
+                                     + "/" + gameId + ".png";
+                emit coverExtracted();
+                emit statusMessage(tr("Cover extracted"));
             } else {
+                m_currentCoverPath.clear();
+                emit coverExtracted();
                 emit statusMessage(tr("Failed to extract cover"));
             }
+
+            m_coverLoading = false;
+            emit coverLoadingChanged();
         }
     );
 }

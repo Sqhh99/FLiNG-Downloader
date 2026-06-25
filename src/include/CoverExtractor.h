@@ -5,6 +5,8 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QPixmap>
+#include <QImage>
+#include <QByteArray>
 #include <functional>
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc.hpp>
@@ -39,10 +41,12 @@ public:
     // Get cache directory path
     static QString getCacheDirectory();
 
-private slots:
-    void onImageDownloaded();
-
 private:
+    // Decode raw image bytes, run the YOLO model and crop the cover. Operates
+    // purely on QImage/cv::Mat (no QPixmap), so it is safe to run on a worker
+    // thread. Returns the cropped cover as a QImage, or a null QImage on failure.
+    static QImage extractCoverImageFromData(const QByteArray& imageData);
+
     // Detect and crop the game cover using the YOLO ONNX model.
     // Input is RGB (as produced by qPixmapToMat); detection runs on a BGR copy
     // internally. Returns the cropped cover in RGB, or an empty Mat on failure.
@@ -57,5 +61,4 @@ private:
 
 private:
     QNetworkAccessManager* m_networkManager;
-    std::function<void(const QPixmap&, bool)> m_callback;
 };
