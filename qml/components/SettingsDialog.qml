@@ -15,6 +15,9 @@ Dialog {
     property string downloadPath: ""
     property string appVersion: ""
     property bool autoCheckUpdates: true
+    property int updateSource: 0  // 0 = GitHub, 1 = Gitee
+    // Display name that follows the selector, so the "源" label updates immediately.
+    readonly property string updateSourceName: updateSource === 1 ? "Gitee" : "GitHub"
     property bool appUpdateChecking: false
     property bool appUpdateAvailable: false
     property string appLatestVersion: ""
@@ -39,6 +42,7 @@ Dialog {
     signal browseDownloadPath()
     signal autoCheckUpdatesToggled(bool enabled)
     signal autoCheckDatabaseUpdatesToggled(bool enabled)
+    signal updateSourceSelected(int index)
     signal checkAppUpdateRequested()
     signal downloadAppUpdateRequested()
     signal checkDatabaseUpdateRequested()
@@ -545,7 +549,9 @@ Dialog {
 
                         ColumnLayout {
                             id: aboutContentColumn
-                            width: parent.width
+                            // Leave room for the overlay scrollbar so the cards and
+                            // download progress bar are not clipped at the right edge.
+                            width: parent.width - 12
                             spacing: ThemeProvider.spacingSmall
 
                             // ── 应用信息（紧凑单行） ──
@@ -594,6 +600,39 @@ Dialog {
                                     anchors.fill: parent
                                     cursorShape: Qt.PointingHandCursor
                                     onClicked: Qt.openUrlExternally("https://github.com/Sqhh99/FLiNG-Downloader")
+                                }
+                            }
+
+                            // ── 更新源选择（软件与数据库更新共用）──
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: ThemeProvider.spacingMedium
+
+                                Text {
+                                    text: qsTr("更新源")
+                                    font.pixelSize: ThemeProvider.fontSizeMedium
+                                    color: ThemeProvider.textSecondary
+                                }
+
+                                StyledComboBox {
+                                    id: updateSourceComboBox
+                                    Layout.preferredWidth: 160
+                                    model: ["GitHub", "Gitee"]
+                                    currentIndex: settingsDialog.updateSource
+                                    onActivated: function(index) {
+                                        settingsDialog.updateSource = index
+                                        settingsDialog.updateSourceSelected(index)
+                                    }
+                                }
+
+                                // Flexible + elide so the hint can shrink instead of
+                                // forcing the whole about column wider than the dialog.
+                                Text {
+                                    text: qsTr("软件与数据库更新共用此源")
+                                    font.pixelSize: ThemeProvider.fontSizeSmall
+                                    color: ThemeProvider.textDisabled
+                                    Layout.fillWidth: true
+                                    elide: Text.ElideRight
                                 }
                             }
 
@@ -663,8 +702,8 @@ Dialog {
                                         }
 
                                         Text {
-                                            visible: settingsDialog.appUpdateSource.length > 0
-                                            text: qsTr("源: %1").arg(settingsDialog.appUpdateSource)
+                                            visible: settingsDialog.appLatestVersion.length > 0
+                                            text: qsTr("源: %1").arg(settingsDialog.updateSourceName)
                                             font.pixelSize: ThemeProvider.fontSizeSmall
                                             color: ThemeProvider.textSecondary
                                         }
@@ -790,8 +829,8 @@ Dialog {
                                         }
 
                                         Text {
-                                            visible: settingsDialog.databaseUpdateSource.length > 0
-                                            text: qsTr("源: %1").arg(settingsDialog.databaseUpdateSource)
+                                            visible: settingsDialog.databaseLatestVersion.length > 0
+                                            text: qsTr("源: %1").arg(settingsDialog.updateSourceName)
                                             font.pixelSize: ThemeProvider.fontSizeSmall
                                             color: ThemeProvider.textSecondary
                                         }

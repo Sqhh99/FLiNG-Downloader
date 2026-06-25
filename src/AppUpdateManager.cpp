@@ -36,9 +36,14 @@ AppUpdateManager::AppUpdateManager(QObject* parent)
 {
 }
 
-void AppUpdateManager::checkForUpdates(const QString& currentVersion, AppUpdateCheckCallback callback)
+void AppUpdateManager::checkForUpdates(const QString& currentVersion, const QString& source,
+                                       AppUpdateCheckCallback callback)
 {
-    fetchLatestReleaseFromGithub(currentVersion, callback);
+    if (source == QLatin1String("gitee")) {
+        fetchLatestReleaseFromGitee(currentVersion, QString(), callback);
+    } else {
+        fetchLatestReleaseFromGithub(currentVersion, callback);
+    }
 }
 
 void AppUpdateManager::downloadInstaller(const AppReleaseInfo& releaseInfo,
@@ -171,17 +176,18 @@ void AppUpdateManager::fetchLatestReleaseFromGithub(const QString& currentVersio
         this,
         [this, currentVersion, callback](const QByteArray& responseData, bool success) {
             if (!success) {
-                fetchLatestReleaseFromGitee(currentVersion,
-                                            tr("GitHub release request failed"),
-                                            callback);
+                if (callback) {
+                    callback(false, false, AppReleaseInfo(), tr("GitHub release request failed"));
+                }
                 return;
             }
 
             const AppReleaseInfo releaseInfo = parseReleaseResponse(responseData, QStringLiteral("github"));
             if (!releaseInfo.isValid()) {
-                fetchLatestReleaseFromGitee(currentVersion,
-                                            tr("GitHub release response did not contain a valid installer asset"),
-                                            callback);
+                if (callback) {
+                    callback(false, false, AppReleaseInfo(),
+                             tr("GitHub release response did not contain a valid installer asset"));
+                }
                 return;
             }
 

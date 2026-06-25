@@ -35,9 +35,14 @@ DatabaseUpdateManager::DatabaseUpdateManager(QObject* parent)
 }
 
 void DatabaseUpdateManager::checkForUpdates(const QString& currentVersion,
+                                            const QString& source,
                                             DatabaseUpdateCheckCallback callback)
 {
-    fetchLatestReleaseFromGithub(currentVersion, callback);
+    if (source == QLatin1String("gitee")) {
+        fetchLatestReleaseFromGitee(currentVersion, QString(), callback);
+    } else {
+        fetchLatestReleaseFromGithub(currentVersion, callback);
+    }
 }
 
 void DatabaseUpdateManager::downloadDatabase(const DatabaseReleaseInfo& releaseInfo,
@@ -95,19 +100,20 @@ void DatabaseUpdateManager::fetchLatestReleaseFromGithub(const QString& currentV
         this,
         [this, currentVersion, callback](const QByteArray& responseData, bool success) {
             if (!success) {
-                fetchLatestReleaseFromGitee(currentVersion,
-                                            tr("GitHub database release request failed"),
-                                            callback);
+                if (callback) {
+                    callback(false, false, DatabaseReleaseInfo(),
+                             tr("GitHub database release request failed"));
+                }
                 return;
             }
 
             const DatabaseReleaseInfo releaseInfo =
                 parseReleaseResponse(responseData, QStringLiteral("github"));
             if (!releaseInfo.isValid()) {
-                fetchLatestReleaseFromGitee(
-                    currentVersion,
-                    tr("GitHub database release response did not contain a valid database asset"),
-                    callback);
+                if (callback) {
+                    callback(false, false, DatabaseReleaseInfo(),
+                             tr("GitHub database release response did not contain a valid database asset"));
+                }
                 return;
             }
 

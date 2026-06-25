@@ -93,6 +93,12 @@ public:
     // Set whether to auto check translation database updates
     void setAutoCheckDatabaseUpdates(bool autoCheck);
 
+    // Get the preferred update source ("github" or "gitee"; default "github")
+    QString getUpdateSource() const;
+
+    // Set the preferred update source ("github" or "gitee")
+    void setUpdateSource(const QString& source);
+
     // Get current theme
     Theme getCurrentTheme() const;
 

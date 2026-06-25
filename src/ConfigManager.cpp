@@ -131,6 +131,23 @@ void ConfigManager::setAutoCheckDatabaseUpdates(bool autoCheck)
     m_settings->sync();
 }
 
+QString ConfigManager::getUpdateSource() const
+{
+    // Only "gitee" is honored explicitly; anything else falls back to GitHub.
+    const QString source = m_settings->value("updateSource", "github").toString();
+    return source == QLatin1String("gitee") ? QStringLiteral("gitee")
+                                             : QStringLiteral("github");
+}
+
+void ConfigManager::setUpdateSource(const QString& source)
+{
+    const QString normalized = source == QLatin1String("gitee")
+                                   ? QStringLiteral("gitee")
+                                   : QStringLiteral("github");
+    m_settings->setValue("updateSource", normalized);
+    m_settings->sync();
+}
+
 ConfigManager::Theme ConfigManager::getCurrentTheme() const
 {
     const int themeValue = m_settings->value(

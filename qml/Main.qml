@@ -337,6 +337,7 @@ ApplicationWindow {
         downloadPath: backend ? backend.downloadPath : ""
         appVersion: backend ? backend.appVersion : ""
         autoCheckUpdates: backend ? backend.autoCheckAppUpdates : true
+        updateSource: backend ? backend.updateSource : 0
         appUpdateChecking: backend ? backend.appUpdateChecking : false
         appUpdateAvailable: backend ? backend.appUpdateAvailable : false
         appLatestVersion: backend ? backend.appLatestVersion : ""
@@ -377,6 +378,10 @@ ApplicationWindow {
 
         onAutoCheckDatabaseUpdatesToggled: function(enabled) {
             if (backend) backend.setAutoCheckDatabaseUpdates(enabled)
+        }
+
+        onUpdateSourceSelected: function(index) {
+            if (backend) backend.setUpdateSource(index)
         }
 
         onCheckAppUpdateRequested: {
