@@ -81,13 +81,17 @@ if(ONNXRUNTIME_ROOT STREQUAL "")
 
     set(ONNXRUNTIME_DOWNLOAD_PATH "${CMAKE_SOURCE_DIR}/third_party/${ONNXRUNTIME_ARCHIVE}")
 
-    # Download the archive
-    file(DOWNLOAD
+    # Download the archive (optionally verify with ONNXRUNTIME_SHA256)
+    set(_onnxrt_download_args
         "${ONNXRUNTIME_URL}"
         "${ONNXRUNTIME_DOWNLOAD_PATH}"
         SHOW_PROGRESS
         STATUS DOWNLOAD_STATUS
     )
+    if(DEFINED ONNXRUNTIME_SHA256)
+        list(APPEND _onnxrt_download_args EXPECTED_HASH "SHA256=${ONNXRUNTIME_SHA256}")
+    endif()
+    file(DOWNLOAD ${_onnxrt_download_args})
 
     list(GET DOWNLOAD_STATUS 0 DOWNLOAD_ERROR_CODE)
     list(GET DOWNLOAD_STATUS 1 DOWNLOAD_ERROR_MESSAGE)
