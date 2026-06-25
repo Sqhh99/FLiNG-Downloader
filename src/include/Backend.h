@@ -105,6 +105,8 @@ public:
     Q_INVOKABLE void extractCover();
     Q_PROPERTY(QString selectedModifierCoverPath READ selectedModifierCoverPath NOTIFY coverExtracted)
     QString selectedModifierCoverPath() const { return m_currentCoverPath; }
+    Q_PROPERTY(bool coverLoading READ coverLoading NOTIFY coverLoadingChanged)
+    bool coverLoading() const { return m_coverLoading; }
 
     bool isDownloading() const { return m_isDownloading; }
     qreal downloadProgress() const { return m_downloadProgress; }
@@ -183,6 +185,7 @@ signals:
     void downloadCompleted(bool success);
     void statusMessage(const QString& message);
     void coverExtracted();
+    void coverLoadingChanged();
     void downloadPathChanged();
     void searchLoadingChanged();
     void downloadTasksChanged();
@@ -258,6 +261,13 @@ private:
     // Cover extractor
     CoverExtractor* m_coverExtractor;
     QString m_currentCoverPath;
+    bool m_coverLoading = false;
+    // Identifier of the cover currently being fetched; used to ignore stale
+    // async results when the user switches modifiers mid-flight.
+    QString m_coverRequestId;
+
+    // Derive a filesystem-safe cache id from a modifier name.
+    static QString coverGameId(const QString& name);
 
     AppUpdateManager* m_appUpdateManager = nullptr;
     AppReleaseInfo m_latestAppRelease;

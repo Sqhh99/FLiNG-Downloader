@@ -232,7 +232,8 @@ ApplicationWindow {
         optionsHtml: backend ? backend.selectedModifierOptions : ""
         versions: backend ? backend.selectedModifierVersions : []
         coverUrl: backend ? backend.selectedModifierCoverPath : ""
-        
+        coverLoading: backend ? backend.coverLoading : false
+
         onVersionChanged: function(index) {
             if (backend) backend.selectVersion(index)
         }
