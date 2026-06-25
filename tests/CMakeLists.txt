@@ -49,6 +49,7 @@ if(FLING_BUILD_TESTS)
         Qt6::Qml
         Qt6::Quick
         Qt6::QuickControls2
+        Qt6::Concurrent
         nlohmann_json::nlohmann_json
         SQLiteCpp
         pugixml::pugixml
@@ -122,6 +123,7 @@ if(FLING_BUILD_BENCHMARKS)
         Qt6::Core
         Qt6::Gui
         Qt6::Network
+        Qt6::Concurrent
         benchmark::benchmark
         ${OpenCV_LIBS}
         ${ONNXRUNTIME_LIBRARY}
