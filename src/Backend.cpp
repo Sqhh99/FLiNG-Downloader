@@ -285,6 +285,21 @@ bool Backend::autoCheckDatabaseUpdates() const
     return ConfigManager::getInstance().getAutoCheckDatabaseUpdates();
 }
 
+int Backend::updateSource() const
+{
+    return ConfigManager::getInstance().getUpdateSource() == QLatin1String("gitee") ? 1 : 0;
+}
+
+void Backend::setUpdateSource(int index)
+{
+    const QString source = (index == 1) ? QStringLiteral("gitee") : QStringLiteral("github");
+    if (ConfigManager::getInstance().getUpdateSource() == source) {
+        return;
+    }
+    ConfigManager::getInstance().setUpdateSource(source);
+    emit updateSourceChanged();
+}
+
 void Backend::searchModifiers(const QString& keyword)
 {
     emit statusMessage(tr("Searching: %1").arg(keyword));
@@ -676,6 +691,7 @@ void Backend::checkAppUpdate()
 
     m_appUpdateManager->checkForUpdates(
         appVersion(),
+        ConfigManager::getInstance().getUpdateSource(),
         [this](bool success, bool updateAvailable, const AppReleaseInfo& releaseInfo, const QString& errorMessage) {
             m_appUpdateChecking = false;
 
@@ -776,6 +792,7 @@ void Backend::checkDatabaseUpdate()
 
     m_databaseUpdateManager->checkForUpdates(
         m_databaseCurrentVersion,
+        ConfigManager::getInstance().getUpdateSource(),
         [this](bool success,
                bool updateAvailable,
                const DatabaseReleaseInfo& releaseInfo,

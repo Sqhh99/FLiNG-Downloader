@@ -33,7 +33,10 @@ class DatabaseUpdateManager : public QObject
 public:
     explicit DatabaseUpdateManager(QObject* parent = nullptr);
 
-    void checkForUpdates(const QString& currentVersion, DatabaseUpdateCheckCallback callback);
+    // source is "github" or "gitee"; the chosen source is used strictly (no
+    // fallback to the other one).
+    void checkForUpdates(const QString& currentVersion, const QString& source,
+                         DatabaseUpdateCheckCallback callback);
     void downloadDatabase(const DatabaseReleaseInfo& releaseInfo,
                           DatabaseUpdateProgressCallback progressCallback,
                           DatabaseUpdateDownloadCallback finishedCallback);

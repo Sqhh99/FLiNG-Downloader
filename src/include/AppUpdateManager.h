@@ -35,7 +35,10 @@ class AppUpdateManager : public QObject
 public:
     explicit AppUpdateManager(QObject* parent = nullptr);
 
-    void checkForUpdates(const QString& currentVersion, AppUpdateCheckCallback callback);
+    // source is "github" or "gitee"; the chosen source is used strictly (no
+    // fallback to the other one).
+    void checkForUpdates(const QString& currentVersion, const QString& source,
+                         AppUpdateCheckCallback callback);
     void downloadInstaller(const AppReleaseInfo& releaseInfo,
                            AppUpdateProgressCallback progressCallback,
                            AppUpdateDownloadCallback finishedCallback);

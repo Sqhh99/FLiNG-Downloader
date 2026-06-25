@@ -55,6 +55,7 @@ class Backend : public QObject
     Q_PROPERTY(bool searchLoading READ searchLoading NOTIFY searchLoadingChanged)
     Q_PROPERTY(QVariantList downloadTasks READ downloadTasks NOTIFY downloadTasksChanged)
     Q_PROPERTY(bool autoCheckAppUpdates READ autoCheckAppUpdates WRITE setAutoCheckAppUpdates NOTIFY autoCheckAppUpdatesChanged)
+    Q_PROPERTY(int updateSource READ updateSource WRITE setUpdateSource NOTIFY updateSourceChanged)
     Q_PROPERTY(bool appUpdateChecking READ appUpdateChecking NOTIFY appUpdateStateChanged)
     Q_PROPERTY(bool appUpdateAvailable READ appUpdateAvailable NOTIFY appUpdateStateChanged)
     Q_PROPERTY(QString appLatestVersion READ appLatestVersion NOTIFY appUpdateStateChanged)
@@ -113,6 +114,7 @@ public:
     bool searchLoading() const { return m_searchLoading; }
     QVariantList downloadTasks() const;
     bool autoCheckAppUpdates() const;
+    int updateSource() const;  // 0 = GitHub, 1 = Gitee
     bool appUpdateChecking() const { return m_appUpdateChecking; }
     bool appUpdateAvailable() const { return m_appUpdateAvailable; }
     QString appLatestVersion() const { return m_appLatestVersion; }
@@ -169,6 +171,7 @@ public slots:
     Q_INVOKABLE void setLanguage(int languageIndex);
     Q_INVOKABLE void setAutoCheckAppUpdates(bool enabled);
     Q_INVOKABLE void setAutoCheckDatabaseUpdates(bool enabled);
+    Q_INVOKABLE void setUpdateSource(int index);  // 0 = GitHub, 1 = Gitee
     
     // Search suggestions - obtained from fling_translations.db
     Q_INVOKABLE QStringList getSuggestions(const QString& keyword, int maxResults = 8);
@@ -186,6 +189,7 @@ signals:
     void statusMessage(const QString& message);
     void coverExtracted();
     void coverLoadingChanged();
+    void updateSourceChanged();
     void downloadPathChanged();
     void searchLoadingChanged();
     void downloadTasksChanged();
