@@ -71,6 +71,7 @@ TEST_F(AppUpdateManagerTest, ParsesGithubReleaseResponse)
     AppUpdateManager manager;
     manager.checkForUpdates(
         QStringLiteral("1.1.0"),
+        QStringLiteral("github"),
         [&callbackInvoked, &success, &updateAvailable, &releaseInfo, &errorMessage](
             bool ok,
             bool available,
@@ -93,7 +94,7 @@ TEST_F(AppUpdateManagerTest, ParsesGithubReleaseResponse)
               QStringLiteral("FLiNG-Downloader-v1.2.0-win-x64-setup.exe"));
 }
 
-TEST_F(AppUpdateManagerTest, CombinesGithubAndGiteeErrorsWithoutLeadingTranslatedSeparator)
+TEST_F(AppUpdateManagerTest, ReportsGithubErrorWithoutGiteeFallback)
 {
     bool callbackInvoked = false;
     bool success = true;
@@ -109,6 +110,7 @@ TEST_F(AppUpdateManagerTest, CombinesGithubAndGiteeErrorsWithoutLeadingTranslate
     AppUpdateManager manager;
     manager.checkForUpdates(
         QStringLiteral("1.1.0"),
+        QStringLiteral("github"),
         [&callbackInvoked, &success, &errorMessage](
             bool ok,
             bool,
@@ -121,7 +123,5 @@ TEST_F(AppUpdateManagerTest, CombinesGithubAndGiteeErrorsWithoutLeadingTranslate
 
     EXPECT_TRUE(callbackInvoked);
     EXPECT_FALSE(success);
-    EXPECT_EQ(
-        errorMessage,
-        QStringLiteral("GitHub release request failed; Gitee release request failed"));
+    EXPECT_EQ(errorMessage, QStringLiteral("GitHub release request failed"));
 }

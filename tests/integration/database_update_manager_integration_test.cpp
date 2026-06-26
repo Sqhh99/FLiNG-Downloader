@@ -34,7 +34,7 @@ protected:
     TestSupport::ScopedNetworkHooks m_networkHooks;
 };
 
-TEST_F(DatabaseUpdateManagerIntegrationTest, FallsBackToGiteeWhenGithubFails)
+TEST_F(DatabaseUpdateManagerIntegrationTest, UsesGiteeSourceDirectly)
 {
     int githubRequests = 0;
     int giteeRequests = 0;
@@ -68,6 +68,7 @@ TEST_F(DatabaseUpdateManagerIntegrationTest, FallsBackToGiteeWhenGithubFails)
     DatabaseUpdateManager manager;
     manager.checkForUpdates(
         QStringLiteral("1.0.0"),
+        QStringLiteral("gitee"),
         [&callbackInvoked, &success, &updateAvailable, &releaseInfo](
             bool ok,
             bool available,
@@ -79,7 +80,7 @@ TEST_F(DatabaseUpdateManagerIntegrationTest, FallsBackToGiteeWhenGithubFails)
             releaseInfo = info;
         });
 
-    EXPECT_EQ(githubRequests, 1);
+    EXPECT_EQ(githubRequests, 0);
     EXPECT_EQ(giteeRequests, 1);
     EXPECT_TRUE(callbackInvoked);
     EXPECT_TRUE(success);
@@ -89,7 +90,7 @@ TEST_F(DatabaseUpdateManagerIntegrationTest, FallsBackToGiteeWhenGithubFails)
     EXPECT_EQ(releaseInfo.assetName, QStringLiteral("fling_translations.db"));
 }
 
-TEST_F(DatabaseUpdateManagerIntegrationTest, CombinesGithubAndGiteeErrorsWithoutLeadingTranslatedSeparator)
+TEST_F(DatabaseUpdateManagerIntegrationTest, ReportsGithubErrorWithoutGiteeFallback)
 {
     bool callbackInvoked = false;
     bool success = true;
@@ -105,6 +106,7 @@ TEST_F(DatabaseUpdateManagerIntegrationTest, CombinesGithubAndGiteeErrorsWithout
     DatabaseUpdateManager manager;
     manager.checkForUpdates(
         QStringLiteral("1.0.0"),
+        QStringLiteral("github"),
         [&callbackInvoked, &success, &errorMessage](
             bool ok,
             bool,
@@ -117,7 +119,5 @@ TEST_F(DatabaseUpdateManagerIntegrationTest, CombinesGithubAndGiteeErrorsWithout
 
     EXPECT_TRUE(callbackInvoked);
     EXPECT_FALSE(success);
-    EXPECT_EQ(
-        errorMessage,
-        QStringLiteral("GitHub database release request failed; Gitee database release request failed"));
+    EXPECT_EQ(errorMessage, QStringLiteral("GitHub database release request failed"));
 }
