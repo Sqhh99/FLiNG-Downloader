@@ -68,14 +68,10 @@ void ModifierManager::getModifierDetail(const QString& url, ModifierDetailCallba
                     modifier->versions[i].first = formattedVersion;
                 }
                 
-                callback(modifier);
+                callback(modifier, true);
             } else {
                 LOG_WARN() << "ModifierManager: Failed to get modifier details";
-                
-                ModifierInfo* modifier = new ModifierInfo();
-                modifier->name = modifierName;
-                modifier->url = url;
-                callback(modifier);
+                callback(nullptr, false);
             }
         }
     );
@@ -93,12 +89,12 @@ void ModifierManager::downloadModifier(const ModifierInfo& modifier,
         modifier,
         version,
         savePath,
-        [this, callback, version, savePath](bool success, const QString& errorMsg, const QString& actualPath, const ModifierInfo& modifier, bool isArchive) {
-            if (success) {
-                // Add to downloaded modifiers list - use actual file path
-                addDownloadedModifier(modifier, version, actualPath);
-            }
-            
+        [callback](bool success, const QString& errorMsg, const QString& actualPath, const ModifierInfo& modifier, bool isArchive) {
+            // Deliberately no library write here. This callback runs while the
+            // file is still at its .crdownload path; Backend renames it and
+            // corrects its extension immediately afterwards, so anything
+            // recorded now would name a file that no longer exists. Backend
+            // owns downloaded_modifiers.json and is the single writer.
             if (callback) {
                 callback(success, errorMsg, actualPath, modifier, isArchive);
             }

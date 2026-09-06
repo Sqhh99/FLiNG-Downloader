@@ -223,17 +223,16 @@ Popup {
                         // 暂停/继续按钮
                         IconButton {
                             visible: item.status === "downloading" || item.status === "paused" || item.status === "queued"
-                            iconSource: (item.status === "paused" || item.status === "queued")
+                            // 排队中的任务只能暂停：后端的 resumeDownload 只接受
+                            // paused / failed，所以这里原本显示的「继续」点了没有
+                            // 任何反应。pauseDownload 本来就支持 queued。
+                            iconSource: item.status === "paused"
                                         ? ThemeProvider.assetUrl("icons/step-forward.png")
                                         : ThemeProvider.assetUrl("icons/pause.png")
                             iconSize: 12
-                            tooltip: {
-                                if (item.status === "paused") return qsTr("继续")
-                                if (item.status === "queued") return qsTr("继续")
-                                return qsTr("暂停")
-                            }
+                            tooltip: item.status === "paused" ? qsTr("继续") : qsTr("暂停")
                             onClicked: {
-                                if (item.status === "paused" || item.status === "queued") {
+                                if (item.status === "paused") {
                                     resumeDownload(index)
                                 } else {
                                     pauseDownload(index)
@@ -286,7 +285,7 @@ Popup {
                 anchors.centerIn: parent
                 text: qsTr("暂无下载任务")
                 font.pixelSize: ThemeProvider.fontSizeMedium
-                color: ThemeProvider.textDisabled
+                color: ThemeProvider.textMuted
             }
         }
     }

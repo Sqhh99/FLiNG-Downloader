@@ -21,13 +21,20 @@ Drawer {
     property string coverUrl: ""
     property bool coverLoading: false
     
-    // 加载状态：当 gameName 不为空且 versions 有数据时认为加载完成
-    property bool isLoading: gameName.length > 0 && versions.length === 0
-    property bool isReady: gameName.length > 0 && versions.length > 0
+    // 详情请求状态，由后端给出：idle / loading / ready / empty / error。
+    // 之前用「有名字但没有版本」来推断加载中，于是请求失败或页面本来就没有
+    // 下载链接时，遮罩会一直盖着面板，连关闭按钮都点不到。
+    property string detailState: "idle"
+    
+    property bool isLoading: detailState === "loading"
+    // empty 也算请求已结束：页面解析成功、只是没有可下载版本，
+    // 其余信息仍然值得显示。
+    property bool isReady: detailState === "ready" || detailState === "empty"
     
     // 信号
     signal versionChanged(int index)
     signal startDownload(int versionIndex)  // 开始下载信号
+    signal retryRequested()
     
     edge: Qt.RightEdge
     width: Math.min(400, parent.width * 0.4)
@@ -47,16 +54,29 @@ Drawer {
         }
     }
     
-    // 加载中遮罩层
+    // 加载中 / 失败遮罩层
     Rectangle {
+        id: statusOverlay
         anchors.fill: parent
         color: ThemeProvider.surfaceColor
-        visible: detailDrawer.isLoading
+        visible: detailDrawer.isLoading || detailDrawer.detailState === "error"
         z: 100
+        
+        // 关闭按钮放在遮罩之内：无论请求成功与否，用户都要能关掉面板。
+        IconButton {
+            anchors.top: parent.top
+            anchors.right: parent.right
+            anchors.margins: ThemeProvider.spacingMedium
+            iconSource: ThemeProvider.assetUrl("icons/exit.png")
+            iconSize: 14
+            tooltip: qsTr("关闭")
+            onClicked: detailDrawer.close()
+        }
         
         Column {
             anchors.centerIn: parent
             spacing: 16
+            visible: detailDrawer.isLoading
             
             // 加载动画（旋转的圆圈）
             Rectangle {
@@ -94,6 +114,37 @@ Drawer {
                 font.pixelSize: ThemeProvider.fontSizeMedium
                 color: ThemeProvider.textSecondary
                 anchors.horizontalCenter: parent.horizontalCenter
+            }
+        }
+        
+        Column {
+            anchors.centerIn: parent
+            spacing: ThemeProvider.spacingMedium
+            width: parent.width - ThemeProvider.spacingLarge * 2
+            visible: detailDrawer.detailState === "error"
+            
+            Text {
+                text: qsTr("详情加载失败")
+                font.pixelSize: ThemeProvider.fontSizeMedium
+                font.bold: true
+                color: ThemeProvider.textPrimary
+                anchors.horizontalCenter: parent.horizontalCenter
+            }
+            
+            Text {
+                text: qsTr("无法获取该修改器的详情页，请检查网络后重试。")
+                font.pixelSize: ThemeProvider.fontSizeSmall
+                color: ThemeProvider.textSecondary
+                width: parent.width
+                wrapMode: Text.WordWrap
+                horizontalAlignment: Text.AlignHCenter
+            }
+            
+            StyledButton {
+                text: qsTr("重试")
+                buttonType: "primary"
+                anchors.horizontalCenter: parent.horizontalCenter
+                onClicked: detailDrawer.retryRequested()
             }
         }
     }
@@ -185,7 +236,7 @@ Drawer {
                         anchors.verticalCenterOffset: detailDrawer.coverLoading ? 18 : 0
                         text: detailDrawer.coverLoading ? qsTr("封面加载中") : qsTr("暂无封面")
                         font.pixelSize: ThemeProvider.fontSizeSmall
-                        color: ThemeProvider.textDisabled
+                        color: ThemeProvider.textMuted
                     }
                 }
             }
@@ -243,9 +294,20 @@ Drawer {
             }
         }
 
+        // 页面解析成功但没有任何下载链接时的说明
+        Text {
+            Layout.fillWidth: true
+            visible: detailDrawer.detailState === "empty"
+            text: qsTr("该页面暂无可下载的版本。")
+            font.pixelSize: ThemeProvider.fontSizeSmall
+            color: ThemeProvider.textSecondary
+            wrapMode: Text.WordWrap
+        }
+        
         // 版本选择和下载
         GroupBox {
             Layout.fillWidth: true
+            visible: detailDrawer.detailState !== "empty"
             title: qsTr("选择版本下载")
             
             background: Rectangle {

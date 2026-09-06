@@ -5,6 +5,7 @@
 #include <QUrl>
 #include <QProcess>
 #include <QDebug>
+#include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonArray>
@@ -334,11 +335,9 @@ void Backend::fetchRecentModifiers()
         });
 }
 
-void Backend::setSortOrder(int sortIndex)
+void Backend::applySortOrder(QList<ModifierInfo>& modifiers) const
 {
-    QList<ModifierInfo> modifiers = m_modifierListModel->getAllModifiers();
-    
-    switch (sortIndex) {
+    switch (m_sortOrder) {
         case 0: // Recently updated
             std::sort(modifiers.begin(), modifiers.end(), [](const ModifierInfo& a, const ModifierInfo& b) {
                 return a.lastUpdate > b.lastUpdate;
@@ -354,8 +353,20 @@ void Backend::setSortOrder(int sortIndex)
                 return a.optionsCount > b.optionsCount;
             });
             break;
+        default:
+            break;
     }
+}
+
+void Backend::setSortOrder(int sortIndex)
+{
+    // Remember the choice: sorting only the current snapshot meant the next
+    // search installed unsorted rows while the selector still showed the
+    // order the user had picked.
+    m_sortOrder = sortIndex;
     
+    QList<ModifierInfo> modifiers = m_modifierListModel->getAllModifiers();
+    applySortOrder(modifiers);
     m_modifierListModel->setModifiers(modifiers);
 }
 
@@ -369,7 +380,15 @@ void Backend::selectModifier(int index)
     m_selectedModifier = m_modifierListModel->getModifier(index);
     m_selectedVersionIndex = 0;
 
+    // Drop the list row's stale detail payload before the request goes out:
+    // until it returns, any versions or options on screen would belong to
+    // whatever was selected before.
+    m_selectedModifier.versions.clear();
+    m_selectedModifier.options.clear();
+    m_selectedOptions.clear();
+
     emit selectedModifierChanged();
+    emit selectedModifierOptionsChanged();
 
     // Resolve the cover immediately from the name (known now, before the detail
     // request returns): show a cached cover instantly, otherwise clear the old
@@ -388,41 +407,90 @@ void Backend::selectModifier(int index)
     emit coverExtracted();
     emit coverLoadingChanged();
     
-    if (!m_selectedModifier.url.isEmpty()) {
-        
-        ModifierManager::getInstance().getModifierDetail(
-            m_selectedModifier.url,
-            [this](ModifierInfo* modifier) {
-                if (modifier) {
-                    m_selectedModifier.versions = modifier->versions;
-                    m_selectedModifier.options = modifier->options;
-                    m_selectedModifier.optionsCount = modifier->optionsCount;
-                    m_selectedModifier.screenshotUrl = modifier->screenshotUrl;
-                    m_selectedModifier.description = modifier->description;
-                    
-                    m_selectedOptions = m_selectedModifier.options.join("\n");
-                    
-                    emit selectedModifierChanged();
-                    emit selectedModifierOptionsChanged();
-                    
-                    extractCover();
+    requestSelectedModifierDetail();
+}
 
-                    delete modifier;
-                } else {
-                    // Detail fetch failed: stop the cover spinner so it doesn't
-                    // hang forever on the placeholder.
-                    if (m_coverLoading) {
-                        m_coverLoading = false;
-                        emit coverLoadingChanged();
-                    }
-                }
-            }
-        );
-    } else if (m_coverLoading) {
-        // No detail URL to fetch a screenshot from: clear the loading state.
+void Backend::retrySelectedModifierDetail()
+{
+    if (m_selectedModifier.url.isEmpty()) {
+        return;
+    }
+    requestSelectedModifierDetail();
+}
+
+void Backend::setDetailState(const QString& state)
+{
+    if (m_detailState == state) {
+        return;
+    }
+    m_detailState = state;
+    emit detailStateChanged();
+}
+
+void Backend::stopCoverLoading()
+{
+    if (m_coverLoading) {
         m_coverLoading = false;
         emit coverLoadingChanged();
     }
+}
+
+void Backend::requestSelectedModifierDetail()
+{
+    if (m_selectedModifier.url.isEmpty()) {
+        // Nothing to fetch, so the drawer must not sit on a spinner.
+        setDetailState(QStringLiteral("empty"));
+        stopCoverLoading();
+        return;
+    }
+
+    // Tag the request so a reply that arrives after the user has moved on can
+    // be recognised and dropped: it carries another game's versions, options
+    // and screenshot, and writing those into the current selection would let a
+    // download combine this game's name with that game's URL.
+    const quint64 requestId = ++m_nextDetailRequestId;
+    m_activeDetailRequestId = requestId;
+    const QString requestedUrl = m_selectedModifier.url;
+    setDetailState(QStringLiteral("loading"));
+
+    ModifierManager::getInstance().getModifierDetail(
+        requestedUrl,
+        [this, requestId, requestedUrl](ModifierInfo* modifier, bool success) {
+            if (requestId != m_activeDetailRequestId
+                || requestedUrl != m_selectedModifier.url) {
+                delete modifier;
+                return;
+            }
+
+            if (!success || !modifier) {
+                delete modifier;
+                setDetailState(QStringLiteral("error"));
+                stopCoverLoading();
+                return;
+            }
+
+            m_selectedModifier.versions = modifier->versions;
+            m_selectedModifier.options = modifier->options;
+            m_selectedModifier.optionsCount = modifier->optionsCount;
+            m_selectedModifier.screenshotUrl = modifier->screenshotUrl;
+            m_selectedModifier.description = modifier->description;
+            delete modifier;
+
+            m_selectedOptions = m_selectedModifier.options.join("\n");
+
+            emit selectedModifierChanged();
+            emit selectedModifierOptionsChanged();
+
+            // A page can parse correctly and still offer no downloads; that is
+            // a finished request, not a failed one, and its metadata is still
+            // worth showing.
+            setDetailState(m_selectedModifier.versions.isEmpty()
+                               ? QStringLiteral("empty")
+                               : QStringLiteral("ready"));
+
+            extractCover();
+        }
+    );
 }
 
 void Backend::selectVersion(int versionIndex)
@@ -624,6 +692,43 @@ void Backend::openDownloadFolder()
     QDesktopServices::openUrl(QUrl::fromLocalFile(downloadDir));
 }
 
+void Backend::openContainingFolder(const QString& filePath) const
+{
+    // Fall back to the configured directory only when the item has no usable
+    // path of its own - opening the current default for an item downloaded
+    // elsewhere sends the user to the wrong folder.
+    const QString directory = filePath.isEmpty()
+        ? QString()
+        : QFileInfo(filePath).absolutePath();
+
+    if (!directory.isEmpty() && QDir(directory).exists()) {
+        QDesktopServices::openUrl(QUrl::fromLocalFile(directory));
+        return;
+    }
+
+    QDesktopServices::openUrl(
+        QUrl::fromLocalFile(ConfigManager::getInstance().getDownloadDirectory()));
+}
+
+void Backend::openModifierFolder(int index)
+{
+    if (index < 0 || index >= m_downloadedModifierModel->count()) {
+        openDownloadFolder();
+        return;
+    }
+    openContainingFolder(m_downloadedModifierModel->getModifier(index).filePath);
+}
+
+void Backend::openTaskFolder(const QString& taskId)
+{
+    const int index = findDownloadTaskIndex(taskId);
+    if (index < 0) {
+        openDownloadFolder();
+        return;
+    }
+    openContainingFolder(m_downloadTasks.at(index).value("savePath").toString());
+}
+
 void Backend::runModifier(int index)
 {
     if (index < 0 || index >= m_downloadedModifierModel->count()) {
@@ -643,16 +748,22 @@ void Backend::runModifier(int index)
     }
 }
 
-void Backend::deleteModifier(int index)
+bool Backend::deleteModifier(int index)
 {
     if (index < 0 || index >= m_downloadedModifierModel->count()) {
-        return;
+        return false;
     }
     
     DownloadedModifierInfo modifier = m_downloadedModifierModel->getModifier(index);
     
-    if (QFile::exists(modifier.filePath)) {
-        QFile::remove(modifier.filePath);
+    // A file that is open elsewhere, or in a directory that denies deletion,
+    // fails here. Keep the record so the library still points at the file that
+    // is genuinely still on disk. A record whose file is already gone can be
+    // removed either way.
+    if (QFile::exists(modifier.filePath) && !QFile::remove(modifier.filePath)) {
+        LOG_WARN() << "Backend: could not delete" << modifier.filePath;
+        emit deleteFailed(modifier.name, modifier.filePath);
+        return false;
     }
     
     m_downloadedModifierModel->removeModifier(index);
@@ -661,6 +772,7 @@ void Backend::deleteModifier(int index)
         m_downloadedList.removeAt(index);
     }
     saveDownloadedModifiers();
+    return true;
 }
 
 void Backend::checkAppUpdate()
@@ -1119,8 +1231,28 @@ void Backend::startDownloadTask(const QString& taskId)
                 downloadedInfo.filePath = finalPath;
                 downloadedInfo.url = modifier.url;
                 
-                m_downloadedList.append(downloadedInfo);
-                m_downloadedModifierModel->setModifiers(m_downloadedList);
+                // Upsert by name+version. Appending blindly produced two rows
+                // for one file after re-downloading a version, and deleting
+                // either one removed the file the other still pointed at.
+                int existing = -1;
+                for (int i = 0; i < m_downloadedList.size(); ++i) {
+                    if (m_downloadedList.at(i).name == downloadedInfo.name
+                        && m_downloadedList.at(i).version == downloadedInfo.version) {
+                        existing = i;
+                        break;
+                    }
+                }
+                
+                // Insert or update one row rather than resetting the model:
+                // a reset rebuilds every delegate and drops the user's
+                // selection while the library is open.
+                if (existing >= 0) {
+                    m_downloadedList[existing] = downloadedInfo;
+                    m_downloadedModifierModel->updateModifier(existing, downloadedInfo);
+                } else {
+                    m_downloadedList.append(downloadedInfo);
+                    m_downloadedModifierModel->addModifier(downloadedInfo);
+                }
                 saveDownloadedModifiers();
                 
             } else {
@@ -1219,7 +1351,9 @@ void Backend::finishSearchRequest(quint64 requestId, const QList<ModifierInfo>& 
         return;
     }
 
-    m_modifierListModel->setModifiers(modifiers);
+    QList<ModifierInfo> sorted = modifiers;
+    applySortOrder(sorted);
+    m_modifierListModel->setModifiers(sorted);
 
     if (m_searchLoading) {
         m_searchLoading = false;

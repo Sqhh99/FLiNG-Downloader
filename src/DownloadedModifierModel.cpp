@@ -73,6 +73,16 @@ void DownloadedModifierModel::addModifier(const DownloadedModifierInfo& modifier
     emit countChanged();
 }
 
+void DownloadedModifierModel::updateModifier(int index, const DownloadedModifierInfo& modifier)
+{
+    if (index < 0 || index >= m_modifiers.size())
+        return;
+
+    m_modifiers[index] = modifier;
+    const QModelIndex changed = createIndex(index, 0);
+    emit dataChanged(changed, changed);
+}
+
 void DownloadedModifierModel::removeModifier(int index)
 {
     if (index < 0 || index >= m_modifiers.size())

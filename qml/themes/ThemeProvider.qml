@@ -155,6 +155,42 @@ QtObject {
         }
     }
     
+    // 主色用作「文字」时的版本：primaryColor 是给填充用的，直接拿来当
+    // 14px 正文时对比度只有 2.3:1~3.2:1。这里按 sRGB 相对亮度调到 4.5:1
+    // 以上，填充色本身保持不变。
+    readonly property color primaryTextColor: {
+        switch(currentTheme) {
+            case 0: return "#0B78CF"  // Light
+            case 1: return "#64B5F6"  // Dark
+            case 2: return "#008292"  // Ocean
+            case 3: return "#DB3400"  // Sunset
+            case 4: return "#3A853D"  // Forest
+            case 5: return "#8057F1"  // Lavender
+            case 6: return "#E6165D"  // Rose
+            case 7: return "#7884CB"  // Midnight
+            case 8: return "#8D6E63"  // Mocha
+            default: return "#0B78CF"
+        }
+    }
+
+    // 次要说明文字：占位符、提示语、空状态。它们并不是被禁用的控件，
+    // 却一直复用 textDisabled（浅色主题下只有 1.88:1）。由 textSecondary
+    // 调淡而来，同样保证 4.5:1 以上。
+    readonly property color textMuted: {
+        switch(currentTheme) {
+            case 0: return "#757575"  // Light
+            case 1: return "#82949E"  // Dark
+            case 2: return "#00838F"  // Ocean
+            case 3: return "#926C5F"  // Sunset
+            case 4: return "#3C853F"  // Forest
+            case 5: return "#A551C9"  // Lavender
+            case 6: return "#D73475"  // Rose
+            case 7: return "#7B87C5"  // Midnight
+            case 8: return "#946E62"  // Mocha
+            default: return "#757575"
+        }
+    }
+
     // ========== 边框色 ==========
     readonly property color borderColor: {
         switch(currentTheme) {

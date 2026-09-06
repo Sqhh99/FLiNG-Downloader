@@ -35,6 +35,7 @@ public:
     Q_INVOKABLE void clear();
     Q_INVOKABLE void setModifiers(const QList<DownloadedModifierInfo>& modifiers);
     Q_INVOKABLE void addModifier(const DownloadedModifierInfo& modifier);
+    Q_INVOKABLE void updateModifier(int index, const DownloadedModifierInfo& modifier);
     Q_INVOKABLE void removeModifier(int index);
     Q_INVOKABLE DownloadedModifierInfo getModifier(int index) const;
     Q_INVOKABLE int count() const { return m_modifiers.size(); }

@@ -442,7 +442,7 @@ Dialog {
                         Text {
                             text: qsTr("修改器将下载到此目录")
                             font.pixelSize: ThemeProvider.fontSizeSmall
-                            color: ThemeProvider.textDisabled
+                            color: ThemeProvider.textMuted
                         }
                     }
                     
@@ -497,7 +497,7 @@ Dialog {
                         Text {
                             text: qsTr("切换语言后需要重启应用才能完全生效")
                             font.pixelSize: ThemeProvider.fontSizeSmall
-                            color: ThemeProvider.textDisabled
+                            color: ThemeProvider.textMuted
                         }
                     }
                     
@@ -630,7 +630,7 @@ Dialog {
                                 Text {
                                     text: qsTr("软件与数据库更新共用此源")
                                     font.pixelSize: ThemeProvider.fontSizeSmall
-                                    color: ThemeProvider.textDisabled
+                                    color: ThemeProvider.textMuted
                                     Layout.fillWidth: true
                                     elide: Text.ElideRight
                                 }

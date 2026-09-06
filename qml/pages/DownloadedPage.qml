@@ -16,10 +16,45 @@ Item {
     signal deleteModifier(int index)
     signal modifierDoubleClicked(int index)
     
+    // 删除失败时的提示文案，由 Main.qml 在后端发出 deleteFailed 时填入。
+    property string errorText: ""
+    
+    function showError(text) {
+        errorText = text
+        errorTimer.restart()
+    }
+    
+    Timer {
+        id: errorTimer
+        interval: 6000
+        onTriggered: downloadedPage.errorText = ""
+    }
+    
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: ThemeProvider.spacingMedium
         spacing: ThemeProvider.spacingMedium
+        
+        // 删除失败提示
+        Rectangle {
+            Layout.fillWidth: true
+            visible: downloadedPage.errorText.length > 0
+            implicitHeight: errorLabel.implicitHeight + ThemeProvider.spacingMedium * 2
+            radius: ThemeProvider.radiusSmall
+            color: ThemeProvider.hoverColor
+            border.color: ThemeProvider.errorColor
+            
+            Text {
+                id: errorLabel
+                anchors.fill: parent
+                anchors.margins: ThemeProvider.spacingMedium
+                text: downloadedPage.errorText
+                font.pixelSize: ThemeProvider.fontSizeSmall
+                color: ThemeProvider.errorColor
+                wrapMode: Text.WordWrap
+                verticalAlignment: Text.AlignVCenter
+            }
+        }
         
         // 已下载表格
         StyledTable {

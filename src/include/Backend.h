@@ -105,6 +105,11 @@ public:
     Q_PROPERTY(bool coverLoading READ coverLoading NOTIFY coverLoadingChanged)
     bool coverLoading() const { return m_coverLoading; }
 
+    // Detail-request state for the drawer: "idle", "loading", "ready",
+    // "empty" (fetched, but the page offers no downloads) or "error".
+    Q_PROPERTY(QString detailState READ detailState NOTIFY detailStateChanged)
+    QString detailState() const { return m_detailState; }
+
     bool searchLoading() const { return m_searchLoading; }
     QVariantList downloadTasks() const;
     bool autoCheckAppUpdates() const;
@@ -142,6 +147,7 @@ public slots:
     // Modifier selection
     Q_INVOKABLE void selectModifier(int index);
     Q_INVOKABLE void selectVersion(int versionIndex);
+    Q_INVOKABLE void retrySelectedModifierDetail();
 
     // Download functionality
     Q_INVOKABLE void downloadModifier(int versionIndex);
@@ -150,10 +156,17 @@ public slots:
     Q_INVOKABLE void cancelDownload(const QString& taskId);
     Q_INVOKABLE void removeDownloadTask(const QString& taskId);
     Q_INVOKABLE void openDownloadFolder();
+    // Open the directory a specific item actually lives in, which is not
+    // necessarily the directory currently configured for downloads.
+    Q_INVOKABLE void openModifierFolder(int index);
+    Q_INVOKABLE void openTaskFolder(const QString& taskId);
 
     // Downloaded management
     Q_INVOKABLE void runModifier(int index);
-    Q_INVOKABLE void deleteModifier(int index);
+    // Returns false when the file is still there, in which case the record is
+    // kept: reporting a deletion that did not happen loses the entry and
+    // leaves the file behind.
+    Q_INVOKABLE bool deleteModifier(int index);
     Q_INVOKABLE void checkAppUpdate();
     Q_INVOKABLE void downloadAppUpdate();
     Q_INVOKABLE void checkDatabaseUpdate();
@@ -175,6 +188,7 @@ signals:
     void selectedModifierOptionsChanged();
     void coverExtracted();
     void coverLoadingChanged();
+    void detailStateChanged();
     void updateSourceChanged();
     void downloadPathChanged();
     void searchLoadingChanged();
@@ -184,6 +198,7 @@ signals:
     void appUpdateStateChanged();
     void autoCheckDatabaseUpdatesChanged();
     void databaseUpdateStateChanged();
+    void deleteFailed(const QString& name, const QString& filePath);
 
 private:
     struct DownloadTaskMeta {
@@ -204,6 +219,11 @@ private:
     void updateDownloadTaskDeferred(const QString& taskId, const std::function<void(QVariantMap&)>& updater);
     quint64 beginSearchRequest();
     void finishSearchRequest(quint64 requestId, const QList<ModifierInfo>& modifiers);
+    void applySortOrder(QList<ModifierInfo>& modifiers) const;
+    void openContainingFolder(const QString& filePath) const;
+    void requestSelectedModifierDetail();
+    void setDetailState(const QString& state);
+    void stopCoverLoading();
     void loadDownloadedModifiers();
     void saveDownloadedModifiers();
     void refreshCurrentDatabaseVersion();
@@ -224,8 +244,14 @@ private:
     // Download status
     bool m_isDownloading = false;
     bool m_searchLoading = false;
+    // Survives new result sets, so the combo box and the rows agree.
+    int m_sortOrder = 0;
     quint64 m_nextSearchRequestId = 0;
     quint64 m_activeSearchRequestId = 0;
+    // Detail replies are matched back to the selection that asked for them.
+    quint64 m_nextDetailRequestId = 0;
+    quint64 m_activeDetailRequestId = 0;
+    QString m_detailState = QStringLiteral("idle");
     quint64 m_nextDownloadTaskId = 0;
     QString m_activeDownloadTaskId;
     QList<QVariantMap> m_downloadTasks;

@@ -155,7 +155,7 @@ Item {
                 anchors.centerIn: parent
                 text: qsTr("暂无数据")
                 font.pixelSize: ThemeProvider.fontSizeMedium
-                color: ThemeProvider.textDisabled
+                color: ThemeProvider.textMuted
             }
         }
     }

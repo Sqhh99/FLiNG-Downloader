@@ -20,7 +20,7 @@ TextField {
     
     font.pixelSize: ThemeProvider.fontSizeMedium
     color: ThemeProvider.textPrimary
-    placeholderTextColor: ThemeProvider.textDisabled
+    placeholderTextColor: ThemeProvider.textMuted
     selectionColor: ThemeProvider.primaryColor
     selectedTextColor: "white"
     

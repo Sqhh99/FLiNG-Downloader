@@ -99,7 +99,7 @@ ApplicationWindow {
                     text: parent.text
                     font.pixelSize: ThemeProvider.fontSizeMedium
                     font.bold: parent.checked
-                    color: parent.checked ? ThemeProvider.primaryColor : ThemeProvider.textSecondary
+                    color: parent.checked ? ThemeProvider.primaryTextColor : ThemeProvider.textSecondary
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }
@@ -125,7 +125,7 @@ ApplicationWindow {
                     text: parent.text
                     font.pixelSize: ThemeProvider.fontSizeMedium
                     font.bold: parent.checked
-                    color: parent.checked ? ThemeProvider.primaryColor : ThemeProvider.textSecondary
+                    color: parent.checked ? ThemeProvider.primaryTextColor : ThemeProvider.textSecondary
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }
@@ -197,11 +197,19 @@ ApplicationWindow {
                 downloadedModel: backend ? backend.downloadedModifierModel : null
                 
                 onOpenFolderRequested: function(index) {
-                    if (backend) backend.openDownloadFolder()  // 打开下载文件夹
+                    if (backend) backend.openModifierFolder(index)
                 }
                 
                 onDeleteModifier: function(index) {
                     if (backend) backend.deleteModifier(index)
+                }
+
+                Connections {
+                    target: backend
+                    function onDeleteFailed(name, filePath) {
+                        downloadedPage.showError(
+                            qsTr("无法删除「%1」，文件可能正在使用中：%2").arg(name).arg(filePath))
+                    }
                 }
                 
                 onModifierDoubleClicked: function(index) {
@@ -224,6 +232,11 @@ ApplicationWindow {
         versions: backend ? backend.selectedModifierVersions : []
         coverUrl: backend ? backend.selectedModifierCoverPath : ""
         coverLoading: backend ? backend.coverLoading : false
+        detailState: backend ? backend.detailState : "idle"
+
+        onRetryRequested: {
+            if (backend) backend.retrySelectedModifierDetail()
+        }
 
         onVersionChanged: function(index) {
             if (backend) backend.selectVersion(index)
@@ -278,7 +291,11 @@ ApplicationWindow {
         }
         
         onOpenFolder: function(index) {
-            if (backend) backend.openDownloadFolder()
+            if (backend && index >= 0 && index < downloadItems.length) {
+                backend.openTaskFolder(downloadItems[index].taskId)
+            } else if (backend) {
+                backend.openDownloadFolder()
+            }
         }
         
         onRemoveFromList: function(index) {

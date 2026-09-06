@@ -26,6 +26,19 @@ Item {
     // 标记：是否正在程序化设置文本（避免触发建议列表）
     property bool isProgrammaticTextChange: false
     
+    // 唯一的提交入口。此前搜索按钮走 refreshRequested()（最近更新列表，
+    // 带重试和缓存回退），回车却走 searchRequested("")，落到另一套首页解析
+    // 实现上——没有缓存回退，还会用当前日期、Latest 和写死的 10 个选项
+    // 伪造数据。两条路径必须一致。
+    function submitSearch(keyword) {
+        suggestionsPopup.close()
+        if (keyword.trim() === "") {
+            refreshRequested()
+        } else {
+            searchRequested(keyword)
+        }
+    }
+    
     // 更新建议列表的函数 - 从游戏数据库获取建议（支持中英日）
     function updateSuggestions(keyword) {
         suggestionsModel.clear()
@@ -105,8 +118,7 @@ Item {
                             // 如果建议列表可见且有选中项，选择该项
                             suggestionsList.currentItem.selectSuggestion()
                         } else {
-                            suggestionsPopup.close()
-                            searchRequested(text)
+                            searchPage.submitSearch(text)
                         }
                     }
                     Keys.onEnterPressed: {
@@ -116,8 +128,7 @@ Item {
                         if (suggestionsPopup.opened && suggestionsList.currentIndex >= 0) {
                             suggestionsList.currentItem.selectSuggestion()
                         } else {
-                            suggestionsPopup.close()
-                            searchRequested(text)
+                            searchPage.submitSearch(text)
                         }
                     }
                     Keys.onEscapePressed: {
@@ -170,14 +181,7 @@ Item {
                     text: qsTr("搜索")
                     buttonType: "primary"
                     enabled: !searchPage.loading
-                    onClicked: {
-                        suggestionsPopup.close()
-                        if (searchInput.text.trim() === "") {
-                            refreshRequested()
-                        } else {
-                            searchRequested(searchInput.text)
-                        }
-                    }
+                    onClicked: searchPage.submitSearch(searchInput.text)
                 }
                 
                 StyledComboBox {

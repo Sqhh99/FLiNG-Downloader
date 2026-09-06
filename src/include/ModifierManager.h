@@ -34,7 +34,10 @@ enum class SortType {
 
 // Modifier search callback function type
 using ModifierFoundCallback = std::function<void(const QList<ModifierInfo>&)>;
-using ModifierDetailCallback = std::function<void(ModifierInfo*)>;
+// The bool reports whether the detail page was actually fetched. A failed
+// fetch passes nullptr, so callers can tell a network error apart from a
+// page that parsed fine but offers no downloads.
+using ModifierDetailCallback = std::function<void(ModifierInfo*, bool)>;
 using ModifierDownloadFinishedCallback = std::function<void(bool, const QString&, const QString&, const ModifierInfo&, bool)>;
 using UpdateProgressCallback = std::function<void(int, int, bool)>; // current progress, total, has update
 
