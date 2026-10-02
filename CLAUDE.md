@@ -135,9 +135,11 @@ Three documentation steps are mandatory, not optional extras. Each writes a
 
 | Trigger | Record | Language |
 |---------|--------|----------|
-| Any request that changes files | `docs/work-logs/` — request (quoted), plan, every file touched and why, verification, what was left open | Chinese |
+| Any request that changes files | `docs/work-logs/` — request (quoted), plan, every file touched and why, verification, what was left open | English |
 | Any code review | `docs/code-reviews/` — commit reviewed, scope *and* what was not covered, findings table whose last column says whether each finding is implemented | English |
-| Before opening a pull request | `docs/pull-requests/` — written first, then used as the PR body, following `.github/pull_request_template.md` (关联 / 改了什么 / 怎么验证 / 检查项) | Chinese |
+| Before opening a pull request | `docs/pull-requests/` — written first, then used as the PR body, following `.github/pull_request_template.md` (关联 / 改了什么 / 怎么验证 / 检查项) | English, with the template's headings and checklist kept verbatim |
+
+Records written before 2026-10-02 are in Chinese. Leave them as they are.
 
 **Read [`agents/skills/project-records/SKILL.md`](agents/skills/project-records/SKILL.md)
 before writing any of the three** — it holds the templates, the cross-linking rules, and

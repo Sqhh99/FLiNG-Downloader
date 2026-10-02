@@ -13,9 +13,15 @@ the moment the session ends.
 
 | Record | Trigger | Directory | Language |
 |--------|---------|-----------|----------|
-| Work log | Any request that changes files | `docs/work-logs/` | Chinese |
+| Work log | Any request that changes files | `docs/work-logs/` | English |
 | Code review | Any code review | `docs/code-reviews/` | English |
-| PR record | Before opening a pull request | `docs/pull-requests/` | Chinese |
+| PR record | Before opening a pull request | `docs/pull-requests/` | English |
+
+All three are written in English. Quote the user's request in whatever language they
+wrote it. The one exception is the PR record's section headings and checklist items: they
+stay exactly as in `.github/pull_request_template.md` (Chinese), because the record becomes
+the PR body. Work logs and PR records written before 2026-10-02 are in Chinese. Leave them
+as they are; do not translate old records.
 
 All three use the filename `YYYY-MM-DD-<topic>.md`, where `<topic>` is a short
 kebab-case slug — for a PR record, the branch topic. Use the real current date, and
@@ -46,28 +52,28 @@ change cycle. One file per request; append a new section to the day's file when 
 request is a direct follow-up to one already logged there.
 
 ```markdown
-# 工作记录：<一句话主题>
+# Work log: <one-line topic>
 
-- **日期：** YYYY-MM-DD
-- **分支：** `<branch>`（基于 `main` 的 `<commit>`）
-- **关联文档：** 链接到审查归档 / PR 记录（如果有）
+- **Date:** YYYY-MM-DD
+- **Branch:** `<branch>` (from `main` at `<commit>`)
+- **Related:** links to the review archive / PR record, if any
 
-## 一、用户的请求
-> 逐字引用请求原文
-简述这条请求实际要求做的事。
+## 1. Request
+> The request, quoted verbatim
+What the request actually asked for, in a sentence or two.
 
-## 二、制定的计划
-按顺序列出实际执行的计划步骤。
+## 2. Plan
+The plan steps, in the order they were carried out.
 
-## 三、具体改了哪些文件
-| 文件 | 改动 |  ← 代码改动再加一列「对应问题」
-说明每个文件为什么改，而不只是改了什么。
+## 3. Files changed
+| File | Change |  ← for code changes, add a third column "Addresses"
+Say why each file changed, not only what changed.
 
-## 四、验证情况
-跑了什么、没跑什么、为什么。没跑就直说。
+## 4. Verification
+What was run, what was not, and why. If something was not run, say so plainly.
 
-## 五、遗留事项
-未完成、未覆盖、需要后续处理的部分。
+## 5. Open items
+What is unfinished, not covered, or needs follow-up.
 ```
 
 ## 2. Code review — `docs/code-reviews/YYYY-MM-DD-<short-title>.md`
@@ -106,23 +112,25 @@ same review. Line numbers stay as they were at review time; the header records t
 ## 3. PR record — `docs/pull-requests/YYYY-MM-DD-<branch-topic>.md`
 
 Written **before** opening the pull request, then used as the PR body. Follow the
-sections in `.github/pull_request_template.md` exactly:
+sections in `.github/pull_request_template.md` exactly. Keep its headings and checklist
+items verbatim, and write everything else in English:
 
 ```markdown
-# PR：<标题>
+# PR: <title>
 
-- **日期：** / **分支：** `<branch>` → `main` / **基线提交：** `<sha>` / **关联记录：**
+- **Date:** / **Branch:** `<branch>` → `main` / **Base commit:** `<sha>` / **Related records:**
 
 ## 关联
-对应 Issue，或要解决的问题。
+The Issue this addresses, or the problem being solved.
 
 ## 改了什么
-用户或开发者能观察到的变化。不要只贴文件列表。
+What users or developers will notice. Do not just paste a file list.
 
 ## 怎么验证
 - [ ] `build.cmd tests`
 - [ ] 本地跑过相关界面 / 下载 / 搜索路径
-没执行就留空，并写明为什么、以及合并前需要谁在什么环境补跑。
+Leave a box unticked if the command was not run, and say why and who needs to run it,
+in which environment, before merge.
 
 ## 检查项
 - [ ] 已阅读 CONTRIBUTING.md
