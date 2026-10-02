@@ -18,9 +18,7 @@ the moment the session ends.
 | PR record | Before opening a pull request | `docs/pull-requests/` | English |
 
 All three are written in English. Quote the user's request in whatever language they
-wrote it. The one exception is the PR record's section headings and checklist items: they
-stay exactly as in `.github/pull_request_template.md` (Chinese), because the record becomes
-the PR body. Work logs and PR records written before 2026-10-02 are in Chinese. Leave them
+wrote it. Work logs and PR records written before 2026-10-02 are in Chinese. Leave them
 as they are; do not translate old records.
 
 All three use the filename `YYYY-MM-DD-<topic>.md`, where `<topic>` is a short
@@ -112,31 +110,39 @@ same review. Line numbers stay as they were at review time; the header records t
 ## 3. PR record — `docs/pull-requests/YYYY-MM-DD-<branch-topic>.md`
 
 Written **before** opening the pull request, then used as the PR body. Follow the
-sections in `.github/pull_request_template.md` exactly. Keep its headings and checklist
-items verbatim, and write everything else in English:
+sections and checklist items in `.github/pull_request_template.md` exactly. If the
+template changes, change this skeleton to match:
 
 ```markdown
 # PR: <title>
 
 - **Date:** / **Branch:** `<branch>` → `main` / **Base commit:** `<sha>` / **Related records:**
 
-## 关联
-The Issue this addresses, or the problem being solved.
+## Related
+The Issue or Discussion ("Related to #123"), or the problem being solved. Never
+"Fixes #123" / "Closes #123": the maintainer closes issues by hand.
 
-## 改了什么
+## What changed
 What users or developers will notice. Do not just paste a file list.
 
-## 怎么验证
-- [ ] `build.cmd tests`
-- [ ] 本地跑过相关界面 / 下载 / 搜索路径
-Leave a box unticked if the command was not run, and say why and who needs to run it,
-in which environment, before merge.
+## Type of change
+- [ ] Bug fix
+- [ ] New feature
+- [ ] Performance or refactoring (no behavior change intended)
+- [ ] Docs, CI, or build only
 
-## 检查项
-- [ ] 已阅读 CONTRIBUTING.md
-- [ ] UI / QML 改动附了截图（不适用可删）
-- [ ] 若改动了翻译库、i18n、模型或打包资源，已在上文写明
-- [ ] AI 使用披露：否 / 是（说明用在哪一部分）
+## How it was tested
+- [ ] `build.cmd tests` passes
+- [ ] Tried the affected flow in the app (search / download / covers / library / settings — say which)
+Leave a box unticked if it was not run, and say why and who needs to run it, in which
+environment, before merge.
+
+## Checklist
+- [ ] I have read CONTRIBUTING.md
+- [ ] UI / QML changes include before-and-after screenshots
+- [ ] New user-facing strings use `qsTr()` / `tr()`, and `build.cmd i18n` was run
+- [ ] Changes to the translation database, i18n files, ONNX model, or packaging layout are called out above
+- [ ] AI disclosure: No / Yes (say which parts, and whether you verified them)
 ```
 
 The PR body and this file should say the same thing. The PR body ends with the Claude Code

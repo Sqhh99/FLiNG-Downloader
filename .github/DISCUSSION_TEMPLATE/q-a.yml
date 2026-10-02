@@ -1,0 +1,28 @@
+title: "Q: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ask anything about installing or using FLiNG Downloader. English, Chinese, and Japanese are all fine.
+
+        Is something broken that you can reproduce? Please file a [bug report](https://github.com/Sqhh99/FLiNG-Downloader/issues/new?template=bug.yml) instead.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+    validations:
+      required: true
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: What you have tried
+      description: Steps you took, settings you changed, and what happened.
+
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: Shown under Settings → About.
+      placeholder: v1.1.10
