@@ -1,0 +1,22 @@
+title: "Idea: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Share an idea for FLiNG Downloader. Rough ideas are welcome here. Once there is agreement, it can become a [feature request](https://github.com/Sqhh99/FLiNG-Downloader/issues/new?template=feature.yml).
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem or wish
+      description: What you are trying to do, and what gets in the way today.
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: How it could work from a user's point of view.
+    validations:
+      required: true

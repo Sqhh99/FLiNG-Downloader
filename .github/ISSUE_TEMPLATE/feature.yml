@@ -1,43 +1,56 @@
-name: 功能请求
-description: 提议一项已被讨论过、希望进入开发的功能
+name: Feature request
+description: A feature that has been discussed and is ready to be considered for development
 title: "Feature: "
 labels: ["enhancement"]
 body:
   - type: markdown
     attributes:
       value: |
-        还没想清楚、只是随口一提的想法，请先发 [Discussions](https://github.com/Sqhh99/FLiNG-Downloader/discussions)。
+        Still a rough idea? Please start in [Discussions → Ideas](https://github.com/Sqhh99/FLiNG-Downloader/discussions/categories/ideas) first.
 
-        这里只收已经能说清「要解决什么问题」的请求。
+        This form is for requests that can already say what problem they solve.
 
   - type: checkboxes
     id: prerequisites
     attributes:
-      label: 提交前确认
+      label: Before you file
       options:
-        - label: 我已搜索过 Issues 和 Discussions，没有重复提议
+        - label: I searched Issues and Discussions and found no duplicate
           required: true
-        - label: 我说明的是要解决的问题，而不只是实现方案
+        - label: I describe the problem to solve, not only a way to implement it
           required: true
+
+  - type: input
+    id: discussion
+    attributes:
+      label: Related Discussion
+      description: Link to the Discussion where this was agreed, if there is one.
+      placeholder: https://github.com/Sqhh99/FLiNG-Downloader/discussions/...
 
   - type: textarea
     id: problem
     attributes:
-      label: 要解决什么问题
-      description: 当前工作流卡在哪里？谁会用到？
+      label: The problem
+      description: Where does your current workflow get stuck? Who would use this?
     validations:
       required: true
 
   - type: textarea
     id: proposal
     attributes:
-      label: 期望的使用方式
-      description: 用户会怎么点、怎么看到结果。实现细节可选。
+      label: How you would use it
+      description: What you would click and what you would see. Implementation details are optional.
     validations:
       required: true
 
   - type: textarea
+    id: alternatives
+    attributes:
+      label: Workarounds or alternatives
+      description: What you do today instead, and other approaches you considered.
+
+  - type: textarea
     id: extras
     attributes:
-      label: 补充
-      description: 类似软件怎么做的、草图、是否愿意自己提 PR。
+      label: Anything else
+      description: How similar apps handle it, sketches, and whether you would like to open the PR yourself.

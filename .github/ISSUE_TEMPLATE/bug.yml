@@ -1,88 +1,117 @@
-name: 缺陷报告
-description: 程序崩溃、搜索失败、下载异常等可复现问题
+name: Bug report
+description: A crash, failed search, broken download, or other problem you can reproduce
 title: "Bug: "
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        提交前请确认：
+        Before you file:
 
-        - 已安装 [最新 Release](https://github.com/Sqhh99/FLiNG-Downloader/releases/latest)
-        - 若是杀毒软件拦截，请先阅读 [杀毒误报 FAQ](https://github.com/Sqhh99/FLiNG-Downloader/blob/main/docs/ANTIVIRUS_FAQ.md)，不要在这里重复开单
+        - Install the [latest release](https://github.com/Sqhh99/FLiNG-Downloader/releases/latest) and check that the problem is still there.
+        - If your antivirus blocked or deleted the app, read the [antivirus FAQ](https://github.com/Sqhh99/FLiNG-Downloader/blob/main/docs/ANTIVIRUS_FAQ.md) instead of opening an Issue.
+        - A Chinese or Japanese game title that doesn't find its trainer? Use the **Game title not found** form instead.
+
+        English, Chinese, and Japanese are all fine.
 
   - type: checkboxes
     id: prerequisites
     attributes:
-      label: 提交前确认
+      label: Before you file
       options:
-        - label: 我使用的是最新正式版 Release（不是自己随手编译的中间产物）
+        - label: I am on the latest official release, not a build I made myself
           required: true
-        - label: 我已搜索过现有 Issues，没有相同报告
+        - label: I searched the existing Issues and found no report of this
           required: true
-        - label: 这不是杀毒软件误报（误报请走 FAQ）
+        - label: This is not an antivirus false positive
           required: true
 
   - type: input
     id: version
     attributes:
-      label: 软件版本
-      description: 关于页面或安装包文件名中的版本，例如 v1.1.8
-      placeholder: v1.1.8
+      label: App version
+      description: Shown under Settings → About, or in the installer's file name.
+      placeholder: v1.1.10
     validations:
       required: true
 
   - type: dropdown
     id: package
     attributes:
-      label: 安装方式
+      label: How you installed it
       options:
-        - 便携包（zip）
-        - 安装包（setup.exe）
-        - 自行从源码构建
+        - Portable zip
+        - Installer (setup.exe)
+        - Built from source
     validations:
       required: true
 
   - type: dropdown
     id: windows
     attributes:
-      label: Windows 版本
+      label: Windows version
       options:
-        - Windows 10
         - Windows 11
-        - 其他
+        - Windows 10
+        - Other
     validations:
       required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where it happens
+      options:
+        - Search or the home list
+        - Downloading a trainer
+        - Game covers
+        - Downloaded trainers (library, running, deleting)
+        - App or database updates
+        - Settings, theme, or language
+        - Startup or crash
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: language
+    attributes:
+      label: Interface language
+      options:
+        - 简体中文
+        - English
+        - 日本語
 
   - type: textarea
     id: actual
     attributes:
-      label: 实际发生了什么
-      description: 用自己的话写，不要粘贴大段 AI 生成的套话。
+      label: What happened
+      description: In your own words, please. Include any error message exactly as shown.
     validations:
       required: true
 
   - type: textarea
     id: expected
     attributes:
-      label: 期望行为
+      label: What you expected
     validations:
       required: true
 
   - type: textarea
     id: repro
     attributes:
-      label: 复现步骤
+      label: Steps to reproduce
+      description: Include the game or trainer name if it only happens with one.
       placeholder: |
-        1. 打开软件
-        2. 搜索「……」
-        3. 点击下载
-        4. 出现……
+        1. Open the app
+        2. Search for "..."
+        3. Click Download
+        4. ...
     validations:
       required: true
 
   - type: textarea
     id: extra
     attributes:
-      label: 日志、截图或其他信息
-      description: 可直接拖入截图。日志请打码路径中的用户名等个人信息。
+      label: Screenshots or other details
+      description: Drag screenshots in here. Remove your user name and other personal details from any paths.

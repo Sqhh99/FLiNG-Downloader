@@ -1,14 +1,14 @@
 blank_issues_enabled: false
 contact_links:
-  - name: 杀毒软件误报
+  - name: Antivirus false positive
     url: https://github.com/Sqhh99/FLiNG-Downloader/blob/main/docs/ANTIVIRUS_FAQ.md
-    about: Windows Defender 等拦截或删除程序时，请先看这份 FAQ，不要开 Issue。
-  - name: 使用疑问
-    url: https://github.com/Sqhh99/FLiNG-Downloader/discussions
-    about: 安装、搜索、更新等使用问题，请到 Discussions 提问。
-  - name: 功能想法
-    url: https://github.com/Sqhh99/FLiNG-Downloader/discussions
-    about: 新功能建议请先发 Discussions，有共识后再开 Issue。
-  - name: 安全漏洞
+    about: Windows Defender or another antivirus blocked or deleted the app? Read this FAQ instead of opening an Issue.
+  - name: Questions about using the app
+    url: https://github.com/Sqhh99/FLiNG-Downloader/discussions/categories/q-a
+    about: Installing, searching, updating, and other how-to questions go to Discussions Q&A.
+  - name: Feature ideas
+    url: https://github.com/Sqhh99/FLiNG-Downloader/discussions/categories/ideas
+    about: Start new ideas in Discussions. Open a feature request once there is agreement.
+  - name: Security vulnerability
     url: https://github.com/Sqhh99/FLiNG-Downloader/security/advisories/new
-    about: 请走私密 Security Advisory，不要在公开 Issue 里描述漏洞细节。
+    about: Report privately through a Security Advisory. Never describe a vulnerability in a public Issue.
