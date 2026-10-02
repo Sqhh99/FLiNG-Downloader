@@ -130,3 +130,27 @@ TEST_F(TranslationDatabaseTest, RejectsUnsupportedSchemaVersion)
     EXPECT_FALSE(database.isValidDatabaseFile(overridePath, &errorMessage));
     EXPECT_TRUE(errorMessage.contains(QStringLiteral("Unsupported schema_version")));
 }
+
+TEST_F(TranslationDatabaseTest, CachedResolutionFollowsOverrideChangesOnDisk)
+{
+    // databasePath() and loadAllGames() are cached; adding or removing the
+    // override file must still be noticed without any explicit reset.
+    TranslationDatabase& database = TranslationDatabase::getInstance();
+    const QString bundledPath = database.bundledDatabasePath();
+    const QString overridePath = database.overrideDatabasePath();
+    ASSERT_FALSE(bundledPath.isEmpty());
+
+    EXPECT_EQ(QDir::cleanPath(database.databasePath()), QDir::cleanPath(bundledPath));
+    const int bundledGameCount = database.loadAllGames().size();
+    ASSERT_GT(bundledGameCount, 1);
+
+    ASSERT_TRUE(TestSupport::createTranslationDatabase(overridePath, QStringLiteral("999.0.0")));
+    EXPECT_EQ(QDir::cleanPath(database.databasePath()), QDir::cleanPath(overridePath));
+    const QList<TranslationGameRecord> overrideGames = database.loadAllGames();
+    ASSERT_EQ(overrideGames.size(), 1);
+    EXPECT_EQ(overrideGames.first().english, QStringLiteral("Sample Game"));
+
+    ASSERT_TRUE(QFile::remove(overridePath));
+    EXPECT_EQ(QDir::cleanPath(database.databasePath()), QDir::cleanPath(bundledPath));
+    EXPECT_EQ(database.loadAllGames().size(), bundledGameCount);
+}

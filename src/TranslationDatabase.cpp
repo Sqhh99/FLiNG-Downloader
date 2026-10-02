@@ -72,7 +72,51 @@ TranslationDatabase& TranslationDatabase::getInstance()
 
 QString TranslationDatabase::databasePath() const
 {
-    return resolveDatabasePath();
+    const PathCacheKey key = currentPathCacheKey();
+    {
+        QMutexLocker locker(&m_pathCacheMutex);
+        if (m_hasCachedPath && m_cachedPathKey == key) {
+            return m_cachedPath;
+        }
+    }
+
+    const QString path = resolveDatabasePath();
+
+    QMutexLocker locker(&m_pathCacheMutex);
+    m_cachedPathKey = key;
+    m_cachedPath = path;
+    m_hasCachedPath = true;
+    return path;
+}
+
+TranslationDatabase::PathCacheKey TranslationDatabase::currentPathCacheKey() const
+{
+    PathCacheKey key;
+    key.overridePath = overrideDatabasePath();
+    key.bundledPath = bundledDatabasePath();
+
+    const QFileInfo overrideInfo(key.overridePath);
+    if (overrideInfo.exists()) {
+        key.overrideModified = overrideInfo.lastModified();
+        key.overrideSize = overrideInfo.size();
+    }
+    if (!key.bundledPath.isEmpty()) {
+        const QFileInfo bundledInfo(key.bundledPath);
+        if (bundledInfo.exists()) {
+            key.bundledModified = bundledInfo.lastModified();
+            key.bundledSize = bundledInfo.size();
+        }
+    }
+    return key;
+}
+
+void TranslationDatabase::invalidatePathCache() const
+{
+    QMutexLocker locker(&m_pathCacheMutex);
+    m_hasCachedPath = false;
+    m_cachedPath.clear();
+    m_hasCachedGames = false;
+    m_cachedGames.clear();
 }
 
 QString TranslationDatabase::bundledDatabasePath() const
@@ -92,6 +136,14 @@ bool TranslationDatabase::isAvailable() const
 
 QList<TranslationGameRecord> TranslationDatabase::loadAllGames() const
 {
+    const PathCacheKey key = currentPathCacheKey();
+    {
+        QMutexLocker locker(&m_pathCacheMutex);
+        if (m_hasCachedGames && m_cachedGamesKey == key) {
+            return m_cachedGames;
+        }
+    }
+
     QList<TranslationGameRecord> results;
     const QString path = databasePath();
     if (path.isEmpty()) {
@@ -121,6 +173,10 @@ QList<TranslationGameRecord> TranslationDatabase::loadAllGames() const
         return {};
     }
 
+    QMutexLocker locker(&m_pathCacheMutex);
+    m_cachedGamesKey = key;
+    m_cachedGames = results;
+    m_hasCachedGames = true;
     return results;
 }
 
@@ -246,7 +302,11 @@ bool TranslationDatabase::installOverrideDatabase(const QString& sourcePath, QSt
     }
 
     QFile::remove(targetPath);
-    if (!QFile::rename(tempPath, targetPath)) {
+    const bool renamed = QFile::rename(tempPath, targetPath);
+    // QFile::copy keeps the source's timestamp on Windows, so the file-info
+    // key alone cannot be trusted to notice the swap.
+    invalidatePathCache();
+    if (!renamed) {
         QFile::remove(tempPath);
         if (errorMessage) {
             *errorMessage = QStringLiteral("Failed to activate updated database");

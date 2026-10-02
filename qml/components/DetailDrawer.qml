@@ -218,6 +218,8 @@ Drawer {
                     anchors.margins: 0
                     source: coverUrl
                     fillMode: Image.PreserveAspectFit
+                    // 本地文件默认同步解码，会卡住切换动画；放到后台线程
+                    asynchronous: true
 
                     // 未缓存封面下载/识别中：转圈 + “封面加载中”
                     BusyIndicator {

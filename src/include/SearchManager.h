@@ -74,6 +74,10 @@ public:
 
     /**
      * @brief Fetch and parse recently updated modifier list (from flingtrainer.com homepage)
+     *
+     * When a list from an earlier run is cached on disk, callback receives it
+     * immediately and then a second time with the network result, but only if
+     * that differs from the cached one.
      * @param callback Search result callback function
      */
     void fetchRecentlyUpdatedModifiers(std::function<void(const QList<ModifierInfo>&)> callback);
@@ -164,11 +168,14 @@ private:
 
     // Parse recently updated modifiers from homepage HTML.
     QList<ModifierInfo> parseRecentlyUpdatedModifiersFromHtml(const QString& html) const;
+    // cachedList is what was already handed to callback from disk; the network
+    // result is only delivered again when it differs from it.
     void fetchRecentlyUpdatedModifiersInternal(int attempt,
                                                int maxAttempts,
+                                               const QList<ModifierInfo>& cachedList,
                                                std::function<void(const QList<ModifierInfo>&)> callback);
 
-    // Read/write startup list cache for network fallback.
+    // Read/write the startup list cache, shown before the network answers.
     QList<ModifierInfo> loadRecentModifiersCache() const;
     void saveRecentModifiersCache(const QList<ModifierInfo>& modifiers) const;
 

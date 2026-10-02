@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QHash>
 #include <QObject>
 #include <QString>
 #include <QtGlobal>
@@ -59,16 +60,22 @@ public:
                          bool keepPartialOnAbort = false);
     
     /**
-     * @brief Cancel the download this manager currently owns
+     * @brief Cancel every download this manager currently owns
      *
-     * Cancels only its own transfer; app-update and database downloads run
+     * Cancels only its own transfers; app-update and database downloads run
      * through NetworkManager independently and are left alone.
      */
     void cancelDownload();
     
     /**
+     * @brief Cancel the download writing to savePath, leaving the others running
+     * @param savePath Destination path the download was started with
+     */
+    void cancelDownload(const QString& savePath);
+    
+    /**
      * @brief Get download status
-     * @return Whether a download is in progress
+     * @return Whether any download is in progress
      */
     bool isDownloading() const;
     
@@ -117,7 +124,10 @@ private:
     DownloadManager& operator=(const DownloadManager&) = delete;
     
 private:
-    bool m_isDownloading;
-    // Destination of the in-flight transfer, used to cancel exactly that one.
-    QString m_currentSavePath;
+    // In-flight transfers keyed by destination path. Several may run at once,
+    // but two writing the same file may not. The value is a per-start token so
+    // a late finish of a cancelled transfer cannot unregister a newer one that
+    // reused its path.
+    QHash<QString, quint64> m_activeDownloads;
+    quint64 m_nextDownloadToken = 0;
 }; 

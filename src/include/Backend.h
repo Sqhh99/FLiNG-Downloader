@@ -2,6 +2,7 @@
 
 #include <QObject>
 #include <QHash>
+#include <QSet>
 #include <QQmlEngine>
 #include <QVariantList>
 #include <QVariantMap>
@@ -214,6 +215,8 @@ private:
                                const QString& savePath);
     void processNextDownloadTask();
     void startDownloadTask(const QString& taskId);
+    void finishActiveDownloadTask(const QString& taskId);
+    bool isTempPathInUse(const QString& taskId) const;
     int findDownloadTaskIndex(const QString& taskId) const;
     void updateDownloadTask(const QString& taskId, const std::function<void(QVariantMap&)>& updater);
     void updateDownloadTaskDeferred(const QString& taskId, const std::function<void(QVariantMap&)>& updater);
@@ -224,6 +227,7 @@ private:
     void requestSelectedModifierDetail();
     void setDetailState(const QString& state);
     void stopCoverLoading();
+    void startCoverFetch(const QString& imageUrl);
     void loadDownloadedModifiers();
     void saveDownloadedModifiers();
     void refreshCurrentDatabaseVersion();
@@ -241,8 +245,6 @@ private:
     QString m_selectedOptions;
     int m_selectedVersionIndex = 0;
     
-    // Download status
-    bool m_isDownloading = false;
     bool m_searchLoading = false;
     // Survives new result sets, so the combo box and the rows agree.
     int m_sortOrder = 0;
@@ -253,13 +255,19 @@ private:
     quint64 m_activeDetailRequestId = 0;
     QString m_detailState = QStringLiteral("idle");
     quint64 m_nextDownloadTaskId = 0;
-    QString m_activeDownloadTaskId;
+    // Trainers are small, so a few at once fills the line without the queue
+    // turning into a stampede against one host.
+    static constexpr int kMaxConcurrentDownloads = 3;
+    QSet<QString> m_activeDownloadTaskIds;
     QList<QVariantMap> m_downloadTasks;
     QHash<QString, DownloadTaskMeta> m_downloadTaskMeta;
     
-    // Speed calculation
-    QElapsedTimer m_speedTimer;
-    qint64 m_lastSpeedBytes = 0;
+    // Speed calculation, one sample per active task
+    struct SpeedSample {
+        QElapsedTimer timer;
+        qint64 lastBytes = 0;
+    };
+    QHash<QString, SpeedSample> m_speedSamples;
     QTimer* m_speedUpdateTimer = nullptr;
     
     // Throttled download task update (prevents QML delegate rebuild flooding)
@@ -276,6 +284,10 @@ private:
     // Identifier of the cover currently being fetched; used to ignore stale
     // async results when the user switches modifiers mid-flight.
     QString m_coverRequestId;
+    // Screenshot the current cover request is working from. The list row's
+    // screenshot starts the fetch before the detail page answers; the detail
+    // page's only replaces it when it names a different image.
+    QString m_coverRequestUrl;
 
     // Derive a filesystem-safe cache id from a modifier name.
     static QString coverGameId(const QString& name);
