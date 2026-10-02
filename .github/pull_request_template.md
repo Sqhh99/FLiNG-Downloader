@@ -1,19 +1,40 @@
-## 关联
+<!--
+Thanks for the pull request. One change per PR, please. See CONTRIBUTING.md.
+Leave a checkbox unticked if it does not apply or you did not do it, and say why.
+-->
 
-<!-- 有对应 Issue 就写 Fixes #编号；没有则简述要解决的问题。 -->
+## Related
 
-## 改了什么
+<!--
+Link the Issue or Discussion, e.g. "Related to #123".
+Please do not write "Fixes #123" or "Closes #123": issues are closed by hand
+once the fix is confirmed in a release.
+No Issue? Describe the problem this solves.
+-->
 
-<!-- 用户或开发者能观察到的变化。不要只贴文件列表。 -->
+## What changed
 
-## 怎么验证
+<!-- What users or developers will notice. Please don't just list the files. -->
 
-- [ ] `cargo test --workspace`
-- [ ] 本地跑过相关界面 / 下载 / 搜索路径
+## Type of change
 
-## 检查项
+- [ ] Bug fix
+- [ ] New feature
+- [ ] Performance or refactoring (no behavior change intended)
+- [ ] Docs, CI, or build only
 
-- [ ] 已阅读 [CONTRIBUTING.md](https://github.com/Sqhh99/FLiNG-Downloader/blob/main/CONTRIBUTING.md)
-- [ ] 界面改动附了截图（不适用可删）
-- [ ] 若改动了翻译库、i18n、模型或打包资源，已在上文写明
-- [ ] AI 使用披露：否 / 是（说明用在哪一部分）
+## How it was tested
+
+- [ ] `cargo test --workspace` passes
+- [ ] `cargo clippy --workspace --all-targets -- -D warnings` and `cargo fmt --all --check` pass
+- [ ] Tried the affected flow in the app (search / download / covers / library / settings — say which)
+
+<!-- Anything you could not test, and who needs to test it before merge. -->
+
+## Checklist
+
+- [ ] I have read [CONTRIBUTING.md](https://github.com/Sqhh99/FLiNG-Downloader/blob/main/CONTRIBUTING.md)
+- [ ] UI changes include before-and-after screenshots
+- [ ] New user-facing strings are in `crates/fling-ui/locales/app.yml` with zh-CN, en and ja values
+- [ ] Changes to the translation database, i18n files, ONNX model, or packaging layout are called out above
+- [ ] AI disclosure: No / Yes (say which parts, and whether you verified them)
