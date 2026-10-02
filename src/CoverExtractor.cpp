@@ -3,6 +3,10 @@
 #include <QNetworkRequest>
 #include <QUrl>
 #include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QSaveFile>
+#include <QStringList>
 #include <QCryptographicHash>
 #include <QDebug>
 #include <QBuffer>
@@ -24,6 +28,10 @@ namespace {
 constexpr float kCoverConfThreshold = 0.25f;
 constexpr float kCoverIouThreshold = 0.45f;
 
+// The model file name doubles as the no-cover marker's suffix, so shipping a
+// new model retries screenshots the old one gave up on.
+constexpr auto kCoverModelName = "game-cover-v2";
+
 // Lazily-initialized, shared YOLO detector. Loading the ONNX model is a
 // one-time cost (tens to hundreds of ms); subsequent inferences reuse it.
 yolos::det::YOLODetector* coverDetector()
@@ -33,7 +41,7 @@ yolos::det::YOLODetector* coverDetector()
 
     std::call_once(onceFlag, []() {
         const QString baseDir = QCoreApplication::applicationDirPath();
-        const QString modelPath = baseDir + "/models/game-cover-v2.onnx";
+        const QString modelPath = baseDir + "/models/" + kCoverModelName + ".onnx";
         const QString labelsPath = baseDir + "/models/game-cover.names";
 
         if (!QFile::exists(modelPath)) {
@@ -55,6 +63,15 @@ yolos::det::YOLODetector* coverDetector()
     return detector.get();
 }
 
+QStringList readNoCoverUrls(const QString& markerPath)
+{
+    QFile marker(markerPath);
+    if (!marker.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return {};
+    }
+    return QString::fromUtf8(marker.readAll()).split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+}
+
 } // namespace
 
 CoverExtractor::CoverExtractor(QObject *parent)
@@ -67,51 +84,69 @@ CoverExtractor::~CoverExtractor()
 {
 }
 
-void CoverExtractor::extractCoverFromTrainerImage(const QString& imageUrl,
-                                                 std::function<void(const QPixmap&, bool)> callback)
+void CoverExtractor::extractCoverToCache(const QString& imageUrl,
+                                         const QString& gameId,
+                                         std::function<void(CoverResult)> callback)
 {
     QNetworkRequest request{QUrl(imageUrl)};
     request.setHeader(QNetworkRequest::UserAgentHeader,
                      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+    // Without a limit a stalled screenshot host keeps the spinner up forever.
+    request.setTransferTimeout(30000);
 
     QNetworkReply* reply = m_networkManager->get(request);
+
+    // Paths are resolved here on the GUI thread; the worker only gets strings.
+    const QString coverPath = cachedCoverPath(gameId);
+    const QString markerPath = noCoverMarkerPath(gameId);
 
     // Bind the callback to this specific reply so overlapping requests never
     // clobber one another (the previous shared-member design crossed results
     // when modifiers were switched quickly).
-    connect(reply, &QNetworkReply::finished, this, [this, reply, callback]() {
+    connect(reply, &QNetworkReply::finished, this,
+            [this, reply, callback, coverPath, markerPath, imageUrl]() {
         reply->deleteLater();
 
         if (reply->error() != QNetworkReply::NoError) {
-            callback(QPixmap(), false);
+            callback(CoverResult::Failed);
             return;
         }
 
         const QByteArray imageData = reply->readAll();
 
-        // Decode + model inference are CPU-heavy; run them on a worker thread so
-        // the GUI stays responsive. QPixmap is GUI-only, so the worker returns a
-        // QImage and we convert it back here on the GUI thread.
-        auto* watcher = new QFutureWatcher<QImage>(this);
-        connect(watcher, &QFutureWatcher<QImage>::finished, this, [watcher, callback]() {
-            const QImage cover = watcher->result();
+        // Decode, model inference and PNG encoding are CPU-heavy; run them on
+        // a worker thread so the GUI stays responsive.
+        auto* watcher = new QFutureWatcher<CoverResult>(this);
+        connect(watcher, &QFutureWatcher<CoverResult>::finished, this, [watcher, callback]() {
+            const CoverResult result = watcher->result();
             watcher->deleteLater();
-            if (cover.isNull()) {
-                callback(QPixmap(), false);
-            } else {
-                callback(QPixmap::fromImage(cover), true);
-            }
+            callback(result);
         });
-        watcher->setFuture(
-            QtConcurrent::run(&CoverExtractor::extractCoverImageFromData, imageData));
+        watcher->setFuture(QtConcurrent::run(&CoverExtractor::extractCoverDataToFile,
+                                             imageData, coverPath, markerPath, imageUrl));
     });
 }
 
-QImage CoverExtractor::extractCoverImageFromData(const QByteArray& imageData)
+void CoverExtractor::warmUpModelAsync()
+{
+    (void)QtConcurrent::run([]() {
+        (void)coverDetector();
+    });
+}
+
+CoverExtractor::CoverResult CoverExtractor::extractCoverDataToFile(const QByteArray& imageData,
+                                                                   const QString& coverPath,
+                                                                   const QString& markerPath,
+                                                                   const QString& imageUrl)
 {
     QImage img;
     if (!img.loadFromData(imageData)) {
-        return QImage();
+        return CoverResult::Failed;
+    }
+    // A missing or broken model says nothing about this screenshot, so it
+    // must not be remembered as "no cover".
+    if (!coverDetector()) {
+        return CoverResult::Failed;
     }
     if (img.format() != QImage::Format_RGB888) {
         img = img.convertToFormat(QImage::Format_RGB888);
@@ -123,15 +158,30 @@ QImage CoverExtractor::extractCoverImageFromData(const QByteArray& imageData)
                 const_cast<uchar*>(img.bits()),
                 static_cast<size_t>(img.bytesPerLine()));
 
-    cv::Mat cover = extractCoverByModel(rgb);
+    bool inferenceFailed = false;
+    cv::Mat cover = extractCoverByModel(rgb, &inferenceFailed);
+    if (inferenceFailed) {
+        return CoverResult::Failed;
+    }
     if (cover.empty() || cover.channels() != 3) {
-        return QImage();
+        QFile marker(markerPath);
+        if (marker.open(QIODevice::Append | QIODevice::Text)) {
+            marker.write(imageUrl.toUtf8() + '\n');
+        }
+        return CoverResult::NoCover;
     }
 
-    // Copy to detach the QImage from the cv::Mat's memory before it goes away.
-    QImage out(cover.data, cover.cols, cover.rows,
-               static_cast<int>(cover.step), QImage::Format_RGB888);
-    return out.copy();
+    const QImage out(cover.data, cover.cols, cover.rows,
+                     static_cast<int>(cover.step), QImage::Format_RGB888);
+
+    // QSaveFile writes to a unique temp file and swaps it in, so neither QML
+    // nor hasCachedCover() ever sees a half-written PNG, and two extractions
+    // for one game cannot interleave their bytes.
+    QSaveFile file(coverPath);
+    if (!file.open(QIODevice::WriteOnly) || !out.save(&file, "PNG") || !file.commit()) {
+        return CoverResult::Failed;
+    }
+    return CoverResult::Saved;
 }
 
 QPixmap CoverExtractor::processTrainerImage(const QPixmap& originalImage)
@@ -154,7 +204,7 @@ QPixmap CoverExtractor::processTrainerImage(const QPixmap& originalImage)
     return matToQPixmap(cover);
 }
 
-cv::Mat CoverExtractor::extractCoverByModel(const cv::Mat& rgbImage)
+cv::Mat CoverExtractor::extractCoverByModel(const cv::Mat& rgbImage, bool* inferenceFailed)
 {
     try {
         yolos::det::YOLODetector* detector = coverDetector();
@@ -200,6 +250,9 @@ cv::Mat CoverExtractor::extractCoverByModel(const cv::Mat& rgbImage)
 
     } catch (const std::exception& e) {
         LOG_WARN() << "Model-based cover extraction failed:" << e.what();
+        if (inferenceFailed) {
+            *inferenceFailed = true;
+        }
         return cv::Mat();
     }
 }
@@ -273,29 +326,32 @@ QString CoverExtractor::getCacheDirectory()
     return dir.absoluteFilePath("covers");
 }
 
-QPixmap CoverExtractor::getCachedCover(const QString& gameId)
+QString CoverExtractor::cachedCoverPath(const QString& gameId)
 {
-    QString cacheDir = getCacheDirectory();
-    QString cachedPath = QDir(cacheDir).absoluteFilePath(gameId + ".png");
-    
-    if (QFile::exists(cachedPath)) {
-        QPixmap cached(cachedPath);
-        if (!cached.isNull()) {
-            return cached;
-        }
-    }
-    
-    return QPixmap();
+    return QDir(getCacheDirectory()).absoluteFilePath(gameId + ".png");
 }
 
-bool CoverExtractor::saveCoverToCache(const QString& gameId, const QPixmap& cover)
+QString CoverExtractor::noCoverMarkerPath(const QString& gameId)
 {
-    if (cover.isNull()) {
+    return QDir(getCacheDirectory()).absoluteFilePath(
+        gameId + "." + kCoverModelName + ".nocover");
+}
+
+bool CoverExtractor::hasCachedCover(const QString& gameId)
+{
+    if (gameId.isEmpty()) {
         return false;
     }
-    
-    QString cacheDir = getCacheDirectory();
-    QString cachedPath = QDir(cacheDir).absoluteFilePath(gameId + ".png");
-    
-    return cover.save(cachedPath, "PNG");
+    const QFileInfo info(cachedCoverPath(gameId));
+    return info.isFile() && info.size() > 0;
+}
+
+bool CoverExtractor::isKnownWithoutCover(const QString& gameId, const QString& imageUrl)
+{
+    if (gameId.isEmpty() || imageUrl.isEmpty()) {
+        return false;
+    }
+    // Keyed by screenshot URL: a trainer page that gets a new screenshot is
+    // worth another look.
+    return readNoCoverUrls(noCoverMarkerPath(gameId)).contains(imageUrl);
 }

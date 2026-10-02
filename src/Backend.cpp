@@ -21,6 +21,7 @@
 #include "TranslationTextUtils.h"
 #include "Logger.h"
 #include <QSet>
+#include <utility>
 
 namespace {
 // Make a string safe to use as a single path component: strip characters
@@ -180,26 +181,31 @@ Backend::Backend(QObject* parent)
     m_speedUpdateTimer = new QTimer(this);
     m_speedUpdateTimer->setInterval(1000);
     connect(m_speedUpdateTimer, &QTimer::timeout, this, [this]() {
-        if (m_activeDownloadTaskId.isEmpty()) {
+        if (m_activeDownloadTaskIds.isEmpty()) {
             m_speedUpdateTimer->stop();
             return;
         }
-        const int idx = findDownloadTaskIndex(m_activeDownloadTaskId);
-        if (idx < 0) return;
-        
-        const qint64 currentBytes = m_downloadTasks[idx].value("bytesReceived").toLongLong();
-        const qint64 elapsed = m_speedTimer.elapsed();
-        
-        qint64 speed = 0;
-        if (elapsed > 0) {
-            speed = qMax(0LL, (currentBytes - m_lastSpeedBytes) * 1000 / elapsed);
+        for (const QString& taskId : std::as_const(m_activeDownloadTaskIds)) {
+            const int idx = findDownloadTaskIndex(taskId);
+            const auto sample = m_speedSamples.find(taskId);
+            if (idx < 0 || sample == m_speedSamples.end()) {
+                continue;
+            }
+
+            const qint64 currentBytes = m_downloadTasks[idx].value("bytesReceived").toLongLong();
+            const qint64 elapsed = sample->timer.elapsed();
+
+            qint64 speed = 0;
+            if (elapsed > 0) {
+                speed = qMax(0LL, (currentBytes - sample->lastBytes) * 1000 / elapsed);
+            }
+            sample->lastBytes = currentBytes;
+            sample->timer.restart();
+
+            updateDownloadTaskDeferred(taskId, [speed](QVariantMap& task) {
+                task["speed"] = speed;
+            });
         }
-        m_lastSpeedBytes = currentBytes;
-        m_speedTimer.restart();
-        
-        updateDownloadTaskDeferred(m_activeDownloadTaskId, [speed](QVariantMap& task) {
-            task["speed"] = speed;
-        });
     });
 
     // Throttle timer for download task UI updates (prevents QML delegate rebuild flooding)
@@ -216,6 +222,12 @@ Backend::Backend(QObject* parent)
     refreshCurrentDatabaseVersion();
     loadDownloadedModifiers();
     fetchRecentModifiers();
+
+    // Load the cover model once the window is up rather than on the first
+    // uncached cover, where it would add its load time to that wait.
+    QTimer::singleShot(1000, this, []() {
+        CoverExtractor::warmUpModelAsync();
+    });
 
     if (autoCheckAppUpdates()) {
         QTimer::singleShot(1500, this, [this]() {
@@ -396,9 +408,10 @@ void Backend::selectModifier(int index)
     // modifier's cover.
     const QString gameId = coverGameId(m_selectedModifier.name);
     m_coverRequestId = gameId;
-    if (!gameId.isEmpty() && !CoverExtractor::getCachedCover(gameId).isNull()) {
-        m_currentCoverPath = "file:///" + CoverExtractor::getCacheDirectory()
-                             + "/" + gameId + ".png";
+    m_coverRequestUrl.clear();
+    const bool hasCachedCover = CoverExtractor::hasCachedCover(gameId);
+    if (hasCachedCover) {
+        m_currentCoverPath = "file:///" + CoverExtractor::cachedCoverPath(gameId);
         m_coverLoading = false;
     } else {
         m_currentCoverPath.clear();
@@ -406,7 +419,13 @@ void Backend::selectModifier(int index)
     }
     emit coverExtracted();
     emit coverLoadingChanged();
-    
+
+    // The list row usually already carries the screenshot, so the cover need
+    // not wait for the detail page to come back first.
+    if (!hasCachedCover && !gameId.isEmpty()) {
+        startCoverFetch(m_selectedModifier.screenshotUrl);
+    }
+
     requestSelectedModifierDetail();
 }
 
@@ -438,9 +457,12 @@ void Backend::stopCoverLoading()
 void Backend::requestSelectedModifierDetail()
 {
     if (m_selectedModifier.url.isEmpty()) {
-        // Nothing to fetch, so the drawer must not sit on a spinner.
+        // Nothing to fetch, so the drawer must not sit on a spinner - unless
+        // the list row's screenshot is still being turned into a cover.
         setDetailState(QStringLiteral("empty"));
-        stopCoverLoading();
+        if (m_coverRequestUrl.isEmpty()) {
+            stopCoverLoading();
+        }
         return;
     }
 
@@ -465,7 +487,10 @@ void Backend::requestSelectedModifierDetail()
             if (!success || !modifier) {
                 delete modifier;
                 setDetailState(QStringLiteral("error"));
-                stopCoverLoading();
+                // A cover fetch started from the list row finishes on its own.
+                if (m_coverRequestUrl.isEmpty()) {
+                    stopCoverLoading();
+                }
                 return;
             }
 
@@ -547,7 +572,7 @@ void Backend::pauseDownload(const QString& taskId)
         task["status"] = "paused";
         task["resumeRequested"] = true;
     });
-    DownloadManager::getInstance().cancelDownload();
+    DownloadManager::getInstance().cancelDownload(m_downloadTaskMeta.value(taskId).tempPath);
 }
 
 void Backend::resumeDownload(const QString& taskId)
@@ -563,30 +588,15 @@ void Backend::resumeDownload(const QString& taskId)
     }
     
     const bool canResumeFromFile = m_downloadTaskMeta.contains(taskId) && QFile::exists(m_downloadTaskMeta.value(taskId).tempPath);
-    if (status == "failed") {
-        updateDownloadTask(taskId, [canResumeFromFile](QVariantMap& task) {
-            task["status"] = "queued";
-            task["resumeRequested"] = canResumeFromFile;
-            task["errorMessage"] = QString();
-        });
-    }
-    
-    if (m_activeDownloadTaskId.isEmpty()) {
-        if (status == "paused") {
-            startDownloadTask(taskId);
-        } else {
-            processNextDownloadTask();
-        }
-        return;
-    }
-    
-    if (status == "paused") {
-        updateDownloadTask(taskId, [](QVariantMap& task) {
-            task["status"] = "queued";
-            task["resumeRequested"] = true;
-            task["errorMessage"] = QString();
-        });
-    }
+    const bool resumeFromFile = (status == "paused") || canResumeFromFile;
+    updateDownloadTask(taskId, [resumeFromFile](QVariantMap& task) {
+        task["status"] = "queued";
+        task["resumeRequested"] = resumeFromFile;
+        task["errorMessage"] = QString();
+    });
+
+    // Starts it right away when a slot is free; otherwise it waits its turn.
+    processNextDownloadTask();
 }
 
 void Backend::cancelDownload(const QString& taskId)
@@ -605,13 +615,14 @@ void Backend::cancelDownload(const QString& taskId)
         task["status"] = "canceled";
     });
     
-    if (taskId == m_activeDownloadTaskId) {
-        DownloadManager::getInstance().cancelDownload();
+    const DownloadTaskMeta meta = m_downloadTaskMeta.value(taskId);
+    if (m_activeDownloadTaskIds.contains(taskId)) {
+        DownloadManager::getInstance().cancelDownload(meta.tempPath);
         return;
     }
-    
-    const DownloadTaskMeta meta = m_downloadTaskMeta.value(taskId);
-    if (QFile::exists(meta.tempPath)) {
+
+    // A duplicate of a running task shares its temp file; leave that alone.
+    if (!isTempPathInUse(taskId) && QFile::exists(meta.tempPath)) {
         QFile::remove(meta.tempPath);
     }
     
@@ -647,41 +658,62 @@ void Backend::extractCover()
 {
     const QString gameId = coverGameId(m_selectedModifier.name);
 
-    // Cached covers were already shown synchronously in selectModifier().
-    if (!gameId.isEmpty() && !CoverExtractor::getCachedCover(gameId).isNull()) {
+    // Already on screen, from the cache or from the list row's screenshot.
+    if (!m_currentCoverPath.isEmpty() || CoverExtractor::hasCachedCover(gameId)) {
         return;
     }
 
-    if (m_selectedModifier.screenshotUrl.isEmpty()) {
-        // Nothing to fetch: stop the spinner and fall back to "暂无封面".
-        if (m_coverLoading) {
-            m_coverLoading = false;
-            emit coverLoadingChanged();
+    if (gameId.isEmpty() || m_selectedModifier.screenshotUrl.isEmpty()) {
+        // Nothing new to fetch. Unless the list row's screenshot is still
+        // being worked on, fall back to "暂无封面".
+        if (m_coverRequestUrl.isEmpty()) {
+            stopCoverLoading();
         }
         return;
     }
 
+    startCoverFetch(m_selectedModifier.screenshotUrl);
+}
 
-    m_coverExtractor->extractCoverFromTrainerImage(
-        m_selectedModifier.screenshotUrl,
-        [this, gameId](const QPixmap& cover, bool success) {
-            // Ignore results for a modifier the user has already navigated away
-            // from, so a late download never overwrites the current selection.
-            if (gameId != m_coverRequestId) {
+void Backend::startCoverFetch(const QString& imageUrl)
+{
+    const QString gameId = m_coverRequestId;
+    // A second request for the screenshot already in hand changes nothing.
+    if (gameId.isEmpty() || imageUrl.isEmpty() || imageUrl == m_coverRequestUrl) {
+        return;
+    }
+    m_coverRequestUrl = imageUrl;
+
+    // The model already looked at this exact screenshot and found nothing;
+    // downloading it again would only find nothing again.
+    if (CoverExtractor::isKnownWithoutCover(gameId, imageUrl)) {
+        stopCoverLoading();
+        return;
+    }
+
+    if (!m_coverLoading) {
+        m_coverLoading = true;
+        emit coverLoadingChanged();
+    }
+
+    m_coverExtractor->extractCoverToCache(
+        imageUrl,
+        gameId,
+        [this, gameId, imageUrl](CoverExtractor::CoverResult result) {
+            // Ignore results for a modifier the user has already navigated
+            // away from, or a screenshot the detail page has since replaced,
+            // so a late download never overwrites the current selection.
+            if (gameId != m_coverRequestId || imageUrl != m_coverRequestUrl) {
                 return;
             }
 
-            if (success && !cover.isNull() && CoverExtractor::saveCoverToCache(gameId, cover)) {
-                m_currentCoverPath = "file:///" + CoverExtractor::getCacheDirectory()
-                                     + "/" + gameId + ".png";
-                emit coverExtracted();
+            if (result == CoverExtractor::CoverResult::Saved) {
+                m_currentCoverPath = "file:///" + CoverExtractor::cachedCoverPath(gameId);
             } else {
                 m_currentCoverPath.clear();
-                emit coverExtracted();
             }
-
-            m_coverLoading = false;
-            emit coverLoadingChanged();
+            emit coverExtracted();
+            stopCoverLoading();
         }
     );
 }
@@ -1071,26 +1103,59 @@ QString Backend::createDownloadTask(const ModifierInfo& modifier,
 
 void Backend::processNextDownloadTask()
 {
-    if (!m_activeDownloadTaskId.isEmpty()) {
-        return;
-    }
-    
-    int nextIndex = -1;
-    for (int i = 0; i < m_downloadTasks.size(); ++i) {
-        if (m_downloadTasks[i].value("status").toString() == "queued") {
-            nextIndex = i;
-            break;
+    // Snapshot first: a task can finish synchronously inside
+    // startDownloadTask() (an empty URL, say), which re-enters here and
+    // rewrites m_downloadTasks underneath this loop.
+    QStringList queuedTaskIds;
+    for (const QVariantMap& task : std::as_const(m_downloadTasks)) {
+        if (task.value("status").toString() == "queued") {
+            queuedTaskIds.append(task.value("taskId").toString());
         }
     }
-    
-    if (nextIndex < 0) {
-        if (m_isDownloading) {
-            m_isDownloading = false;
+
+    for (const QString& taskId : std::as_const(queuedTaskIds)) {
+        if (m_activeDownloadTaskIds.size() >= kMaxConcurrentDownloads) {
+            return;
         }
-        return;
+        const int index = findDownloadTaskIndex(taskId);
+        if (index < 0 || m_downloadTasks[index].value("status").toString() != "queued") {
+            continue;
+        }
+        // The same trainer version queued twice writes one temp file; the
+        // second copy waits until the first is done with it.
+        if (isTempPathInUse(taskId)) {
+            continue;
+        }
+        startDownloadTask(taskId);
     }
-    
-    startDownloadTask(m_downloadTasks[nextIndex].value("taskId").toString());
+}
+
+bool Backend::isTempPathInUse(const QString& taskId) const
+{
+    const QString tempPath = m_downloadTaskMeta.value(taskId).tempPath;
+    for (const QString& activeId : m_activeDownloadTaskIds) {
+        if (activeId != taskId && m_downloadTaskMeta.value(activeId).tempPath == tempPath) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void Backend::finishActiveDownloadTask(const QString& taskId)
+{
+    m_activeDownloadTaskIds.remove(taskId);
+    m_speedSamples.remove(taskId);
+
+    if (m_activeDownloadTaskIds.isEmpty()) {
+        m_speedUpdateTimer->stop();
+        m_taskUpdateTimer->stop();
+        if (m_downloadTasksDirty) {
+            m_downloadTasksDirty = false;
+            emit downloadTasksChanged();
+        }
+    }
+
+    processNextDownloadTask();
 }
 
 void Backend::startDownloadTask(const QString& taskId)
@@ -1117,16 +1182,19 @@ void Backend::startDownloadTask(const QString& taskId)
         QFile::remove(meta.savePath);
     }
     
-    m_activeDownloadTaskId = taskId;
-    if (!m_isDownloading) {
-        m_isDownloading = true;
+    m_activeDownloadTaskIds.insert(taskId);
+
+    // Start speed tracking. The timers are shared by every active task, so a
+    // new task must not restart them under the ones already running.
+    SpeedSample& sample = m_speedSamples[taskId];
+    sample.lastBytes = resumeFrom;
+    sample.timer.start();
+    if (!m_speedUpdateTimer->isActive()) {
+        m_speedUpdateTimer->start();
     }
-    
-    // Start speed tracking
-    m_lastSpeedBytes = resumeFrom;
-    m_speedTimer.start();
-    m_speedUpdateTimer->start();
-    m_taskUpdateTimer->start();
+    if (!m_taskUpdateTimer->isActive()) {
+        m_taskUpdateTimer->start();
+    }
     
     updateDownloadTask(taskId, [resumeFrom](QVariantMap& task) {
         task["status"] = "downloading";
@@ -1148,44 +1216,27 @@ void Backend::startDownloadTask(const QString& taskId)
             Q_UNUSED(isArchive)
             const int taskIndex = findDownloadTaskIndex(taskId);
             if (taskIndex < 0) {
-                m_activeDownloadTaskId.clear();
-                processNextDownloadTask();
+                finishActiveDownloadTask(taskId);
                 return;
             }
-            
+
             const QString currentStatus = m_downloadTasks[taskIndex].value("status").toString();
-            
+
             if (currentStatus == "paused") {
-                m_speedUpdateTimer->stop();
-                m_taskUpdateTimer->stop();
-                if (m_downloadTasksDirty) {
-                    m_downloadTasksDirty = false;
-                    emit downloadTasksChanged();
-                }
                 updateDownloadTask(taskId, [](QVariantMap& task) {
                     task["speed"] = 0;
                 });
-                m_activeDownloadTaskId.clear();
-                m_isDownloading = false;
-                processNextDownloadTask();
+                finishActiveDownloadTask(taskId);
                 return;
             }
-            
+
             if (currentStatus == "canceled") {
-                m_speedUpdateTimer->stop();
-                m_taskUpdateTimer->stop();
-                if (m_downloadTasksDirty) {
-                    m_downloadTasksDirty = false;
-                    emit downloadTasksChanged();
-                }
                 const DownloadTaskMeta taskMeta = m_downloadTaskMeta.value(taskId);
                 // Delete .crdownload temp file on cancel
                 if (QFile::exists(taskMeta.tempPath)) {
                     QFile::remove(taskMeta.tempPath);
                 }
-                m_activeDownloadTaskId.clear();
-                m_isDownloading = false;
-                processNextDownloadTask();
+                finishActiveDownloadTask(taskId);
                 return;
             }
             
@@ -1262,15 +1313,7 @@ void Backend::startDownloadTask(const QString& taskId)
                 });
             }
             
-            m_speedUpdateTimer->stop();
-            m_taskUpdateTimer->stop();
-            if (m_downloadTasksDirty) {
-                m_downloadTasksDirty = false;
-                emit downloadTasksChanged();
-            }
-            m_activeDownloadTaskId.clear();
-            m_isDownloading = false;
-            processNextDownloadTask();
+            finishActiveDownloadTask(taskId);
         },
         [this, taskId](qint64 bytesReceived, qint64 bytesTotal) {
             // Always update progress even when bytesTotal is unknown
@@ -1288,9 +1331,6 @@ void Backend::startDownloadTask(const QString& taskId)
                     task["bytesTotal"] = bytesTotal;
                 }
             });
-            
-            if (taskId == m_activeDownloadTaskId) {
-            }
         },
         resumeFrom,
         true

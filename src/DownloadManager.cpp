@@ -6,7 +6,6 @@
 
 DownloadManager::DownloadManager(QObject* parent)
     : QObject(parent)
-    , m_isDownloading(false)
 {
 }
 
@@ -17,7 +16,9 @@ void DownloadManager::downloadFile(const QString& url,
                                   qint64 resumeFrom,
                                   bool keepPartialOnAbort)
 {
-    if (m_isDownloading) {
+    // Different files may download in parallel; the same destination may not,
+    // since both transfers would write into one file.
+    if (m_activeDownloads.contains(savePath)) {
         if (completedCallback) {
             completedCallback(false, "Download already in progress", savePath);
         }
@@ -33,8 +34,8 @@ void DownloadManager::downloadFile(const QString& url,
         return;
     }
     
-    m_isDownloading = true;
-    m_currentSavePath = savePath;
+    const quint64 token = ++m_nextDownloadToken;
+    m_activeDownloads.insert(savePath, token);
     
     // Use NetworkManager to download file
     NetworkManager::getInstance().downloadFile(
@@ -45,10 +46,10 @@ void DownloadManager::downloadFile(const QString& url,
                 progressCallback(bytesReceived, bytesTotal);
             }
         },
-        [this, completedCallback, savePath](bool success, const QString& errorMsg) {
-            m_isDownloading = false;
-            if (m_currentSavePath == savePath) {
-                m_currentSavePath.clear();
+        [this, completedCallback, savePath, token](bool success, const QString& errorMsg) {
+            const auto active = m_activeDownloads.constFind(savePath);
+            if (active != m_activeDownloads.cend() && active.value() == token) {
+                m_activeDownloads.erase(active);
             }
             
             if (success) {
@@ -140,19 +141,24 @@ void DownloadManager::downloadModifier(const ModifierInfo& modifier,
 
 void DownloadManager::cancelDownload()
 {
-    if (m_isDownloading) {
-        // Copy first: abort() can run the finished handler synchronously,
-        // which clears m_currentSavePath while we are still using it.
-        const QString savePath = m_currentSavePath;
-        m_isDownloading = false;
-        m_currentSavePath.clear();
+    // Copy first: abort() can run the finished handler synchronously, which
+    // edits m_activeDownloads while we would still be iterating it.
+    const QList<QString> savePaths = m_activeDownloads.keys();
+    for (const QString& savePath : savePaths) {
+        cancelDownload(savePath);
+    }
+}
+
+void DownloadManager::cancelDownload(const QString& savePath)
+{
+    if (m_activeDownloads.remove(savePath)) {
         NetworkManager::getInstance().cancelDownload(savePath);
     }
 }
 
 bool DownloadManager::isDownloading() const
 {
-    return m_isDownloading;
+    return !m_activeDownloads.isEmpty();
 }
 
 QString DownloadManager::cleanUrl(const QString& url) const

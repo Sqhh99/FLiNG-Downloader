@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include <QFile>
+#include <QHash>
 #include <QTemporaryDir>
 
 #include "DownloadManager.h"
@@ -81,7 +82,57 @@ TEST_F(DownloadManagerTest, DownloadFileRenamesDetectedExecutableFormat)
     EXPECT_FALSE(QFile::exists(originalPath));
 }
 
-TEST_F(DownloadManagerTest, ConcurrentDownloadRequestsAreRejected)
+TEST_F(DownloadManagerTest, DownloadsToDifferentPathsRunConcurrently)
+{
+    QTemporaryDir tempDir;
+    ASSERT_TRUE(tempDir.isValid());
+
+    QHash<QString, DownloadFinishedCallback> pendingFinishedCallbacks;
+    bool firstSuccess = false;
+    bool secondSuccess = false;
+
+    m_networkHooks.setDownloadHandler(
+        [&pendingFinishedCallbacks](const QString&,
+                                    const QString& savePath,
+                                    const QString&,
+                                    qint64,
+                                    bool,
+                                    DownloadProgressCallback,
+                                    DownloadFinishedCallback finishedCallback) {
+            pendingFinishedCallbacks.insert(savePath, std::move(finishedCallback));
+            return true;
+        });
+
+    const QString firstPath = tempDir.filePath(QStringLiteral("first.zip"));
+    const QString secondPath = tempDir.filePath(QStringLiteral("second.zip"));
+    ASSERT_TRUE(TestSupport::writeFileBytes(firstPath, QByteArray("PK\x03\x04", 4)));
+    ASSERT_TRUE(TestSupport::writeFileBytes(secondPath, QByteArray("PK\x03\x04", 4)));
+
+    DownloadManager::getInstance().downloadFile(
+        QStringLiteral("https://example.com/first.zip"),
+        firstPath,
+        DLProgressCallback(),
+        [&firstSuccess](bool ok, const QString&, const QString&) { firstSuccess = ok; });
+    DownloadManager::getInstance().downloadFile(
+        QStringLiteral("https://example.com/second.zip"),
+        secondPath,
+        DLProgressCallback(),
+        [&secondSuccess](bool ok, const QString&, const QString&) { secondSuccess = ok; });
+
+    ASSERT_EQ(pendingFinishedCallbacks.size(), 2);
+    EXPECT_TRUE(DownloadManager::getInstance().isDownloading());
+
+    pendingFinishedCallbacks.value(firstPath)(true, QString(), 200);
+    EXPECT_TRUE(firstSuccess);
+    // The other transfer is still running.
+    EXPECT_TRUE(DownloadManager::getInstance().isDownloading());
+
+    pendingFinishedCallbacks.value(secondPath)(true, QString(), 200);
+    EXPECT_TRUE(secondSuccess);
+    EXPECT_FALSE(DownloadManager::getInstance().isDownloading());
+}
+
+TEST_F(DownloadManagerTest, SecondDownloadToTheSamePathIsRejected)
 {
     QTemporaryDir tempDir;
     ASSERT_TRUE(tempDir.isValid());
@@ -105,9 +156,10 @@ TEST_F(DownloadManagerTest, ConcurrentDownloadRequestsAreRejected)
             return true;
         });
 
+    const QString savePath = tempDir.filePath(QStringLiteral("same.zip"));
     DownloadManager::getInstance().downloadFile(
         QStringLiteral("https://example.com/first.zip"),
-        tempDir.filePath(QStringLiteral("first.zip")),
+        savePath,
         DLProgressCallback(),
         [&firstCompleted, &firstSuccess](bool ok, const QString&, const QString&) {
             firstCompleted = true;
@@ -116,7 +168,7 @@ TEST_F(DownloadManagerTest, ConcurrentDownloadRequestsAreRejected)
 
     DownloadManager::getInstance().downloadFile(
         QStringLiteral("https://example.com/second.zip"),
-        tempDir.filePath(QStringLiteral("second.zip")),
+        savePath,
         DLProgressCallback(),
         [&secondCompleted, &secondSuccess, &secondError](bool ok,
                                                          const QString& error,
@@ -136,6 +188,38 @@ TEST_F(DownloadManagerTest, ConcurrentDownloadRequestsAreRejected)
 
     EXPECT_TRUE(firstCompleted);
     EXPECT_TRUE(firstSuccess);
+    EXPECT_FALSE(DownloadManager::getInstance().isDownloading());
+}
+
+TEST_F(DownloadManagerTest, CancellingOneDownloadLeavesTheOthersRunning)
+{
+    QTemporaryDir tempDir;
+    ASSERT_TRUE(tempDir.isValid());
+
+    m_networkHooks.setDownloadHandler(
+        [](const QString&,
+           const QString&,
+           const QString&,
+           qint64,
+           bool,
+           DownloadProgressCallback,
+           DownloadFinishedCallback) {
+            return true;  // Never finishes on its own.
+        });
+
+    const QString firstPath = tempDir.filePath(QStringLiteral("first.zip"));
+    const QString secondPath = tempDir.filePath(QStringLiteral("second.zip"));
+    DownloadManager::getInstance().downloadFile(
+        QStringLiteral("https://example.com/first.zip"), firstPath,
+        DLProgressCallback(), DLCompletedCallback());
+    DownloadManager::getInstance().downloadFile(
+        QStringLiteral("https://example.com/second.zip"), secondPath,
+        DLProgressCallback(), DLCompletedCallback());
+
+    DownloadManager::getInstance().cancelDownload(firstPath);
+    EXPECT_TRUE(DownloadManager::getInstance().isDownloading());
+
+    DownloadManager::getInstance().cancelDownload(secondPath);
     EXPECT_FALSE(DownloadManager::getInstance().isDownloading());
 }
 

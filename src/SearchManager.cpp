@@ -342,19 +342,51 @@ void SearchManager::loadFeaturedModifiers(std::function<void(const QList<Modifie
 // Uses retries + local cache fallback to avoid empty startup list from transient network errors.
 void SearchManager::fetchRecentlyUpdatedModifiers(std::function<void(const QList<ModifierInfo>&)> callback)
 {
+    // Show the last known list at once rather than an empty window while the
+    // homepage loads (up to three 30-second attempts on a bad connection).
+    const QList<ModifierInfo> cachedList = loadRecentModifiersCache();
+    if (!cachedList.isEmpty()) {
+        updateModifierManagerList(cachedList);
+        if (callback) {
+            callback(cachedList);
+        }
+    }
+
     const int maxAttempts = 3;
-    fetchRecentlyUpdatedModifiersInternal(1, maxAttempts, callback);
+    fetchRecentlyUpdatedModifiersInternal(1, maxAttempts, cachedList, callback);
+}
+
+namespace {
+// Compares only what the list shows, in the form the cache stores it.
+bool sameRecentList(const QList<ModifierInfo>& a, const QList<ModifierInfo>& b)
+{
+    if (a.size() != b.size()) {
+        return false;
+    }
+    for (int i = 0; i < a.size(); ++i) {
+        if (a[i].name != b[i].name
+            || a[i].url != b[i].url
+            || a[i].lastUpdate != b[i].lastUpdate
+            || a[i].gameVersion != b[i].gameVersion
+            || a[i].optionsCount != b[i].optionsCount
+            || a[i].screenshotUrl != b[i].screenshotUrl) {
+            return false;
+        }
+    }
+    return true;
+}
 }
 
 void SearchManager::fetchRecentlyUpdatedModifiersInternal(
     int attempt,
     int maxAttempts,
+    const QList<ModifierInfo>& cachedList,
     std::function<void(const QList<ModifierInfo>&)> callback)
 {
     const QString url = "https://flingtrainer.com/";
     NetworkManager::getInstance().sendGetRequest(
         url,
-        [this, callback, attempt, maxAttempts](const QByteArray& data, bool success) {
+        [this, callback, attempt, maxAttempts, cachedList](const QByteArray& data, bool success) {
             QList<ModifierInfo> modifierList;
             bool fromNetwork = false;
 
@@ -373,19 +405,21 @@ void SearchManager::fetchRecentlyUpdatedModifiersInternal(
             if (modifierList.isEmpty() && attempt < maxAttempts) {
                 LOG_WARN() << "SearchManager: Retrying recently updated fetch, attempt"
                            << (attempt + 1) << "of" << maxAttempts;
-                fetchRecentlyUpdatedModifiersInternal(attempt + 1, maxAttempts, callback);
+                fetchRecentlyUpdatedModifiersInternal(attempt + 1, maxAttempts, cachedList, callback);
                 return;
             }
 
-            if (modifierList.isEmpty()) {
-                modifierList = loadRecentModifiersCache();
-                if (!modifierList.isEmpty()) {
-                    LOG_WARN() << "SearchManager: Using cached recently updated list";
+            if (!fromNetwork) {
+                if (!cachedList.isEmpty()) {
+                    // Already on screen; nothing newer to show.
+                    LOG_WARN() << "SearchManager: Keeping cached recently updated list";
+                    return;
                 }
-            }
-
-            if (!fromNetwork && modifierList.isEmpty()) {
-                LOG_WARN() << "SearchManager: Recently updated list unavailable after retries and cache fallback";
+                LOG_WARN() << "SearchManager: Recently updated list unavailable after retries and no cached list";
+            } else if (!cachedList.isEmpty() && sameRecentList(modifierList, cachedList)) {
+                // Unchanged since last run: re-delivering it would only reset
+                // the list view under the user.
+                return;
             }
 
             updateModifierManagerList(modifierList);

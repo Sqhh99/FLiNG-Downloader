@@ -1,6 +1,8 @@
 #pragma once
 
+#include <QDateTime>
 #include <QList>
+#include <QMutex>
 #include <QString>
 
 struct TranslationDatabaseMetadata {
@@ -39,4 +41,37 @@ public:
 private:
     TranslationDatabase() = default;
     QString resolveDatabasePath() const;
+
+    // Resolving opens and validates both candidate files (about six SQLite
+    // opens), and startup asks several times; the game table is also read by
+    // both GameMappingManager and Backend. Both answers are reused until
+    // either candidate changes on disk or an update is installed.
+    struct PathCacheKey {
+        QString overridePath;
+        QDateTime overrideModified;
+        qint64 overrideSize = -1;
+        QString bundledPath;
+        QDateTime bundledModified;
+        qint64 bundledSize = -1;
+
+        bool operator==(const PathCacheKey& other) const
+        {
+            return overridePath == other.overridePath
+                && overrideModified == other.overrideModified
+                && overrideSize == other.overrideSize
+                && bundledPath == other.bundledPath
+                && bundledModified == other.bundledModified
+                && bundledSize == other.bundledSize;
+        }
+    };
+    PathCacheKey currentPathCacheKey() const;
+    void invalidatePathCache() const;
+
+    mutable QMutex m_pathCacheMutex;
+    mutable bool m_hasCachedPath = false;
+    mutable PathCacheKey m_cachedPathKey;
+    mutable QString m_cachedPath;
+    mutable bool m_hasCachedGames = false;
+    mutable PathCacheKey m_cachedGamesKey;
+    mutable QList<TranslationGameRecord> m_cachedGames;
 };
