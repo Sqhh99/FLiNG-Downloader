@@ -57,7 +57,7 @@ image = { version = "0.25.10", default-features = false, features = ["png", "jpe
 # UI
 gpui-kit = "0.7.0"
 rust-i18n = "4.2"
-rust-embed = "8.12"
+rust-embed = { version = "8.12", features = ["include-exclude"] }
 rfd = "0.17"
 opener = "0.9"
 winresource = "0.1.31"

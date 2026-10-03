@@ -14,6 +14,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 pub use api::*;
+/// The receiving end of the backend's event stream.
+pub type EventReceiver = async_channel::Receiver<Event>;
 use fling_config::AppPaths;
 use fling_cover::DetectorLoader;
 use fling_mapping::SuggestionIndex;
