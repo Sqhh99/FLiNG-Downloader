@@ -1,5 +1,6 @@
 [package]
 name = "fling-app"
+description = "The backend facade: owns every service and talks to a UI through commands and events"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -7,6 +8,25 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+async-channel.workspace = true
+fling-config.workspace = true
+fling-core.workspace = true
+fling-cover.workspace = true
+fling-download.workspace = true
+fling-mapping.workspace = true
+fling-net.workspace = true
+fling-site.workspace = true
+fling-update.workspace = true
+parking_lot.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+fling-mapping = { workspace = true, features = ["test-util"] }
+fling-net = { workspace = true, features = ["test-util"] }
+futures.workspace = true
+tempfile.workspace = true
+tracing-subscriber.workspace = true
 
 [lints]
 workspace = true
