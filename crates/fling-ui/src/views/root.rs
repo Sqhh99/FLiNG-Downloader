@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 
 use fling_app::Command;
 use gpui_kit::assets::IconName;
-use gpui_kit::component::{TITLE_BAR_HEIGHT, TitleBar, h_flex, v_flex};
+use gpui_kit::component::{TitleBar, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
@@ -59,17 +59,20 @@ impl Root {
 
         let subscriptions = vec![
             cx.observe(&model, |this, model, cx| {
-                // Debug builds: FLING_DEBUG_OPEN=drawer opens the first result's
+                // Debug builds: FLING_DEBUG_OPEN=drawer[:row] opens that result's
                 // details once results arrive, for screenshot checks.
+                let debug_row = debug_open().and_then(|v| {
+                    v.strip_prefix("drawer")
+                        .map(|rest| rest.trim_start_matches(':').parse().unwrap_or(0))
+                });
                 if cfg!(debug_assertions)
-                    && debug_open().as_deref() == Some("drawer")
-                    && this.drawer_row.is_none()
-                    && !model.read(cx).results.is_empty()
+                    && let Some(row) = debug_row
                     && !this.debug_drawer_done
+                    && model.read(cx).results.len() > row
                 {
                     this.debug_drawer_done = true;
-                    this.drawer_row = Some(0);
-                    model.read(cx).send(Command::Select(0));
+                    this.drawer_row = Some(row);
+                    model.read(cx).send(Command::Select(row));
                 }
                 cx.notify();
             }),
@@ -278,15 +281,14 @@ impl Render for Root {
                     .child(self.render_tab(Tab::Library, tr!("tab.library"), cx)),
             )
             .child(div().flex_1().min_h_0().child(page))
-            // The drawer spans everything below the title bar (tabs included),
-            // like the Qt build, while the window controls stay reachable.
+            // The drawer spans the whole window height, like the Qt build.
             .when(
                 self.tab == Tab::Search && self.drawer_row.is_some(),
                 |root| {
                     root.child(
                         div()
                             .absolute()
-                            .top(TITLE_BAR_HEIGHT)
+                            .top_0()
                             .right_0()
                             .bottom_0()
                             .w(drawer_width)

@@ -99,12 +99,18 @@ impl DetailDrawer {
                 .child(content)
         };
         match &selection.cover {
-            CoverState::Ready(path) => img(path.clone())
-                .max_w(px(110.))
-                .max_h(px(140.))
-                .object_fit(ObjectFit::Contain)
-                .rounded(px(6.))
-                .into_any_element(),
+            CoverState::Ready(path) => {
+                // Size the element to the picture itself so the row around it
+                // follows the cover's real shape.
+                let (w, h) = cover_size(path);
+                img(path.clone())
+                    .w(px(w))
+                    .h(px(h))
+                    .flex_shrink_0()
+                    .object_fit(ObjectFit::Contain)
+                    .rounded(px(6.))
+                    .into_any_element()
+            }
             CoverState::Loading => placeholder(
                 v_flex()
                     .items_center()
@@ -134,30 +140,63 @@ impl DetailDrawer {
             value
         };
         h_flex()
-            .gap_1()
-            .text_sm()
-            .child(div().text_color(c.text_secondary).child(label))
-            .child(div().text_color(c.text).truncate().child(value))
-    }
-
-    fn group(title: SharedString, cx: &App) -> Div {
-        let c = palette(cx);
-        v_flex()
             .gap_2()
-            .p_3()
-            .rounded(px(6.))
-            .border_1()
-            .border_color(c.border)
-            .bg(c.card)
+            .text_size(BODY_TEXT)
+            .line_height(LINE_HEIGHT)
             .child(
                 div()
-                    .text_sm()
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .text_color(c.text)
-                    .child(title),
+                    .flex_shrink_0()
+                    .text_color(c.text_secondary)
+                    .child(label),
             )
+            .child(div().min_w_0().text_color(c.text).truncate().child(value))
+    }
+
+    /// Small caption above a bordered box, as in the Qt drawer.
+    fn caption(text: SharedString, cx: &App) -> impl IntoElement {
+        div()
+            .text_size(BODY_TEXT)
+            .text_color(palette(cx).text_secondary)
+            .child(text)
+    }
+
+    /// Bordered box on the drawer background (no fill of its own).
+    fn framed(cx: &App) -> Div {
+        div()
+            .rounded(px(6.))
+            .border_1()
+            .border_color(palette(cx).border)
     }
 }
+
+/// The largest cover box, as in the Qt drawer.
+const COVER_MAX: (f32, f32) = (110., 140.);
+
+/// Display size of a cached cover: its aspect ratio fitted into `COVER_MAX`.
+/// Covers are always PNG (the extractor writes PNG), so the size comes from
+/// the IHDR chunk; an unreadable file gets the full box.
+fn cover_size(path: &std::path::Path) -> (f32, f32) {
+    let mut header = [0u8; 24];
+    let read =
+        std::fs::File::open(path).and_then(|mut f| std::io::Read::read_exact(&mut f, &mut header));
+    let (w, h) = match read {
+        Ok(()) if &header[..8] == b"\x89PNG\r\n\x1a\n" => (
+            u32::from_be_bytes([header[16], header[17], header[18], header[19]]) as f32,
+            u32::from_be_bytes([header[20], header[21], header[22], header[23]]) as f32,
+        ),
+        _ => return COVER_MAX,
+    };
+    if w <= 0. || h <= 0. {
+        return COVER_MAX;
+    }
+    let scale = (COVER_MAX.0 / w).min(COVER_MAX.1 / h);
+    (w * scale, h * scale)
+}
+
+/// Text sizes of the Qt drawer: 18 px title, 13 px everything else.
+const TITLE_TEXT: Pixels = px(18.);
+const BODY_TEXT: Pixels = px(13.);
+const LINE_HEIGHT: Pixels = px(20.);
 
 impl Render for DetailDrawer {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -171,20 +210,48 @@ impl Render for DetailDrawer {
             selection.detail,
             DetailState::Loading | DetailState::Error | DetailState::Idle
         );
+        let versions: AnyElement = if selection.detail == DetailState::Empty {
+            div()
+                .text_size(BODY_TEXT)
+                .text_color(c.text_muted)
+                .child(tr!("detail.no_versions"))
+                .into_any_element()
+        } else {
+            v_flex()
+                .gap_1()
+                .child(Self::caption(tr!("detail.select_version"), cx))
+                .child(
+                    Self::framed(cx).p_2().child(
+                        h_flex()
+                            .gap_2()
+                            .child(div().flex_1().min_w_0().child(Select::new(&self.versions)))
+                            .child(
+                                Button::new("download")
+                                    .ghost()
+                                    .icon(gpui_kit::component::Icon::new(IconName::Download))
+                                    .tooltip(tr!("detail.download"))
+                                    .disabled(self.version_labels.is_empty())
+                                    .on_click(cx.listener(|this, _, _, cx| this.download(cx))),
+                            ),
+                    ),
+                )
+                .into_any_element()
+        };
+
         let body = v_flex()
-            .id("drawer-body")
             .flex_1()
             .min_h_0()
-            .overflow_y_scroll()
             .gap_3()
             .child(
+                // The info column is centered on the cover, so the row is as
+                // tall as the cover (or the three lines, if the cover is flat).
                 h_flex()
                     .gap_3()
-                    .items_start()
+                    .items_center()
                     .child(self.render_cover(&selection, cx))
                     .child(
                         v_flex()
-                            .gap_2()
+                            .gap_1()
                             .min_w_0()
                             .child(Self::info_row(
                                 tr!("detail.game_version"),
@@ -203,55 +270,38 @@ impl Render for DetailDrawer {
                             )),
                     ),
             )
-            .map(|body| {
-                if selection.detail == DetailState::Empty {
-                    body.child(
-                        div()
-                            .text_sm()
-                            .text_color(c.text_muted)
-                            .child(tr!("detail.no_versions")),
-                    )
-                } else {
-                    body.child(
-                        Self::group(tr!("detail.select_version"), cx).child(
-                            h_flex()
-                                .gap_2()
-                                .child(div().flex_1().min_w_0().child(Select::new(&self.versions)))
-                                .child(
-                                    Button::new("download")
-                                        .primary()
-                                        .icon(gpui_kit::component::Icon::new(IconName::Download))
-                                        .tooltip(tr!("detail.download"))
-                                        .disabled(self.version_labels.is_empty())
-                                        .on_click(cx.listener(|this, _, _, cx| this.download(cx))),
-                                ),
-                        ),
-                    )
-                }
-            })
+            .child(versions)
             .child(
-                Self::group(tr!("detail.options"), cx).child(
-                    v_flex()
-                        .gap_0p5()
-                        .text_sm()
-                        .text_color(c.text)
-                        .children(m.options.iter().map(|line| {
-                            let header = line.starts_with('●');
-                            div()
-                                .when(header, |d| {
-                                    d.mt_1()
-                                        .font_weight(FontWeight::SEMIBOLD)
-                                        .text_color(c.primary_text)
-                                })
-                                .child(line.clone())
-                        })),
-                ),
+                v_flex()
+                    .flex_1()
+                    .min_h_0()
+                    .gap_1()
+                    .child(Self::caption(tr!("detail.options"), cx))
+                    .child(
+                        Self::framed(cx)
+                            .id("drawer-options")
+                            .flex_1()
+                            .min_h_0()
+                            .px_3()
+                            .py_2()
+                            .overflow_y_scroll()
+                            .text_size(BODY_TEXT)
+                            .line_height(LINE_HEIGHT)
+                            .text_color(c.text)
+                            .children(m.options.iter().map(|line| {
+                                let header = line.starts_with('●');
+                                div()
+                                    .when(header, |d| d.font_weight(FontWeight::SEMIBOLD))
+                                    .child(line.clone())
+                            })),
+                    ),
             );
 
         v_flex()
             .id("detail-drawer")
             .size_full()
-            .p_4()
+            .px_3()
+            .pb_3()
             .gap_3()
             .bg(c.surface)
             .border_l_1()
@@ -259,21 +309,26 @@ impl Render for DetailDrawer {
             .shadow_lg()
             .occlude()
             .child(
+                // The drawer covers the title bar, so its header moves the window.
                 h_flex()
+                    .h(px(48.))
+                    .flex_shrink_0()
                     .gap_2()
+                    .window_control_area(WindowControlArea::Drag)
                     .child(
                         div()
                             .flex_1()
                             .min_w_0()
                             .truncate()
-                            .text_lg()
+                            .text_size(TITLE_TEXT)
                             .font_weight(FontWeight::BOLD)
                             .text_color(c.text)
                             .child(m.name.clone()),
                     )
-                    .child(close),
+                    // Keeps the caption drag area from swallowing the click.
+                    .child(div().id("drawer-close-wrap").occlude().child(close)),
             )
-            .child(div().h(px(1.)).bg(c.border))
+            .child(div().h(px(1.)).flex_shrink_0().bg(c.border))
             .map(|drawer| {
                 if !busy {
                     return drawer.child(body);
@@ -308,5 +363,30 @@ impl Render for DetailDrawer {
                         .child(div().text_color(c.text_muted).child(tr!("common.loading")))
                 })
             })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    // Not `super::*`: that brings in GPUI's `test` macro, which shadows `#[test]`.
+    use super::{COVER_MAX, cover_size};
+
+    fn png(dir: &std::path::Path, w: u32, h: u32) -> std::path::PathBuf {
+        let mut bytes = b"\x89PNG\r\n\x1a\n\0\0\0\x0dIHDR".to_vec();
+        bytes.extend_from_slice(&w.to_be_bytes());
+        bytes.extend_from_slice(&h.to_be_bytes());
+        let path = dir.join(format!("{w}x{h}.png"));
+        std::fs::write(&path, bytes).unwrap();
+        path
+    }
+
+    #[test]
+    fn cover_fits_box_keeping_aspect_ratio() {
+        let dir = std::env::temp_dir().join(format!("fling-cover-size-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        assert_eq!(cover_size(&png(&dir, 330, 440)), (105., 140.));
+        assert_eq!(cover_size(&png(&dir, 440, 200)), (110., 50.));
+        assert_eq!(cover_size(&dir.join("missing.png")), COVER_MAX);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

@@ -210,3 +210,30 @@ Debug builds also read a new `FLING_DEBUG_OPEN` variable (`drawer`, `settings`, 
 
 ### Note
 On a dev build the software-update card offers "Download and Install". The version `1.1.10-dev.13+g…` is a prerelease, so it sorts below release `1.1.10`. That is the same comparison the Qt build used.
+
+---
+
+## Follow-up 2 (2026-10-03): detail drawer layout
+
+### Request
+> There are a few issues here: 1. The height of the details page is incorrect; it should match
+> the height of the software interface. 2. The font size needs adjustment. 3. The height of the
+> area to the right of the cover image should adjust according to the cover's height. 4. The
+> background colors for "Select Version to Download" and "Mod Option" are incorrect.
+
+Screenshots of the Rust drawer and the Qt drawer were attached for comparison.
+
+### Changes
+| # | Change | Files |
+|---|--------|-------|
+| 1 | The drawer now spans the full window height (`top_0`), covering the title bar as the Qt drawer did. Its header is a caption drag area, so the window can still be moved while the drawer is open. The close button is occluded so its clicks are not taken as drags. | `crates/fling-ui/src/views/root.rs`, `crates/fling-ui/src/views/detail_drawer.rs` |
+| 2 | Drawer text uses the Qt sizes: 18 px bold title, 13 px with 20 px line height for the info, captions and options. | `crates/fling-ui/src/views/detail_drawer.rs` |
+| 3 | The cover element is sized to the picture: the cached PNG's IHDR size is fitted into 110×140. The compact info column is centered against it, so a wide cover gives a short row. Previously the `img` kept a 140 px box while drawing a letterboxed picture inside it. A unit test covers the sizing. | `crates/fling-ui/src/views/detail_drawer.rs` |
+| 4 | "Select Version to Download" and "Mod Options" are captions above bordered boxes on the drawer's own background, not white cards. The download button is a ghost icon, the option headers are bold in the body color, and the options box fills the rest of the drawer and scrolls inside, as in Qt. | `crates/fling-ui/src/views/detail_drawer.rs` |
+| — | The debug-only `FLING_DEBUG_OPEN` accepts `drawer:N` to open result row N, used to capture a tall cover (row 0) and a wide one (row 5). | `crates/fling-ui/src/views/root.rs` |
+
+### Verification
+- `cargo clippy --workspace --all-targets -- -D warnings`: clean.
+- `cargo test --workspace`: all pass. The UI crate has 4 tests, including the new cover-size test.
+- Screenshots (capture only) of `drawer:0` (tall Dynasty Warriors 3 cover) and `drawer:5` (wide Dream Rivakes cover) confirm all four points.
+- Not checked: dragging the window by the drawer header. It needs mouse input, so it is left for the user.
