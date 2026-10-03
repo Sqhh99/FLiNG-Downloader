@@ -110,13 +110,26 @@ impl SearchPage {
             }),
         ];
 
+        // Debug builds: FLING_DEBUG_OPEN=suggest:<text> types <text> into the
+        // search box at startup, for screenshot checks of the popup.
+        let debug_text = crate::views::root::debug_open()
+            .filter(|_| cfg!(debug_assertions))
+            .and_then(|v| v.strip_prefix("suggest:").map(str::to_owned));
+        let suggestions = match &debug_text {
+            Some(text) => {
+                input.update(cx, |input, cx| input.set_value(text.clone(), window, cx));
+                model.read(cx).suggestions(text, MAX_SUGGESTIONS)
+            }
+            None => Vec::new(),
+        };
+
         Self {
             model,
             input,
             sort,
-            suggestions: Vec::new(),
+            show_suggestions: !suggestions.is_empty(),
+            suggestions,
             highlighted: None,
-            show_suggestions: false,
             selected_row: None,
             language,
             _subscriptions: subscriptions,
@@ -338,7 +351,9 @@ impl Render for SearchPage {
                             .capture_key_down(cx.listener(Self::on_key))
                             .child(Input::new(&self.input).cleanable(true).disabled(loading))
                             .when(self.show_suggestions && !self.suggestions.is_empty(), |d| {
-                                d.child(self.render_suggestions(cx))
+                                // Deferred so it paints above the results table, which comes
+                                // later in the tree and would otherwise cover it.
+                                d.child(deferred(self.render_suggestions(cx)).with_priority(1))
                             }),
                     )
                     .child(

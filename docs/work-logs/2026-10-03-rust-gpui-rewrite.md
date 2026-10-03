@@ -237,3 +237,42 @@ Screenshots of the Rust drawer and the Qt drawer were attached for comparison.
 - `cargo test --workspace`: all pass. The UI crate has 4 tests, including the new cover-size test.
 - Screenshots (capture only) of `drawer:0` (tall Dynasty Warriors 3 cover) and `drawer:5` (wide Dream Rivakes cover) confirm all four points.
 - Not checked: dragging the window by the drawer header. It needs mouse input, so it is left for the user.
+
+---
+
+## Follow-up 3 (2026-10-03): search suggestions and multilingual search
+
+### Request
+> There are a few other issues: the multilingual search function is malfunctioning. Currently,
+> it seems to work only for English searches, while Chinese and Japanese searches appear to be
+> problematic. Additionally, when typing a search term, no list of suggested options appears
+> below the search box; you might want to refer to the logic used in the C++ program.
+
+Screenshots compared the Qt build, which shows suggestions for "荒野" and "Dark", with the Rust build, where only a thin strip appears under the box.
+
+### Finding
+**Suggestions were hidden, not missing.** They were computed and the popup was laid out, but GPUI paints later siblings over earlier ones. The results table comes after the search row, so it painted over the popup, and only the strip between the box and the table showed.
+
+**The search logic already matched `SearchPage.qml` and `Backend::getSuggestionItems`:**
+- suggestions are rebuilt on every keystroke;
+- picking a suggestion searches its English `search_keyword`;
+- Enter without a highlighted suggestion submits the raw text, translated only on an exact or normalized-exact title match.
+
+So with the popup hidden, Chinese and Japanese input had no route to an English title except typing the full title exactly. That is why searching looked broken outside English.
+
+### Changes
+| Change | Files |
+|--------|-------|
+| The suggestion popup is rendered with `deferred(...).with_priority(1)`, so it paints above the results table. | `crates/fling-ui/src/views/search_page.rs` |
+| Debug-only `FLING_DEBUG_OPEN=suggest:<text>` pre-fills the search box and opens the popup, for screenshot checks. | `crates/fling-ui/src/views/search_page.rs` |
+
+### Verification
+- Screenshot with `suggest:荒野` (capture only): the popup lists Clancys Ghost Recon Wildlands, Monster Hunter Wilds, Red Dead Redemption and Red Dead Redemption 2, the same as the Qt build.
+- Live headless searches with full titles:
+  - `モンスターハンターワイルズ` → `?s=Monster+Hunter+Wilds`, 5 results including Monster Hunter Wilds Trainer.
+  - `荒野大镖客：救赎2` → `?s=Red+Dead+Redemption+2`, 5 results including Red Dead Redemption 2 Trainer.
+- `cargo clippy --workspace --all-targets -- -D warnings` clean; `cargo test --workspace` all pass.
+- Not checked: keyboard navigation of the popup (↑/↓/Enter/Esc) and clicking a suggestion. Both need input; they are left for the user.
+
+### Open
+The exact title is not necessarily first in the results. The selected sort ("Recently Updated" by default) is applied after relevance, the same as `Backend::applySortOrder`, so for `荒野大镖客：救赎2` the list starts with "Easy Red 2 Trainer". Kept for parity. A follow-up could keep relevance order for searches and apply the date sort only to the recent list.
