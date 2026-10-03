@@ -261,11 +261,11 @@ impl Render for DetailDrawer {
             .child(
                 h_flex()
                     .gap_2()
-                    .items_start()
                     .child(
                         div()
                             .flex_1()
                             .min_w_0()
+                            .truncate()
                             .text_lg()
                             .font_weight(FontWeight::BOLD)
                             .text_color(c.text)

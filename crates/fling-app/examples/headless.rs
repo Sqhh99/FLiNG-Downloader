@@ -8,11 +8,13 @@
 
 use std::time::Duration;
 
-use fling_app::{BackendConfig, Command, DetailState, Event, start};
+use fling_app::{BackendConfig, Command, CoverState, DetailState, Event, start};
 use fling_config::AppPaths;
 
 fn main() {
-    tracing_subscriber::fmt().with_env_filter("warn").init();
+    tracing_subscriber::fmt()
+        .with_env_filter(std::env::var("RUST_LOG").unwrap_or_else(|_| "warn".into()))
+        .init();
     let args: Vec<String> = std::env::args().skip(1).collect();
     let command = match args.first().map(String::as_str) {
         Some("search") => {
@@ -29,6 +31,7 @@ fn main() {
     // Find resources/fling_translations.db from the repository checkout.
     paths.exe_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let mut config = BackendConfig::for_app("0.0.0-headless".into()).expect("http client");
+    config.cover_detector = fling_app::bundled_cover_detector(paths.clone());
     config.paths = paths;
     config.startup = None;
 
@@ -56,18 +59,22 @@ fn main() {
                 selected = true;
                 handle.send(Command::Select(0));
             }
-            Event::Selection(s)
-                if matches!(
+            Event::Selection(s) => {
+                println!(
+                    "selection: detail {:?}, cover {:?}, screenshot {:?}",
+                    s.detail, s.cover, s.modifier.screenshot_url
+                );
+                let detail_done = matches!(
                     s.detail,
                     DetailState::Ready | DetailState::Empty | DetailState::Error
-                ) =>
-            {
-                println!("detail of {:?}: {:?}", s.modifier.name, s.detail);
-                for v in &s.modifier.versions {
-                    println!("  version {} -> {}", v.label, v.url);
+                );
+                if detail_done && s.cover != CoverState::Loading {
+                    for v in &s.modifier.versions {
+                        println!("  version {} -> {}", v.label, v.url);
+                    }
+                    println!("  {} option line(s)", s.modifier.options.len());
+                    break;
                 }
-                println!("  {} option line(s)", s.modifier.options.len());
-                break;
             }
             _ => {}
         }

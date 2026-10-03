@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 
 use fling_app::Command;
 use gpui_kit::assets::IconName;
-use gpui_kit::component::{TitleBar, h_flex, v_flex};
+use gpui_kit::component::{TITLE_BAR_HEIGHT, TitleBar, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
@@ -40,7 +40,13 @@ pub struct Root {
     /// title-bar button right after must not reopen it.
     downloads_closed_at: Option<Instant>,
     settings_open: bool,
+    debug_drawer_done: bool,
     _subscriptions: Vec<Subscription>,
+}
+
+/// `FLING_DEBUG_OPEN`: which screen a debug build opens at startup.
+pub(crate) fn debug_open() -> Option<String> {
+    std::env::var("FLING_DEBUG_OPEN").ok()
 }
 
 impl Root {
@@ -52,7 +58,21 @@ impl Root {
         let settings = cx.new(|cx| SettingsPanel::new(model.clone(), window, cx));
 
         let subscriptions = vec![
-            cx.observe(&model, |_, _, cx| cx.notify()),
+            cx.observe(&model, |this, model, cx| {
+                // Debug builds: FLING_DEBUG_OPEN=drawer opens the first result's
+                // details once results arrive, for screenshot checks.
+                if cfg!(debug_assertions)
+                    && debug_open().as_deref() == Some("drawer")
+                    && this.drawer_row.is_none()
+                    && !model.read(cx).results.is_empty()
+                    && !this.debug_drawer_done
+                {
+                    this.debug_drawer_done = true;
+                    this.drawer_row = Some(0);
+                    model.read(cx).send(Command::Select(0));
+                }
+                cx.notify();
+            }),
             cx.subscribe(
                 &search,
                 |this, _, event: &SearchPageEvent, cx| match event {
@@ -94,7 +114,9 @@ impl Root {
             drawer_row: None,
             downloads_open: false,
             downloads_closed_at: None,
-            settings_open: false,
+            settings_open: cfg!(debug_assertions)
+                && debug_open().is_some_and(|v| v.starts_with("settings")),
+            debug_drawer_done: false,
             _subscriptions: subscriptions,
         }
     }
@@ -255,20 +277,23 @@ impl Render for Root {
                     .child(self.render_tab(Tab::Search, tr!("tab.search"), cx))
                     .child(self.render_tab(Tab::Library, tr!("tab.library"), cx)),
             )
-            .child(div().relative().flex_1().min_h_0().child(page).when(
+            .child(div().flex_1().min_h_0().child(page))
+            // The drawer spans everything below the title bar (tabs included),
+            // like the Qt build, while the window controls stay reachable.
+            .when(
                 self.tab == Tab::Search && self.drawer_row.is_some(),
-                |area| {
-                    area.child(
+                |root| {
+                    root.child(
                         div()
                             .absolute()
-                            .top_0()
+                            .top(TITLE_BAR_HEIGHT)
                             .right_0()
                             .bottom_0()
                             .w(drawer_width)
                             .child(self.drawer.clone()),
                     )
                 },
-            ))
+            )
             .when(self.downloads_open, |root| {
                 root.child(
                     div()

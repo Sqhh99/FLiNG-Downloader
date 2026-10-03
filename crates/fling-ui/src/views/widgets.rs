@@ -111,24 +111,6 @@ pub fn empty_table(cx: &App) -> impl IntoElement {
         .child(tr!("table.empty"))
 }
 
-/// A card with a title, used by the settings panes.
-pub fn card(title: impl Into<SharedString>, cx: &App) -> Div {
-    let c = palette(cx);
-    v_flex()
-        .gap_2()
-        .p_3()
-        .rounded(px(8.))
-        .border_1()
-        .border_color(c.border)
-        .bg(c.card)
-        .child(
-            div()
-                .font_weight(FontWeight::SEMIBOLD)
-                .text_color(c.text)
-                .child(title.into()),
-        )
-}
-
 /// Overlay that dims what is underneath and swallows its mouse input.
 pub fn scrim(id: impl Into<ElementId>) -> Stateful<Div> {
     div()

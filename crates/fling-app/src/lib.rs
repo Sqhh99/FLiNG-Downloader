@@ -60,12 +60,13 @@ impl BackendConfig {
     /// bundled cover model.
     pub fn for_app(app_version: String) -> Result<Self, String> {
         let http = fling_net::ReqwestClient::new().map_err(|e| e.to_string())?;
+        let paths = AppPaths::system();
         Ok(Self {
-            paths: AppPaths::system(),
+            cover_detector: bundled_cover_detector(paths.clone()),
+            paths,
             app_version,
             http: Arc::new(http),
             site_base_url: fling_site::DEFAULT_BASE_URL.to_owned(),
-            cover_detector: bundled_cover_detector(),
             startup: Some(StartupTimings::default()),
         })
     }
@@ -154,9 +155,8 @@ pub fn start(
 
 /// Loads `models/game-cover-v2.onnx` from next to the executable (the
 /// release layout) or `resources/models/` (a source checkout) on first use.
-pub fn bundled_cover_detector() -> DetectorLoader {
-    Arc::new(|| {
-        let paths = AppPaths::system();
+pub fn bundled_cover_detector(paths: AppPaths) -> DetectorLoader {
+    Arc::new(move || {
         let model = paths
             .bundled_resource(&format!("models/{}.onnx", fling_cover::MODEL_NAME))
             .or_else(|| {
@@ -170,7 +170,10 @@ pub fn bundled_cover_detector() -> DetectorLoader {
             return None;
         };
         match fling_cover::OnnxCoverDetector::load(&model) {
-            Ok(detector) => Some(Arc::new(detector) as Arc<dyn fling_cover::CoverDetector>),
+            Ok(detector) => {
+                tracing::info!(?model, "cover model loaded");
+                Some(Arc::new(detector) as Arc<dyn fling_cover::CoverDetector>)
+            }
             Err(err) => {
                 tracing::warn!(?model, %err, "failed to load cover model");
                 None

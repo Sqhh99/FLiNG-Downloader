@@ -14,7 +14,7 @@ use gpui_kit::*;
 use crate::i18n::{language_name, source_name, theme_name, tr, update_status};
 use crate::state::AppModel;
 use crate::theme::{self, THEME_COUNT, palette};
-use crate::views::widgets::{card, icon_button};
+use crate::views::widgets::icon_button;
 
 const REPOSITORY_URL: &str = "https://github.com/Sqhh99/FLiNG-Downloader";
 
@@ -122,7 +122,11 @@ impl SettingsPanel {
         ];
         Self {
             model,
-            section: Section::Appearance,
+            section: match crate::views::root::debug_open().as_deref() {
+                Some("settings-about") if cfg!(debug_assertions) => Section::About,
+                Some("settings-download") if cfg!(debug_assertions) => Section::Download,
+                _ => Section::Appearance,
+            },
             language_select,
             source_select,
             language: settings.language,
@@ -178,12 +182,29 @@ impl SettingsPanel {
             }))
     }
 
-    fn section_title(title: SharedString, cx: &App) -> impl IntoElement {
-        div()
-            .text_lg()
-            .font_weight(FontWeight::SEMIBOLD)
-            .text_color(palette(cx).text)
-            .child(title)
+    /// Pane heading with the divider line under it.
+    fn section(title: SharedString, cx: &App) -> Div {
+        let c = palette(cx);
+        v_flex().gap_3().child(
+            div()
+                .pb_2()
+                .border_b_1()
+                .border_color(c.border)
+                .text_lg()
+                .font_weight(FontWeight::SEMIBOLD)
+                .text_color(c.text)
+                .child(title),
+        )
+    }
+
+    /// A labelled group inside a pane.
+    fn field(label: SharedString, cx: &App) -> Div {
+        v_flex().gap_2().child(
+            div()
+                .text_sm()
+                .text_color(palette(cx).text_secondary)
+                .child(label),
+        )
     }
 
     fn render_appearance(&self, cx: &mut Context<Self>) -> Div {
@@ -191,39 +212,48 @@ impl SettingsPanel {
         let current = self.model.read(cx).settings.theme;
         let swatches =
             (0..THEME_COUNT).map(|i| {
-                let (bg, fg, primary) = theme::preview(i);
+                let (bg, fg, _) = theme::preview(i);
                 let selected = i == current;
-                v_flex()
+                div()
                     .id(("theme", i))
-                    .w(px(72.))
-                    .h(px(50.))
+                    .relative()
+                    .w(px(90.))
+                    .h(px(60.))
+                    .flex()
+                    .items_center()
+                    .justify_center()
                     .rounded(px(6.))
-                    .border_2()
                     .border_color(if selected { c.primary } else { c.border })
+                    .map(|d| if selected { d.border_2() } else { d.border_1() })
                     .bg(bg)
-                    .overflow_hidden()
-                    .child(div().h(px(8.)).bg(primary))
-                    .child(
-                        h_flex()
-                            .flex_1()
-                            .justify_center()
-                            .gap_1()
-                            .text_xs()
-                            .text_color(fg)
-                            .when(selected, |d| d.child(Icon::new(IconName::Check).xsmall()))
-                            .child(theme_name(i)),
-                    )
+                    .text_sm()
+                    .text_color(fg)
+                    .cursor_pointer()
+                    .child(theme_name(i))
+                    .when(selected, |d| {
+                        d.child(
+                            div()
+                                .absolute()
+                                .top(px(-6.))
+                                .right(px(-6.))
+                                .size(px(18.))
+                                .rounded_full()
+                                .bg(c.primary)
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .text_color(c.on_primary)
+                                .child(Icon::new(IconName::Check).xsmall()),
+                        )
+                    })
                     .on_click(cx.listener(move |this, _, _, cx| {
                         this.model.read(cx).send(Command::SetTheme(i))
                     }))
             });
-        v_flex()
-            .gap_3()
-            .child(Self::section_title(tr!("settings.appearance_title"), cx))
-            .child(
-                card(tr!("settings.theme"), cx)
-                    .child(div().flex().flex_wrap().gap_2().children(swatches)),
-            )
+        Self::section(tr!("settings.appearance_title"), cx).child(
+            Self::field(tr!("settings.theme"), cx)
+                .child(div().flex().flex_wrap().gap_2().pt_1().children(swatches)),
+        )
     }
 
     fn render_download(&self, cx: &mut Context<Self>) -> Div {
@@ -240,53 +270,48 @@ impl SettingsPanel {
         } else {
             dir.into()
         };
-        v_flex()
-            .gap_3()
-            .child(Self::section_title(tr!("settings.download_title"), cx))
-            .child(
-                card(tr!("settings.download_dir"), cx)
-                    .child(
-                        h_flex()
-                            .gap_2()
-                            .child(
-                                div()
-                                    .flex_1()
-                                    .min_w_0()
-                                    .h(px(36.))
-                                    .px_3()
-                                    .flex()
-                                    .items_center()
-                                    .rounded(px(6.))
-                                    .border_1()
-                                    .border_color(c.border)
-                                    .bg(c.input)
-                                    .text_sm()
-                                    .text_color(c.text)
-                                    .child(div().truncate().child(shown)),
-                            )
-                            .child(
-                                Button::new("browse")
-                                    .label(tr!("settings.browse"))
-                                    .on_click(cx.listener(|this, _, _, cx| this.pick_folder(cx))),
-                            ),
-                    )
-                    .child(
-                        div()
-                            .text_xs()
-                            .text_color(c.text_muted)
-                            .child(tr!("settings.download_hint")),
-                    ),
-            )
+        Self::section(tr!("settings.download_title"), cx).child(
+            Self::field(tr!("settings.download_dir"), cx)
+                .child(
+                    h_flex()
+                        .gap_2()
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_w_0()
+                                .h(px(36.))
+                                .px_3()
+                                .flex()
+                                .items_center()
+                                .rounded(px(6.))
+                                .border_1()
+                                .border_color(c.border)
+                                .bg(c.input)
+                                .text_sm()
+                                .text_color(c.text)
+                                .child(div().truncate().child(shown)),
+                        )
+                        .child(
+                            Button::new("browse")
+                                .secondary()
+                                .label(tr!("settings.browse"))
+                                .on_click(cx.listener(|this, _, _, cx| this.pick_folder(cx))),
+                        ),
+                )
+                .child(
+                    div()
+                        .text_xs()
+                        .text_color(c.text_muted)
+                        .child(tr!("settings.download_hint")),
+                ),
+        )
     }
 
     fn render_language(&self, cx: &mut Context<Self>) -> Div {
-        v_flex()
-            .gap_3()
-            .child(Self::section_title(tr!("settings.language_title"), cx))
-            .child(
-                card(tr!("settings.ui_language"), cx)
-                    .child(div().w(px(200.)).child(Select::new(&self.language_select))),
-            )
+        Self::section(tr!("settings.language_title"), cx).child(
+            Self::field(tr!("settings.ui_language"), cx)
+                .child(div().w(px(200.)).child(Select::new(&self.language_select))),
+        )
     }
 
     fn update_card(&self, database: bool, cx: &mut Context<Self>) -> Div {
@@ -307,14 +332,6 @@ impl SettingsPanel {
         };
         let id = if database { "db" } else { "app" };
         let mut details = Vec::new();
-        if database {
-            let current = if state.current_version.is_empty() {
-                tr!("common.unknown")
-            } else {
-                state.current_version.clone().into()
-            };
-            details.push(tr!("settings.current_version", version = current));
-        }
         if !state.latest_version.is_empty() {
             details.push(tr!(
                 "settings.latest",
@@ -330,6 +347,12 @@ impl SettingsPanel {
                 date = state.published_at.as_str()
             ));
         }
+        let current = (database && !state.current_version.is_empty()).then(|| {
+            tr!(
+                "settings.current_version",
+                version = state.current_version.as_str()
+            )
+        });
 
         let check_label = if state.checking {
             tr!("settings.checking")
@@ -346,20 +369,39 @@ impl SettingsPanel {
             tr!("settings.install")
         };
 
-        card(title, cx)
+        v_flex()
+            .gap_1p5()
+            .p_3()
+            .rounded(px(8.))
+            .border_1()
+            .border_color(c.border)
+            .bg(c.card)
             .child(
-                Switch::new((id, 0usize))
-                    .label(tr!("settings.auto_check"))
-                    .checked(auto)
-                    .on_change(cx.listener(move |this, checked: &bool, _, cx| {
-                        let command = if database {
-                            Command::SetAutoCheckDatabaseUpdates(*checked)
-                        } else {
-                            Command::SetAutoCheckAppUpdates(*checked)
-                        };
-                        this.model.read(cx).send(command);
-                    })),
+                h_flex()
+                    .justify_between()
+                    .child(
+                        div()
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .text_color(c.text)
+                            .child(title),
+                    )
+                    .child(
+                        Switch::new((id, 0usize))
+                            .label(tr!("settings.auto_check"))
+                            .checked(auto)
+                            .on_change(cx.listener(move |this, checked: &bool, _, cx| {
+                                let command = if database {
+                                    Command::SetAutoCheckDatabaseUpdates(*checked)
+                                } else {
+                                    Command::SetAutoCheckAppUpdates(*checked)
+                                };
+                                this.model.read(cx).send(command);
+                            })),
+                    ),
             )
+            .when_some(current, |d, current| {
+                d.child(div().text_sm().text_color(c.text_secondary).child(current))
+            })
             .child(
                 div()
                     .text_sm()
@@ -368,13 +410,12 @@ impl SettingsPanel {
             )
             .when(!details.is_empty(), |d| {
                 d.child(
-                    div().text_xs().text_color(c.text_muted).child(
-                        details
-                            .iter()
-                            .map(|s| s.to_string())
-                            .collect::<Vec<_>>()
-                            .join("  ·  "),
-                    ),
+                    h_flex()
+                        .gap_3()
+                        .flex_wrap()
+                        .text_xs()
+                        .text_color(c.text_muted)
+                        .children(details),
                 )
             })
             .when(state.downloading, |d| {
@@ -382,9 +423,11 @@ impl SettingsPanel {
             })
             .child(
                 h_flex()
+                    .pt_1()
                     .gap_2()
                     .child(
                         Button::new((id, 2usize))
+                            .secondary()
                             .label(check_label)
                             .disabled(state.checking || state.downloading)
                             .on_click(cx.listener(move |this, _, _, cx| {
@@ -418,17 +461,15 @@ impl SettingsPanel {
     fn render_about(&self, cx: &mut Context<Self>) -> Div {
         let c = palette(cx);
         let version = self.model.read(cx).settings.app_version.clone();
-        v_flex()
-            .gap_3()
+        Self::section(tr!("settings.about"), cx)
             .child(
-                h_flex()
-                    .gap_3()
-                    .child(img(crate::assets::APP_LOGO).size(px(48.)))
+                v_flex()
+                    .gap_1()
                     .child(
-                        v_flex()
+                        h_flex()
+                            .gap_2()
                             .child(
                                 div()
-                                    .text_lg()
                                     .font_weight(FontWeight::BOLD)
                                     .text_color(c.text)
                                     .child(tr!("app.title")),
@@ -439,27 +480,40 @@ impl SettingsPanel {
                                     .text_color(c.text_secondary)
                                     .child(format!("v{version}")),
                             )
+                            .child(div().flex_1())
                             .child(
                                 div()
-                                    .text_xs()
-                                    .text_color(c.text_muted)
+                                    .text_sm()
+                                    .text_color(c.text_secondary)
                                     .child(tr!("settings.author")),
                             ),
+                    )
+                    .child(
+                        div()
+                            .id("github")
+                            .text_sm()
+                            .text_color(c.primary_text)
+                            .underline()
+                            .cursor_pointer()
+                            .child(format!("GitHub: {REPOSITORY_URL}"))
+                            .on_click(|_, _, cx| cx.open_url(REPOSITORY_URL)),
                     ),
             )
             .child(
-                Button::new("github")
-                    .ghost()
-                    .small()
-                    .icon(Icon::new(IconName::Github))
-                    .label(REPOSITORY_URL)
-                    .on_click(|_, _, cx| cx.open_url(REPOSITORY_URL)),
-            )
-            .child(
-                card(tr!("settings.update_source"), cx)
-                    .child(div().w(px(200.)).child(Select::new(&self.source_select)))
+                h_flex()
+                    .gap_3()
                     .child(
                         div()
+                            .text_sm()
+                            .text_color(c.text)
+                            .child(tr!("settings.update_source")),
+                    )
+                    .child(div().w(px(160.)).child(Select::new(&self.source_select)))
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .truncate()
                             .text_xs()
                             .text_color(c.text_muted)
                             .child(tr!("settings.update_source_hint")),
@@ -481,7 +535,7 @@ impl Render for SettingsPanel {
         };
         v_flex()
             .id("settings-panel")
-            .w(px(640.))
+            .w(px(700.))
             .h(px(560.))
             .rounded(px(8.))
             .border_1()
@@ -517,13 +571,14 @@ impl Render for SettingsPanel {
                     .items_start()
                     .child(
                         v_flex()
-                            .w(px(150.))
+                            .w(px(160.))
                             .h_full()
+                            .m_3()
+                            .mr_0()
                             .p_2()
                             .gap_1()
-                            .border_r_1()
-                            .border_color(c.border)
-                            .bg(c.surface)
+                            .rounded(px(8.))
+                            .bg(c.alternate_row)
                             .child(self.nav_item(
                                 Section::Appearance,
                                 IconName::Palette,
@@ -553,6 +608,7 @@ impl Render for SettingsPanel {
                         div()
                             .id("settings-content")
                             .flex_1()
+                            .min_w_0()
                             .h_full()
                             .p_4()
                             .overflow_y_scroll()

@@ -172,3 +172,41 @@ The Qt sources, CMake, vcpkg, `build.cmd`, `.github/workflows/*`, the Inno scrip
 **Other**
 - Decide on the preserved quirks listed above. They are best handled as separate issues and PRs.
 - The settings "About" GitHub link and the folder picker have only been compiled, not exercised.
+
+---
+
+## Follow-up 1 (2026-10-03): UI issues from the first manual test
+
+### Request
+> Here are a few issues: 1. The close button icons on the details and settings pages are not
+> displaying. 2. Loading the cover image from the cache works fine, but there is an issue with
+> extracting the cover image itself (I am running the program from the debug directory; I am
+> not sure if this is because the model failed to load); the display of the theme and update
+> sections within the settings interface needs optimization. 3. The cancel button in the
+> download list is not displaying. 4. The height of the sidebar on the details page should
+> match the overall height of the application.
+
+The user attached screenshots of the Rust UI next to the Qt UI for comparison.
+
+### Findings and fixes
+| # | Cause | Fix | Files |
+|---|-------|-----|-------|
+| 1, 3 | `IconName::X` is not in GPUI Kit's default icon set, and the app never registered it, so its SVG failed to load and rendered as an empty button. This affected the drawer and settings close buttons and the download-list cancel button. | `AppIcons` now lists every icon the views use. A new test scans `src/views` for `IconName::…` and fails if one is missing. | `crates/fling-ui/src/assets.rs` |
+| 2a | Not a code fault. `target\debug\fling-downloader.exe` had last been built before the cover-model commit `b6e1763`; `cargo test`/`clippy` do not rebuild the bin. That exe still had the "no model" stub, so every extraction failed. After rebuilding, the UI log shows `cover model loaded`. A headless trace of FANTASY LIFE goes Loading → Ready with a saved PNG, and the detector finds its cover with 0.98 confidence. | Added an info log naming the loaded model file. `bundled_cover_detector` now takes the `AppPaths` it searches, so the headless example can find the model too. The example now prints every selection/cover transition. | `crates/fling-app/src/lib.rs`, `crates/fling-app/examples/headless.rs`, `crates/fling-cover/examples/detect.rs` (new: run the model on image files) |
+| 2b | The settings panes didn't follow the Qt layout. In the About pane, the content column could not shrink, so rows ran past the dialog edge. | Restyled the panes after the Qt screenshots: <ul><li>pane heading with a divider line;</li><li>flat theme swatches with a corner check badge, five per row;</li><li>About header on one line (name, version, author), the GitHub link as a text link, and an inline update-source row;</li><li>update cards with the auto-check toggle beside the title and tonal buttons;</li><li>inset sidebar;</li><li>`min_w_0` on the scroll column;</li><li>dialog widened to 700 px.</li></ul> | `crates/fling-ui/src/views/settings_panel.rs`, `crates/fling-ui/src/views/widgets.rs` (removed the unused `card`) |
+| 4 | The drawer was positioned inside the page area, below the tabs. | It now spans from under the title bar to the bottom of the window, covering the tabs as in the Qt build, but leaves the title bar (window controls, downloads, settings) usable. Its title is one truncated line. | `crates/fling-ui/src/views/root.rs`, `crates/fling-ui/src/views/detail_drawer.rs` |
+| — | The version string kept an old git hash, because `build.rs` only watched `.git/HEAD`, which does not change on a commit. | It also watches `.git/logs/HEAD`. | `crates/fling-ui/build.rs` |
+
+Debug builds also read a new `FLING_DEBUG_OPEN` variable (`drawer`, `settings`, `settings-about`, `settings-download`). It opens that screen at startup, so the UI can be checked by screenshot alone, without injecting input. It is compiled out of release builds (`cfg!(debug_assertions)`).
+
+### Verification
+- `cargo clippy --workspace --all-targets -- -D warnings`: clean.
+- `cargo test --workspace`: 130 passed, including the new icon-registration test.
+- Rebuilt the UI and captured it with `FLING_DEBUG_OPEN=drawer|settings|settings-about`, using screen capture only:
+  - The drawer reaches the bottom of the window and shows its close icon.
+  - The theme grid fits five swatches per row with the check badge.
+  - The About pane fits the dialog.
+- Not re-checked by me: the download-list cancel icon. It uses the same `X` registration the test now guards. This and the remaining manual flows from section 4 are still for the user.
+
+### Note
+On a dev build the software-update card offers "Download and Install". The version `1.1.10-dev.13+g…` is a prerelease, so it sorts below release `1.1.10`. That is the same comparison the Qt build used.

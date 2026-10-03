@@ -26,7 +26,9 @@ fn git_version() -> Option<String> {
 
 fn main() {
     println!("cargo:rerun-if-env-changed=FLING_APP_VERSION");
+    // HEAD only names the branch; the reflog changes on every commit/checkout.
     println!("cargo:rerun-if-changed=../../.git/HEAD");
+    println!("cargo:rerun-if-changed=../../.git/logs/HEAD");
     println!("cargo:rerun-if-changed=../../.git/refs/tags");
     let version = std::env::var("FLING_APP_VERSION")
         .ok()
