@@ -1890,6 +1890,17 @@ version = "0.0.0"
 [[package]]
 name = "fling-download"
 version = "0.0.0"
+dependencies = [
+ "chrono",
+ "fling-core",
+ "fling-net",
+ "futures",
+ "parking_lot",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tracing",
+]
 
 [[package]]
 name = "fling-mapping"
@@ -1920,6 +1931,19 @@ dependencies = [
 [[package]]
 name = "fling-site"
 version = "0.0.0"
+dependencies = [
+ "chrono",
+ "fling-core",
+ "fling-mapping",
+ "fling-net",
+ "futures",
+ "regex",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tracing",
+]
 
 [[package]]
 name = "fling-ui"

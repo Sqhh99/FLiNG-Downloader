@@ -1,5 +1,6 @@
 [package]
 name = "fling-site"
+description = "flingtrainer.com scraping: list/detail/options parsers, search and the recent list"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -7,6 +8,21 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+chrono.workspace = true
+fling-core.workspace = true
+fling-mapping.workspace = true
+fling-net.workspace = true
+futures.workspace = true
+regex.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+fling-mapping = { workspace = true, features = ["test-util"] }
+fling-net = { workspace = true, features = ["test-util"] }
+tempfile.workspace = true
+tokio = { workspace = true }
 
 [lints]
 workspace = true
