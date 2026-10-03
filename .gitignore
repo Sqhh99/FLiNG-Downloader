@@ -114,3 +114,5 @@ agents/*
 
 tools/qt6-qml-module-migration.md
 tools/game-mappings-updater
+# Rust
+/target/

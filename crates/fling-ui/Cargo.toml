@@ -1,0 +1,17 @@
+[package]
+name = "fling-ui"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "fling-downloader"
+path = "src/main.rs"
+
+[dependencies]
+gpui-kit.workspace = true
+
+[lints]
+workspace = true
