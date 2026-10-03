@@ -11,11 +11,23 @@ publish.workspace = true
 fling-net.workspace = true
 image.workspace = true
 tokio.workspace = true
+ort = { workspace = true, optional = true }
+parking_lot.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
+criterion.workspace = true
 fling-net = { workspace = true, features = ["test-util"] }
 tempfile.workspace = true
 
 [lints]
 workspace = true
+
+[features]
+default = ["onnx"]
+onnx = ["dep:ort"]
+
+[[bench]]
+name = "detector"
+harness = false
+required-features = ["onnx"]

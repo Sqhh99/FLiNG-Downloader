@@ -9,7 +9,6 @@
 mod api;
 mod backend;
 
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -57,15 +56,16 @@ pub struct BackendConfig {
 }
 
 impl BackendConfig {
-    /// The real app: system paths, real network, flingtrainer.com.
-    pub fn for_app(app_version: String, cover_detector: DetectorLoader) -> Result<Self, String> {
+    /// The real app: system paths, real network, flingtrainer.com and the
+    /// bundled cover model.
+    pub fn for_app(app_version: String) -> Result<Self, String> {
         let http = fling_net::ReqwestClient::new().map_err(|e| e.to_string())?;
         Ok(Self {
             paths: AppPaths::system(),
             app_version,
             http: Arc::new(http),
             site_base_url: fling_site::DEFAULT_BASE_URL.to_owned(),
-            cover_detector,
+            cover_detector: bundled_cover_detector(),
             startup: Some(StartupTimings::default()),
         })
     }
@@ -152,8 +152,29 @@ pub fn start(
     ))
 }
 
-/// Where the bundled resources and models are expected, for frontends that
-/// need them (e.g. to locate the cover model).
-pub fn bundled_resource(relative: &str) -> Option<PathBuf> {
-    AppPaths::system().bundled_resource(relative)
+/// Loads `models/game-cover-v2.onnx` from next to the executable (the
+/// release layout) or `resources/models/` (a source checkout) on first use.
+pub fn bundled_cover_detector() -> DetectorLoader {
+    Arc::new(|| {
+        let paths = AppPaths::system();
+        let model = paths
+            .bundled_resource(&format!("models/{}.onnx", fling_cover::MODEL_NAME))
+            .or_else(|| {
+                paths.bundled_resource(&format!(
+                    "resources/models/{}.onnx",
+                    fling_cover::MODEL_NAME
+                ))
+            });
+        let Some(model) = model else {
+            tracing::warn!("cover model not found; covers are disabled");
+            return None;
+        };
+        match fling_cover::OnnxCoverDetector::load(&model) {
+            Ok(detector) => Some(Arc::new(detector) as Arc<dyn fling_cover::CoverDetector>),
+            Err(err) => {
+                tracing::warn!(?model, %err, "failed to load cover model");
+                None
+            }
+        }
+    })
 }

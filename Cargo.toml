@@ -51,7 +51,7 @@ parking_lot = "0.12"
 windows-sys = "0.61"
 
 # Cover extraction
-ort = "=2.0.0-rc.13"
+ort = { version = "=2.0.0-rc.13", default-features = false, features = ["std", "download-binaries", "tls-native"] }
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "gif", "webp"] }
 
 # UI

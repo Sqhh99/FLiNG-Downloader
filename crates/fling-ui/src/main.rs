@@ -14,8 +14,6 @@ mod state;
 mod theme;
 mod views;
 
-use std::sync::Arc;
-
 use fling_app::BackendConfig;
 use gpui_kit::component::TitleBar;
 use gpui_kit::*;
@@ -30,10 +28,7 @@ fn main() {
         .init();
 
     let version = env!("FLING_APP_VERSION").to_owned();
-    // The cover model is wired in with the ONNX detector; until then covers
-    // fall back to the "no cover" placeholder.
-    let config =
-        BackendConfig::for_app(version, Arc::new(|| None)).expect("failed to create HTTP client");
+    let config = BackendConfig::for_app(version).expect("failed to create HTTP client");
     let (handle, events) = fling_app::start(config).expect("failed to start backend");
     let initial = handle.initial_settings().clone();
     i18n::set_language(initial.language);

@@ -6,7 +6,6 @@
 //! cargo run -p fling-app --example headless -- search 艾尔登法环
 //! ```
 
-use std::sync::Arc;
 use std::time::Duration;
 
 use fling_app::{BackendConfig, Command, DetailState, Event, start};
@@ -29,8 +28,7 @@ fn main() {
     let mut paths = AppPaths::rooted(dir.path());
     // Find resources/fling_translations.db from the repository checkout.
     paths.exe_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let mut config =
-        BackendConfig::for_app("0.0.0-headless".into(), Arc::new(|| None)).expect("http client");
+    let mut config = BackendConfig::for_app("0.0.0-headless".into()).expect("http client");
     config.paths = paths;
     config.startup = None;
 

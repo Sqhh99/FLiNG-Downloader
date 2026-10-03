@@ -6,6 +6,10 @@
 
 mod cache;
 mod extractor;
+#[cfg(feature = "onnx")]
+mod onnx;
 
 pub use cache::{CoverCache, MODEL_NAME};
 pub use extractor::{CoverDetector, CoverExtractor, CoverResult, Detection, DetectorLoader};
+#[cfg(feature = "onnx")]
+pub use onnx::OnnxCoverDetector;
