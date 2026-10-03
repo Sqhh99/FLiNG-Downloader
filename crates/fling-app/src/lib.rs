@@ -169,6 +169,15 @@ pub fn bundled_cover_detector(paths: AppPaths) -> DetectorLoader {
             tracing::warn!("cover model not found; covers are disabled");
             return None;
         };
+        #[cfg(not(feature = "onnx"))]
+        {
+            tracing::warn!(
+                ?model,
+                "built without the onnx feature; covers are disabled"
+            );
+            None
+        }
+        #[cfg(feature = "onnx")]
         match fling_cover::OnnxCoverDetector::load(&model) {
             Ok(detector) => {
                 tracing::info!(?model, "cover model loaded");

@@ -21,6 +21,12 @@ parking_lot.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 
+[features]
+# The ONNX cover detector (statically links ONNX Runtime). Without it covers
+# come only from the cache.
+default = ["onnx"]
+onnx = ["fling-cover/onnx"]
+
 [dev-dependencies]
 fling-mapping = { workspace = true, features = ["test-util"] }
 fling-net = { workspace = true, features = ["test-util"] }

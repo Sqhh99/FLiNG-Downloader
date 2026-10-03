@@ -276,3 +276,42 @@ So with the popup hidden, Chinese and Japanese input had no route to an English 
 
 ### Open
 The exact title is not necessarily first in the results. The selected sort ("Recently Updated" by default) is applied after relevance, the same as `Backend::applySortOrder`, so for `荒野大镖客：救赎2` the list starts with "Easy Red 2 Trainer". Kept for parity. A follow-up could keep relevance order for searches and apply the date sort only to the recent list.
+
+---
+
+## Follow-up 4 (2026-10-03): release exe size
+
+### Request
+> I checked the size of the release .exe file—it's around 48 MB. Is there a way to further
+> reduce the file size without compromising the program's functionality?
+
+### Measurements (release, `x86_64-pc-windows-msvc`)
+| Build | `fling-downloader.exe` |
+|-------|------------------------|
+| Previous profile (thin LTO, `opt-level = 3`) | 49.7 MB |
+| Without ONNX Runtime (`--no-default-features`, for scale) | 28.4 MB, so ONNX Runtime ≈ 21 MB |
+| Fat LTO | 49.0 MB |
+| Fat LTO + `opt-level = "s"` | 41.0 MB |
+| **Adopted:** fat LTO + `"s"`, with `fling-cover` and `image` at `opt-level = 3` | **41.7 MB** |
+
+LZMA compression of the exe, the same family the Inno installer uses, gives 11.3 MB for the old exe and 9.6 MB for the new one.
+
+**Rejected alternative: `tract` (pure-Rust ONNX).** It runs this model correctly (confidence 0.96 / 0.99 on two samples). However, a minimal program using it is already 23.9 MB, no smaller than ONNX Runtime, and it takes about 200 ms per image against ONNX Runtime's 60 ms.
+
+**Not adopted:**
+- **UPX packing:** packed executables are a common antivirus false-positive trigger, which this project already fights (`docs/ANTIVIRUS_FAQ.md`).
+- **`panic = "abort"`:** a panic in a background task would kill the whole app.
+- **A custom reduced-operator ONNX Runtime build:** the largest remaining win, roughly −15 MB. It needs building ONNX Runtime from source in CI, so it is left as an option.
+
+### Changes
+| Change | Files |
+|--------|-------|
+| Release profile: `opt-level = "s"`, `lto = "fat"`, with per-package `opt-level = 3` for `fling-cover` and `image`. | `Cargo.toml` |
+| New `onnx` cargo feature on `fling-app` / `fling-ui` (default on; forwards to `fling-cover/onnx`). It was used for the measurement above; without it, covers come only from the cache. The workspace now depends on `fling-app` and `fling-cover` with `default-features = false`, so the feature can actually be turned off. | `Cargo.toml`, `crates/fling-app/Cargo.toml`, `crates/fling-app/src/lib.rs`, `crates/fling-ui/Cargo.toml` |
+
+### Verification
+- `cargo bench -p fling-cover --bench detector` under the new profile: 43–62 ms per screenshot, slightly faster than the earlier 55–72 ms.
+- The release exe starts and logs `cover model loaded`.
+- `cargo clippy --workspace --all-targets -- -D warnings` clean; `cargo test --workspace` 131 passed.
+- Not measured: UI frame timing under `opt-level = "s"`. No difference is expected, since rendering runs on the GPU, but it was not profiled.
+- The temporary experiment target dirs were deleted afterwards.
