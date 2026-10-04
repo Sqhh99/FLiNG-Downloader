@@ -357,3 +357,11 @@ This is phase 5 of the approved plan.
 - Locally, `build\`, `third_party\` (vcpkg installs) and `__cmake_systeminformation\` are untracked Qt leftovers that can be deleted.
 - The Gitee mirror still needs a manual release upload, as before.
 - Carried over: the preserved parsing quirks; relevance-vs-date ordering of search results; translations filled during the rewrite still to be reviewed; manual UI checks not done by me (downloads, pause/resume, library delete, suggestion keys, folder picker, update cards).
+
+---
+
+## Follow-up 5 (2026-10-04): manual testing done, PR opened
+
+> I have completed the testing, please submit my PR.
+
+The maintainer reported that their manual testing is complete. The PR record's "本地跑过相关界面 / 下载 / 搜索路径" box was ticked on that basis; this log does not claim which flows were covered beyond the maintainer's statement. Then the branch was pushed and the PR opened with the PR record as its body.

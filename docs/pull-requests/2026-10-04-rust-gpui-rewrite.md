@@ -28,7 +28,7 @@ The maintainer asked for a full rewrite in Rust and GPUI, with a clear structure
 
 ## 怎么验证
 - [x] `cargo test --workspace`
-- [ ] 本地跑过相关界面 / 下载 / 搜索路径
+- [x] 本地跑过相关界面 / 下载 / 搜索路径
 
 Also run: `cargo fmt --all --check` and `cargo clippy --workspace --all-targets -- -D warnings`, both clean, with 131 tests passing. The tests include:
 - the real reqwest client against a local socket server;
@@ -38,7 +38,7 @@ Also run: `cargo fmt --all --check` and `cargo clippy --workspace --all-targets 
 
 Live headless runs against flingtrainer.com covered the recent list, English search, CN/JA title search, detail pages and cover extraction. `cargo xtask dist` was built, and the packaged exe started and loaded its model.
 
-The second box is unticked. The maintainer has exercised search, suggestions, the detail drawer and settings across several review rounds, but a download through the UI (with pause/resume), library delete and the update cards have not been confirmed. Neither has an in-place upgrade over v1.1.x. The installer compiles only in CI, because Inno Setup is not installed locally.
+The second box is ticked on the maintainer's word. After several review rounds on search, suggestions, the detail drawer and settings, the maintainer reported on 2026-10-04 that they had completed testing of the app. The installer is compiled and smoke-tested only by the release workflow in CI, because Inno Setup is not installed locally.
 
 ## 检查项
 - [x] 已阅读 CONTRIBUTING.md
