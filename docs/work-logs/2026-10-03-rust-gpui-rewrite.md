@@ -365,3 +365,6 @@ This is phase 5 of the approved plan.
 > I have completed the testing, please submit my PR.
 
 The maintainer reported that their manual testing is complete. The PR record's "本地跑过相关界面 / 下载 / 搜索路径" box was ticked on that basis; this log does not claim which flows were covered beyond the maintainer's statement. Then the branch was pushed and the PR opened with the PR record as its body.
+
+### CI run 1 (2026-10-04): format check failed
+The first CI run of PR #47 failed at `cargo fmt --all --check`: `xtask/src/main.rs` (the `notices` task) was not rustfmt-formatted. Earlier local "fmt/clippy clean" claims in this log rested on commands whose output was piped through `grep -E "^(error|warning)"`. `cargo fmt --check` prints `Diff in …` lines and signals failure only through its exit code, so the filter hid it. Fixed by running `cargo fmt --all`. Format, clippy and tests were then re-verified by exit code (all 0; 131 tests passed).

@@ -37,7 +37,10 @@ fn main() -> ExitCode {
     let result = match args.first().map(String::as_str) {
         Some("dist") => dist(&args[1..]),
         Some("notices") => notices(),
-        _ => Err("usage: cargo xtask dist [--version X.Y.Z] [--out DIR] | cargo xtask notices".to_owned()),
+        _ => Err(
+            "usage: cargo xtask dist [--version X.Y.Z] [--out DIR] | cargo xtask notices"
+                .to_owned(),
+        ),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,
@@ -223,13 +226,21 @@ fn notices() -> Result<()> {
     let root = repo_root();
     let output = Command::new(env::var("CARGO").unwrap_or_else(|_| "cargo".into()))
         .current_dir(&root)
-        .args(["metadata", "--format-version", "1", "--locked", "--filter-platform", "x86_64-pc-windows-msvc"])
+        .args([
+            "metadata",
+            "--format-version",
+            "1",
+            "--locked",
+            "--filter-platform",
+            "x86_64-pc-windows-msvc",
+        ])
         .output()
         .map_err(|e| format!("run cargo metadata: {e}"))?;
     if !output.status.success() {
         return Err("cargo metadata failed".into());
     }
-    let meta: serde_json::Value = serde_json::from_slice(&output.stdout).map_err(|e| e.to_string())?;
+    let meta: serde_json::Value =
+        serde_json::from_slice(&output.stdout).map_err(|e| e.to_string())?;
     let str_of = |v: &serde_json::Value, k: &str| v[k].as_str().unwrap_or_default().to_owned();
 
     let packages: std::collections::HashMap<String, &serde_json::Value> = meta["packages"]
@@ -257,8 +268,17 @@ fn notices() -> Result<()> {
         if !seen.insert(id.clone()) {
             continue;
         }
-        for dep in nodes.get(&id).and_then(|n| n["deps"].as_array()).into_iter().flatten() {
-            let normal = dep["dep_kinds"].as_array().into_iter().flatten().any(|k| k["kind"].is_null());
+        for dep in nodes
+            .get(&id)
+            .and_then(|n| n["deps"].as_array())
+            .into_iter()
+            .flatten()
+        {
+            let normal = dep["dep_kinds"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .any(|k| k["kind"].is_null());
             if normal {
                 stack.push(str_of(dep, "pkg"));
             }
@@ -269,7 +289,10 @@ fn notices() -> Result<()> {
         .filter_map(|id| packages.get(id))
         .filter(|p| !p["source"].is_null())
         .map(|p| {
-            let license = p["license"].as_str().unwrap_or("see crate").replace('/', " OR ");
+            let license = p["license"]
+                .as_str()
+                .unwrap_or("see crate")
+                .replace('/', " OR ");
             (str_of(p, "name"), str_of(p, "version"), license)
         })
         .collect();
@@ -286,7 +309,11 @@ fn notices() -> Result<()> {
     let (Some(start), Some(end)) = (text.find(NOTICES_BEGIN), text.find(NOTICES_END)) else {
         return Err("THIRD_PARTY_NOTICES.md lacks the crates:begin/end markers".into());
     };
-    let updated = format!("{}{table}{}", &text[..start], &text[end + NOTICES_END.len()..]);
+    let updated = format!(
+        "{}{table}{}",
+        &text[..start],
+        &text[end + NOTICES_END.len()..]
+    );
     fs::write(&path, updated).map_err(|e| e.to_string())?;
     println!("THIRD_PARTY_NOTICES.md: {} crates", rows.len());
     Ok(())
