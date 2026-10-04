@@ -3,7 +3,8 @@
 use std::path::PathBuf;
 
 pub use fling_core::{
-    DownloadTask, DownloadedModifier, Language, ModifierInfo, TaskId, TaskStatus, UpdateSource,
+    DownloadTask, DownloadedModifier, Language, ModifierInfo, TaskId, TaskStatus,
+    TrainerNameLanguage, UpdateSource,
 };
 pub use fling_mapping::Suggestion;
 pub use fling_update::UpdateError;
@@ -65,6 +66,8 @@ pub enum Command {
 
     SetTheme(usize),
     SetLanguage(Language),
+    /// Language of trainer names in every list and of new download files.
+    SetTrainerNameLanguage(TrainerNameLanguage),
     SetUpdateSource(UpdateSource),
     SetAutoCheckAppUpdates(bool),
     SetAutoCheckDatabaseUpdates(bool),
@@ -143,6 +146,7 @@ pub struct UpdateState {
 pub struct SettingsSnapshot {
     pub theme: usize,
     pub language: Language,
+    pub trainer_name_language: TrainerNameLanguage,
     pub update_source: UpdateSource,
     pub auto_check_app_updates: bool,
     pub auto_check_database_updates: bool,

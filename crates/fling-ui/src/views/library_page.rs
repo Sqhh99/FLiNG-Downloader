@@ -13,7 +13,9 @@ use crate::state::AppModel;
 use crate::theme::palette;
 use crate::views::motion;
 use crate::views::smooth_scroll::SmoothScroll;
-use crate::views::widgets::{Column, empty_table, icon_button, table_header, table_row, text_cell};
+use crate::views::widgets::{
+    Column, empty_table, icon_button, table_header, table_row, text_cell, trainer_name_cell,
+};
 
 /// How long the delete-failure banner stays up.
 const BANNER_TIME: Duration = Duration::from_secs(6);
@@ -92,7 +94,7 @@ impl Render for LibraryPage {
                     )
                     .into_any_element();
                 let cells = vec![
-                    text_cell(item.name.clone()),
+                    trainer_name_cell(&item.display_name, &item.display_subtitle, &item.name, cx),
                     text_cell(item.version.clone()),
                     text_cell(item.display_date()),
                     actions,

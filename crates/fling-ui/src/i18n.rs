@@ -1,6 +1,8 @@
 //! UI strings (`locales/app.yml`) and display formatting.
 
-use fling_app::{Language, TaskStatus, UpdateError, UpdateSource, UpdateState, UpdateStatus};
+use fling_app::{
+    Language, TaskStatus, TrainerNameLanguage, UpdateError, UpdateSource, UpdateState, UpdateStatus,
+};
 use gpui_kit::SharedString;
 
 /// Looks up a UI string, with optional `%{name}` arguments.
@@ -31,6 +33,15 @@ pub fn language_name(language: Language) -> SharedString {
         Language::Chinese => tr!("lang.zh"),
         Language::English => tr!("lang.en"),
         Language::Japanese => tr!("lang.ja"),
+    }
+}
+
+pub fn trainer_name_language_name(choice: TrainerNameLanguage) -> SharedString {
+    match choice {
+        TrainerNameLanguage::FollowUi => tr!("trainer_names.follow_ui"),
+        TrainerNameLanguage::English => language_name(Language::English),
+        TrainerNameLanguage::Chinese => language_name(Language::Chinese),
+        TrainerNameLanguage::Japanese => language_name(Language::Japanese),
     }
 }
 

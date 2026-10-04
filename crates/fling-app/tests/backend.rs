@@ -261,6 +261,97 @@ async fn select_detail_and_download_into_library() {
 }
 
 #[tokio::test]
+async fn trainer_names_follow_settings_and_name_new_downloads() {
+    let fake = FakeHttpClient::new();
+    fake.page(BASE, homepage(&[("Elden Ring", "1")]));
+    fake.page(
+        &format!("{BASE}Elden Ring/"),
+        detail_page("https://fling.test/downloads/er"),
+    );
+    fake.file("https://fling.test/downloads/er", b"MZ\x90\x00exe".to_vec());
+    let h = Harness::start(Arc::new(fake), true);
+    let results_where = |check: fn(&ModifierInfo) -> bool| {
+        h.next(move |e| match e {
+            Event::Results(r) if r.first().is_some_and(check) => Some(r),
+            _ => None,
+        })
+    };
+
+    // Default: follow the UI language, which defaults to Chinese.
+    let results = results_where(|m| !m.name.is_empty()).await;
+    assert_eq!(results[0].name, "Elden Ring Trainer");
+    assert_eq!(results[0].display_name, "艾尔登法环");
+    assert_eq!(results[0].display_subtitle, "Elden Ring");
+
+    h.handle.send(Command::Select(0));
+    let selection = h.selection_where(|s| s.detail == DetailState::Ready).await;
+    assert_eq!(selection.modifier.display_name, "艾尔登法环");
+    assert_eq!(selection.modifier.display_subtitle, "Elden Ring");
+
+    h.handle.send(Command::Download { version_index: 0 });
+    let library = h
+        .next(|e| match e {
+            Event::Library(l) if !l.is_empty() => Some(l),
+            _ => None,
+        })
+        .await;
+    let expected = h
+        .paths
+        .downloads
+        .join("艾尔登法环 (Elden Ring)_Trainer v1.0.exe");
+    assert_eq!(Path::new(&library[0].file_path), expected);
+    assert!(expected.exists());
+    assert_eq!(library[0].name, "Elden Ring Trainer");
+    assert_eq!(library[0].display_name, "艾尔登法环");
+    assert_eq!(library[0].display_subtitle, "Elden Ring");
+    // The library file keeps the site name and never stores display names.
+    let json = std::fs::read_to_string(h.paths.library_file()).unwrap();
+    assert!(json.contains("\"Elden Ring Trainer\""));
+    assert!(!json.contains("艾尔登法环\""));
+    assert!(!json.contains("displayName"));
+    assert!(!json.contains("displaySubtitle"));
+
+    h.handle.send(Command::SetTrainerNameLanguage(
+        TrainerNameLanguage::English,
+    ));
+    let results = results_where(|m| m.display_name == m.name).await;
+    assert_eq!(results[0].display_name, "Elden Ring Trainer");
+    assert!(results[0].display_subtitle.is_empty());
+    let selection = h
+        .selection_where(|s| s.modifier.display_name == "Elden Ring Trainer")
+        .await;
+    assert_eq!(selection.detail, DetailState::Ready);
+    let library = h
+        .next(|e| match e {
+            Event::Library(l) if !l.is_empty() => Some(l),
+            _ => None,
+        })
+        .await;
+    assert_eq!(library[0].display_name, "Elden Ring Trainer");
+    assert!(library[0].display_subtitle.is_empty());
+
+    // Back to following the UI language, then switch the UI to Japanese.
+    h.handle.send(Command::SetTrainerNameLanguage(
+        TrainerNameLanguage::FollowUi,
+    ));
+    results_where(|m| m.display_name == "艾尔登法环").await;
+    h.handle.send(Command::SetLanguage(Language::Japanese));
+    let settings = h
+        .next(|e| match e {
+            Event::Settings(s) if s.language == Language::Japanese => Some(s),
+            _ => None,
+        })
+        .await;
+    assert_eq!(
+        settings.trainer_name_language,
+        TrainerNameLanguage::FollowUi
+    );
+    results_where(|m| m.display_name == "エルデンリング").await;
+    let ini = std::fs::read_to_string(h.paths.settings_file()).unwrap();
+    assert!(ini.contains("trainerNameLanguage=auto"), "{ini}");
+}
+
+#[tokio::test]
 async fn late_detail_reply_for_previous_selection_is_ignored() {
     let client = GatedClient::default();
     client

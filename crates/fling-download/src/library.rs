@@ -137,6 +137,8 @@ mod tests {
             download_date: None,
             file_path: file.to_string_lossy().into_owned(),
             url: "https://x".into(),
+            display_name: String::new(),
+            display_subtitle: String::new(),
         }
     }
 

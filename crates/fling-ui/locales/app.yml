@@ -293,6 +293,18 @@ settings.ui_language:
   zh-CN: 界面语言
   en: Interface Language
   ja: インターフェース言語
+settings.trainer_names:
+  zh-CN: 修改器名称
+  en: Trainer Names
+  ja: トレーナー名
+settings.trainer_names_hint:
+  zh-CN: 搜索结果、详情、下载列表和已下载列表中的名称，以及新下载文件的文件名，都会使用该语言。数据库中没有译名的游戏保持英文。
+  en: Used for names in search results, details, downloads and the library, and for the file names of new downloads. Games without a translation stay in English.
+  ja: 検索結果・詳細・ダウンロード一覧・ライブラリの名前と、新しくダウンロードするファイル名に使われます。訳名のないゲームは英語のままです。
+trainer_names.follow_ui:
+  zh-CN: 跟随界面语言
+  en: Follow Interface Language
+  ja: インターフェース言語に合わせる
 settings.about:
   zh-CN: 关于
   en: About

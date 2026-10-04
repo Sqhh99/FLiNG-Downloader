@@ -1,6 +1,6 @@
 //! The settings dialog: appearance, download folder, language and about/updates.
 
-use fling_app::{Command, Language, UpdateSource, UpdateState};
+use fling_app::{Command, Language, TrainerNameLanguage, UpdateSource, UpdateState};
 use gpui_kit::assets::IconName;
 use gpui_kit::component::Disableable as _;
 use gpui_kit::component::button::{Button, ButtonVariants as _};
@@ -11,7 +11,9 @@ use gpui_kit::component::{Icon, IndexPath, Sizable as _, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
-use crate::i18n::{language_name, source_name, theme_name, tr, update_status};
+use crate::i18n::{
+    language_name, source_name, theme_name, tr, trainer_name_language_name, update_status,
+};
 use crate::state::AppModel;
 use crate::theme::{self, THEME_COUNT, palette};
 use crate::views::motion;
@@ -40,6 +42,7 @@ pub struct SettingsPanel {
     model: Entity<AppModel>,
     section: Section,
     language_select: Entity<TextSelect>,
+    trainer_names_select: Entity<TextSelect>,
     source_select: Entity<TextSelect>,
     language: Language,
     content_scroll: SmoothScroll,
@@ -48,6 +51,20 @@ pub struct SettingsPanel {
 
 fn language_items() -> Vec<SharedString> {
     Language::ALL.iter().map(|l| language_name(*l)).collect()
+}
+
+fn trainer_name_items() -> Vec<SharedString> {
+    TrainerNameLanguage::ALL
+        .iter()
+        .map(|choice| trainer_name_language_name(*choice))
+        .collect()
+}
+
+fn trainer_name_index(choice: TrainerNameLanguage) -> usize {
+    TrainerNameLanguage::ALL
+        .iter()
+        .position(|c| *c == choice)
+        .unwrap_or(0)
 }
 
 fn source_items() -> Vec<SharedString> {
@@ -72,6 +89,16 @@ impl SettingsPanel {
                 cx,
             )
         });
+        let trainer_names_select = cx.new(|cx| {
+            SelectState::new(
+                trainer_name_items(),
+                Some(IndexPath::new(trainer_name_index(
+                    settings.trainer_name_language,
+                ))),
+                window,
+                cx,
+            )
+        });
         let source_select = cx.new(|cx| {
             SelectState::new(
                 source_items(),
@@ -89,6 +116,20 @@ impl SettingsPanel {
                     this.model
                         .read(cx)
                         .send(Command::SetLanguage(Language::from_index(index as i64)));
+                },
+            ),
+            cx.subscribe_in(
+                &trainer_names_select,
+                window,
+                |this, select, _: &SelectEvent<Vec<SharedString>>, _, cx| {
+                    let index = select.read(cx).selected_index(cx).map_or(0, |ix| ix.row);
+                    let choice = TrainerNameLanguage::ALL
+                        .get(index)
+                        .copied()
+                        .unwrap_or_default();
+                    this.model
+                        .read(cx)
+                        .send(Command::SetTrainerNameLanguage(choice));
                 },
             ),
             cx.subscribe_in(
@@ -119,6 +160,16 @@ impl SettingsPanel {
                             cx,
                         );
                     });
+                    // The option names are in the UI language too.
+                    let choice = model.read(cx).settings.trainer_name_language;
+                    this.trainer_names_select.update(cx, |select, cx| {
+                        select.set_items(trainer_name_items(), window, cx);
+                        select.set_selected_index(
+                            Some(IndexPath::new(trainer_name_index(choice))),
+                            window,
+                            cx,
+                        );
+                    });
                 }
                 cx.notify();
             }),
@@ -128,9 +179,11 @@ impl SettingsPanel {
             section: match crate::views::root::debug_open().as_deref() {
                 Some("settings-about") if cfg!(debug_assertions) => Section::About,
                 Some("settings-download") if cfg!(debug_assertions) => Section::Download,
+                Some("settings-language") if cfg!(debug_assertions) => Section::Language,
                 _ => Section::Appearance,
             },
             language_select,
+            trainer_names_select,
             source_select,
             language: settings.language,
             content_scroll: SmoothScroll::new(),
@@ -312,10 +365,26 @@ impl SettingsPanel {
     }
 
     fn render_language(&self, cx: &mut Context<Self>) -> Div {
-        Self::section(tr!("settings.language_title"), cx).child(
-            Self::field(tr!("settings.ui_language"), cx)
-                .child(div().w(px(200.)).child(Select::new(&self.language_select))),
-        )
+        let c = palette(cx);
+        Self::section(tr!("settings.language_title"), cx)
+            .child(
+                Self::field(tr!("settings.ui_language"), cx)
+                    .child(div().w(px(200.)).child(Select::new(&self.language_select))),
+            )
+            .child(
+                Self::field(tr!("settings.trainer_names"), cx)
+                    .child(
+                        div()
+                            .w(px(280.))
+                            .child(Select::new(&self.trainer_names_select)),
+                    )
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(c.text_muted)
+                            .child(tr!("settings.trainer_names_hint")),
+                    ),
+            )
     }
 
     fn update_card(&self, database: bool, cx: &mut Context<Self>) -> Div {

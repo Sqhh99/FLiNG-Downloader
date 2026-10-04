@@ -16,7 +16,7 @@ use crate::state::AppModel;
 use crate::theme::palette;
 use crate::views::motion;
 use crate::views::smooth_scroll::SmoothScroll;
-use crate::views::widgets::icon_button;
+use crate::views::widgets::{icon_button, trainer_name};
 
 pub enum DrawerEvent {
     Close,
@@ -322,19 +322,33 @@ impl Render for DetailDrawer {
             .child(
                 // The drawer covers the title bar, so its header moves the window.
                 h_flex()
-                    .h(px(48.))
+                    .min_h(px(48.))
+                    .py_2()
                     .flex_shrink_0()
                     .gap_2()
                     .window_control_area(WindowControlArea::Drag)
                     .child(
-                        div()
+                        v_flex()
                             .flex_1()
                             .min_w_0()
-                            .truncate()
-                            .text_size(TITLE_TEXT)
-                            .font_weight(FontWeight::BOLD)
-                            .text_color(c.text)
-                            .child(m.name.clone()),
+                            .child(
+                                div()
+                                    .truncate()
+                                    .text_size(TITLE_TEXT)
+                                    .font_weight(FontWeight::BOLD)
+                                    .text_color(c.text)
+                                    .child(trainer_name(&m.display_name, &m.name)),
+                            )
+                            // The English title under a translated name.
+                            .when(!m.display_subtitle.is_empty(), |title| {
+                                title.child(
+                                    div()
+                                        .truncate()
+                                        .text_size(BODY_TEXT)
+                                        .text_color(c.text_secondary)
+                                        .child(m.display_subtitle.clone()),
+                                )
+                            }),
                     )
                     // Keeps the caption drag area from swallowing the click.
                     .child(div().id("drawer-close-wrap").occlude().child(close)),

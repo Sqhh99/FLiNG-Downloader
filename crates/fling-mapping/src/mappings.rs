@@ -1,7 +1,9 @@
-//! CN/JA → English title lookup. Port of `GameMappingManager`.
+//! CN/JA → English title lookup (port of `GameMappingManager`), and the
+//! reverse English → CN/JA lookup behind localized trainer names.
 
 use std::collections::{BTreeMap, HashMap};
 
+use fling_core::Language;
 use fling_core::text::normalize_lookup_text;
 
 use crate::GameRecord;
@@ -27,6 +29,9 @@ pub struct GameMappings {
     exact: HashMap<String, String>,
     /// `normalize_lookup_text` form → English. The first value for a key wins.
     normalized: HashMap<String, String>,
+    /// Normalized English title → (Chinese, Japanese). The first value for a
+    /// key wins.
+    titles: HashMap<String, (String, String)>,
 }
 
 /// Qt used `trimmed().toCaseFolded()`; `to_lowercase` matches it for every
@@ -97,6 +102,17 @@ impl GameMappings {
             ] {
                 add_lookup(&mut mappings.normalized, key.clone(), english);
             }
+            for key in [
+                normalize_lookup_text(english),
+                info.normalized_english.clone(),
+            ] {
+                if !key.is_empty() {
+                    mappings
+                        .titles
+                        .entry(key)
+                        .or_insert_with(|| (info.chinese.clone(), info.japanese.clone()));
+                }
+            }
             mappings.by_chinese.insert(info.chinese.clone(), info);
         }
         mappings
@@ -161,6 +177,23 @@ impl GameMappings {
                     )
             })
             .map(|info| info.english.clone())
+    }
+
+    /// The Chinese or Japanese title of the game whose English title is
+    /// `english_title` (compared after `normalize_lookup_text`, so case,
+    /// spacing and punctuation may differ). `None` for English, for unknown
+    /// games, and when the database has no distinct title in that language
+    /// (many Japanese rows just repeat the English title).
+    pub fn localized_title(&self, english_title: &str, language: Language) -> Option<&str> {
+        let normalized = normalize_lookup_text(english_title);
+        let (chinese, japanese) = self.titles.get(&normalized)?;
+        let title = match language {
+            Language::English => return None,
+            Language::Chinese => chinese,
+            Language::Japanese => japanese,
+        };
+        let title = title.trim();
+        (!title.is_empty() && normalize_lookup_text(title) != normalized).then_some(title)
     }
 
     /// Every Chinese title, sorted.
@@ -249,6 +282,70 @@ mod tests {
             Some("Ace Combat 7: Skies Unknown")
         );
         assert_eq!(m.translate_to_english("elden"), Some("Elden Ring".into()));
+    }
+
+    #[test]
+    fn localized_title_looks_up_by_english_title() {
+        let m = sample();
+        assert_eq!(
+            m.localized_title("Elden Ring", Language::Chinese),
+            Some("艾尔登法环")
+        );
+        assert_eq!(
+            m.localized_title("ELDEN  RING", Language::Japanese),
+            Some("エルデンリング")
+        );
+        assert_eq!(
+            m.localized_title("Ace Combat 7 - Skies Unknown", Language::Japanese),
+            Some(ACE_JA)
+        );
+        assert_eq!(m.localized_title("Elden Ring", Language::English), None);
+        assert_eq!(m.localized_title("Unknown Game", Language::Chinese), None);
+    }
+
+    #[test]
+    fn localized_title_skips_missing_or_repeated_titles() {
+        let m = GameMappings::from_records(&[
+            record(
+                "Total War: Warhammer III",
+                "",
+                "全面战争：战锤3",
+                "Total War: Warhammer III",
+            ),
+            record("Ace Combat Assault Horizon", "", "皇牌空战：突击地平线", ""),
+        ]);
+        assert_eq!(
+            m.localized_title("Total War: Warhammer III", Language::Japanese),
+            None
+        );
+        assert_eq!(
+            m.localized_title("Total War Warhammer III", Language::Chinese),
+            Some("全面战争：战锤3")
+        );
+        assert_eq!(
+            m.localized_title("Ace Combat Assault Horizon", Language::Japanese),
+            None
+        );
+    }
+
+    #[test]
+    fn localized_title_matches_curly_apostrophes_and_normalized_column() {
+        let m = GameMappings::from_records(&[record(
+            "Assassin’s Creed 3",
+            "assassins creed 3",
+            "刺客信条3",
+            "アサシン クリード III",
+        )]);
+        // The site spells it with U+2019, as the English column does.
+        assert_eq!(
+            m.localized_title("Assassin’s Creed 3", Language::Chinese),
+            Some("刺客信条3")
+        );
+        // A plain apostrophe matches through `normalized_english`.
+        assert_eq!(
+            m.localized_title("Assassin's Creed 3", Language::Japanese),
+            Some("アサシン クリード III")
+        );
     }
 
     #[test]

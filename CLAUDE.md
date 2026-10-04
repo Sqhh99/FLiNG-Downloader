@@ -65,6 +65,12 @@ No crate below `fling-app` knows about the UI, and `fling-ui` contains no busine
   Parsing quirks are preserved deliberately; see the work log before "fixing" one.
 - `fling-mapping`: `translate_for_search` only accepts exact and normalized-exact
   matches, so broad Latin queries stay site searches instead of collapsing to one title.
+  `localized_title` is the reverse lookup behind the trainer-name language setting:
+  `fling-app/src/names.rs` turns "Elden Ring Trainer" into `display_name` "艾尔登法环"
+  over `display_subtitle` "Elden Ring" (two lines in the UI) and names new download
+  files "艾尔登法环 (Elden Ring)". `ModifierInfo::name`
+  stays the site's English title, because cover ids, the library JSON and relevance key
+  on it.
 - `fling-download`: at most 3 transfers at once; tasks sharing a temp file never run
   together. Data goes to `.crdownload`, then the file is renamed and its extension
   corrected by magic bytes. The library is `downloaded_modifiers.json`.
@@ -107,7 +113,7 @@ Never hit the live network or the user's real settings from a test. The seams:
 - `crates/fling-app/tests/backend.rs` drives the whole backend through `Command`/`Event`.
 
 UI checks: debug builds read `FLING_DEBUG_OPEN` (`drawer[:row]`, `settings`,
-`settings-about`, `settings-download`, `suggest:<text>`) to open a screen at startup, so
+`settings-about`, `settings-download`, `settings-language`, `suggest:<text>`, `downloads`) to open a screen at startup, so
 layouts can be verified by screenshot without injecting input. Interactive checks are the
 user's.
 

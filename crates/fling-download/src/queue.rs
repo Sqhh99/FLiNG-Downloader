@@ -144,14 +144,22 @@ impl DownloadQueue {
     }
 
     /// Queues `modifier`'s version `version_index` (out of range means the
-    /// first) for `<download_dir>/<name>_<version>.zip`. `None` when the
-    /// modifier has no versions.
+    /// first) for `<download_dir>/<file_stem>_<version>.zip`, where
+    /// `file_stem` is the name shown to the user (the site name when empty).
+    /// The library entry keeps the site name. `None` when the modifier has
+    /// no versions.
     pub fn enqueue(
         &self,
         modifier: &ModifierInfo,
         version_index: usize,
         download_dir: &Path,
+        file_stem: &str,
     ) -> Option<TaskId> {
+        let file_stem = if file_stem.trim().is_empty() {
+            modifier.name.as_str()
+        } else {
+            file_stem
+        };
         let version = modifier
             .versions
             .get(version_index)
@@ -160,7 +168,7 @@ impl DownloadQueue {
         // would place the file outside the download directory.
         let file_name = format!(
             "{}_{}.zip",
-            sanitize_path_component(&modifier.name, "trainer"),
+            sanitize_path_component(file_stem, "trainer"),
             sanitize_path_component(&version.label, "version"),
         );
         let save_path = download_dir.join(file_name);
@@ -172,7 +180,7 @@ impl DownloadQueue {
             state.entries.push(Entry {
                 task: DownloadTask {
                     id: id.clone(),
-                    file_name: modifier.name.clone(),
+                    file_name: file_stem.to_owned(),
                     status: TaskStatus::Queued,
                     bytes_received: 0,
                     bytes_total: 0,
@@ -468,6 +476,8 @@ impl DownloadQueue {
             download_date: Some(Local::now().naive_local()),
             file_path: task.save_path.clone(),
             url: entry.page_url.clone(),
+            display_name: String::new(),
+            display_subtitle: String::new(),
         }
     }
 
@@ -625,7 +635,7 @@ mod tests {
             "Elden Ring",
             &[("v1.02", "https://fling.test/downloads/a,,")],
         );
-        let id = h.queue.enqueue(&m, 0, &h.dir).unwrap();
+        let id = h.queue.enqueue(&m, 0, &h.dir, "").unwrap();
         assert_eq!(id.0, "task_1");
 
         wait_for(|| status_of(&h.queue, &id) == TaskStatus::Completed).await;
@@ -665,7 +675,7 @@ mod tests {
             .iter()
             .map(|name| {
                 h.queue
-                    .enqueue(&modifier(name, &[("v1", "https://x/1")]), 0, &h.dir)
+                    .enqueue(&modifier(name, &[("v1", "https://x/1")]), 0, &h.dir, "")
                     .unwrap()
             })
             .collect();
@@ -689,7 +699,7 @@ mod tests {
         // A duplicate of a running task waits for the shared temp file.
         let dup = h
             .queue
-            .enqueue(&modifier("B", &[("v1", "https://x/1")]), 0, &h.dir)
+            .enqueue(&modifier("B", &[("v1", "https://x/1")]), 0, &h.dir, "")
             .unwrap();
         h.queue.cancel(&ids[2]);
         wait_for(|| {
@@ -718,7 +728,7 @@ mod tests {
         hanging_downloads(&h.fake, b"half");
         let id = h
             .queue
-            .enqueue(&modifier("A", &[("v1", "https://x/1")]), 0, &h.dir)
+            .enqueue(&modifier("A", &[("v1", "https://x/1")]), 0, &h.dir, "")
             .unwrap();
         let temp = h.dir.join("A_v1.zip.crdownload");
         wait_for(|| temp.exists()).await;
@@ -740,6 +750,38 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
+    async fn file_is_named_after_the_display_name_but_library_keeps_site_name() {
+        let h = harness();
+        h.fake
+            .file("https://fling.test/downloads/a", b"PK\x03\x04zip".to_vec());
+        let m = modifier(
+            "Elden Ring Trainer",
+            &[("v1.0", "https://fling.test/downloads/a")],
+        );
+        let id = h
+            .queue
+            .enqueue(&m, 0, &h.dir, "艾尔登法环 (Elden Ring)")
+            .unwrap();
+        assert_eq!(h.queue.tasks()[0].file_name, "艾尔登法环 (Elden Ring)");
+
+        wait_for(|| status_of(&h.queue, &id) == TaskStatus::Completed).await;
+        let expected = h.dir.join("艾尔登法环 (Elden Ring)_v1.0.zip");
+        assert_eq!(PathBuf::from(&h.queue.tasks()[0].save_path), expected);
+        assert!(expected.exists());
+        let record = h
+            .events
+            .lock()
+            .iter()
+            .find_map(|e| match e {
+                QueueEvent::Completed(record) => Some(record.clone()),
+                _ => None,
+            })
+            .unwrap();
+        assert_eq!(record.name, "Elden Ring Trainer");
+        assert_eq!(PathBuf::from(&record.file_path), expected);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
     async fn queued_pause_cancel_and_remove_rules() {
         let h = harness();
         hanging_downloads(&h.fake, b"");
@@ -750,6 +792,7 @@ mod tests {
                         &modifier(&format!("G{i}"), &[("v1", "https://x/1")]),
                         0,
                         &h.dir,
+                        "",
                     )
                     .unwrap()
             })
@@ -776,7 +819,12 @@ mod tests {
         let h = harness();
         let id = h
             .queue
-            .enqueue(&modifier("A", &[("v1", "https://x/missing")]), 0, &h.dir)
+            .enqueue(
+                &modifier("A", &[("v1", "https://x/missing")]),
+                0,
+                &h.dir,
+                "",
+            )
             .unwrap();
         wait_for(|| status_of(&h.queue, &id) == TaskStatus::Failed).await;
         assert_eq!(h.queue.tasks()[0].error_message, "Server replied: 404");
@@ -792,12 +840,16 @@ mod tests {
         let h = harness();
         let id = h
             .queue
-            .enqueue(&modifier("A", &[("v1", "/relative")]), 0, &h.dir)
+            .enqueue(&modifier("A", &[("v1", "/relative")]), 0, &h.dir, "")
             .unwrap();
         assert_eq!(status_of(&h.queue, &id), TaskStatus::Failed);
         assert_eq!(h.queue.tasks()[0].error_message, "Download URL is empty");
         assert!(h.fake.requested_downloads().is_empty());
-        assert!(h.queue.enqueue(&modifier("B", &[]), 0, &h.dir).is_none());
+        assert!(
+            h.queue
+                .enqueue(&modifier("B", &[]), 0, &h.dir, "")
+                .is_none()
+        );
     }
 
     #[tokio::test(flavor = "multi_thread")]
@@ -808,7 +860,7 @@ mod tests {
             "Bad/Name:",
             &[("v1|beta", "https://x/1"), ("v2", "https://x/2")],
         );
-        h.queue.enqueue(&m, 9, &h.dir).unwrap();
+        h.queue.enqueue(&m, 9, &h.dir, "").unwrap();
         let task = h.queue.tasks().remove(0);
         assert_eq!(
             PathBuf::from(task.save_path),

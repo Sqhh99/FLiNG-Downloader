@@ -13,6 +13,7 @@
 - Native GPU-rendered UI (Rust + GPUI) with 9 themes (Light, Dark, Ocean, Sunset, Forest, Lavender, Rose, Midnight, Mocha)
 - Search and suggestions backed by a local SQLite translation database
 - Chinese and Japanese game titles can be remapped to the canonical English title used by FLiNG
+- Trainer names can be shown in Chinese or Japanese (e.g. "艾尔登法环 (Elden Ring)"), and new downloads are named the same way
 - One-click download and categorized trainer management
 - Real-time download progress, pause/resume, and downloaded item management
 - Built-in languages: Chinese, English, Japanese (switch instantly)
