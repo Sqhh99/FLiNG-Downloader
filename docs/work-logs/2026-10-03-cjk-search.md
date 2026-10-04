@@ -2,7 +2,7 @@
 
 - **Date:** 2026-10-03
 - **Branch:** `fix/cjk-search` (from `main` at `62f2e2d`, the v1.2.0 release commit)
-- **Related:** no PR record yet
+- **Related:** [PR record](../pull-requests/2026-10-03-cjk-search.md)
 
 ## 1. Request
 > There is also an issue with the software's search function: the current search bar seems to support only English queries. Searches using Chinese or Japanese yield no matches.
@@ -78,4 +78,4 @@ On the Windows toolchain, from WSL through `cmd.exe`, one chained command exited
 ## 5. Open items
 - **Games missing from the database** still go to the site as typed and find nothing. The fix depends on database coverage (1,185 games in v0.0.5).
 - **Ordering of a series search.** 生化危机4 searches "Resident Evil 4", but the site's fuzzy filter also returns other Resident Evil trainers. The app's current sort (here, last update) can place Resident Evil 4 second. Latin searches behave the same way, and this change does not alter it.
-- **Not yet released.** This fix is not in v1.2.0 (tagged at `62f2e2d`) and needs a v1.2.1.
+- **Release.** This fix is not in v1.2.0 (tagged at `62f2e2d`); the maintainer asked for it to ship as v1.2.1.
