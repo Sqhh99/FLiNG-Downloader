@@ -16,6 +16,8 @@ use gpui_kit::*;
 use crate::i18n::tr;
 use crate::state::AppModel;
 use crate::theme::palette;
+use crate::views::motion;
+use crate::views::smooth_scroll::SmoothScroll;
 use crate::views::widgets::{Column, empty_table, icon_button, table_header, table_row, text_cell};
 
 const MAX_SUGGESTIONS: usize = 8;
@@ -39,6 +41,8 @@ pub struct SearchPage {
     show_suggestions: bool,
     selected_row: Option<usize>,
     language: Language,
+    results_scroll: SmoothScroll,
+    seen_generation: u64,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -101,6 +105,13 @@ impl SearchPage {
                 },
             ),
             cx.observe_in(&model, window, |this, model, window, cx| {
+                // A new result set starts at the top.
+                let generation = model.read(cx).results_generation;
+                if generation != this.seen_generation {
+                    this.seen_generation = generation;
+                    this.selected_row = None;
+                    this.results_scroll.reset();
+                }
                 let language = model.read(cx).settings.language;
                 if language != this.language {
                     this.language = language;
@@ -132,6 +143,8 @@ impl SearchPage {
             highlighted: None,
             selected_row: None,
             language,
+            results_scroll: SmoothScroll::new(),
+            seen_generation: 0,
             _subscriptions: subscriptions,
         }
     }
@@ -205,7 +218,7 @@ impl SearchPage {
         cx.notify();
     }
 
-    fn render_suggestions(&self, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render_suggestions(&self, cx: &mut Context<Self>) -> Stateful<Div> {
         let c = palette(cx);
         let height = (self.suggestions.len() as f32 * SUGGESTION_ROW + 8.).min(208.);
         v_flex()
@@ -253,6 +266,7 @@ impl SearchPage {
             Column::new(tr!("col.options"), 2.),
             Column::new(tr!("col.actions"), 1.),
         ];
+        let generation = model.results_generation;
         let rows: Vec<_> = model
             .results
             .iter()
@@ -270,7 +284,7 @@ impl SearchPage {
                         }))
                         .into_any_element(),
                 ];
-                table_row(
+                let row = table_row(
                     ("result", i),
                     &columns,
                     cells,
@@ -284,7 +298,14 @@ impl SearchPage {
                         cx.emit(SearchPageEvent::ToggleDetails(i));
                     }
                     cx.notify();
-                }))
+                }));
+                // Each new result set rises in again, row by row.
+                motion::row_in(
+                    row,
+                    SharedString::from(format!("result-{generation}-{i}")),
+                    i,
+                    cx,
+                )
             })
             .collect();
         let loading = model.search_loading;
@@ -305,11 +326,19 @@ impl SearchPage {
                     table.child(empty_table(cx))
                 } else {
                     table.child(
-                        v_flex()
-                            .id("results")
+                        div()
+                            .relative()
                             .flex_1()
-                            .overflow_y_scroll()
-                            .children(rows),
+                            .min_h_0()
+                            .child(
+                                v_flex()
+                                    .id("results")
+                                    .size_full()
+                                    .overflow_y_scroll()
+                                    .track_scroll(self.results_scroll.handle())
+                                    .children(rows),
+                            )
+                            .child(self.results_scroll.driver()),
                     )
                 }
             })
@@ -335,8 +364,15 @@ impl SearchPage {
 }
 
 impl Render for SearchPage {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let loading = self.model.read(cx).search_loading;
+        let suggestions = motion::presence(
+            "suggestions",
+            self.show_suggestions && !self.suggestions.is_empty(),
+            motion::POPUP_MS,
+            window,
+            cx,
+        );
         v_flex()
             .size_full()
             .p_3()
@@ -350,10 +386,13 @@ impl Render for SearchPage {
                             .flex_1()
                             .capture_key_down(cx.listener(Self::on_key))
                             .child(Input::new(&self.input).cleanable(true).disabled(loading))
-                            .when(self.show_suggestions && !self.suggestions.is_empty(), |d| {
+                            .when_some(suggestions, |d, shown| {
                                 // Deferred so it paints above the results table, which comes
                                 // later in the tree and would otherwise cover it.
-                                d.child(deferred(self.render_suggestions(cx)).with_priority(1))
+                                d.child(
+                                    deferred(self.render_suggestions(cx).opacity(shown))
+                                        .with_priority(1),
+                                )
                             }),
                     )
                     .child(

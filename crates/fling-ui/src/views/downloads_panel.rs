@@ -10,10 +10,13 @@ use gpui_kit::*;
 use crate::i18n::{format_bytes, format_speed, task_status, tr};
 use crate::state::AppModel;
 use crate::theme::{Colors, palette};
+use crate::views::motion;
+use crate::views::smooth_scroll::SmoothScroll;
 use crate::views::widgets::icon_button;
 
 pub struct DownloadsPanel {
     model: Entity<AppModel>,
+    scroll: SmoothScroll,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -22,6 +25,7 @@ impl DownloadsPanel {
         let subscriptions = vec![cx.observe(&model, |_, _, cx| cx.notify())];
         Self {
             model,
+            scroll: SmoothScroll::new(),
             _subscriptions: subscriptions,
         }
     }
@@ -64,12 +68,7 @@ impl DownloadsPanel {
         }
     }
 
-    fn render_task(
-        &self,
-        index: usize,
-        task: &DownloadTask,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
+    fn render_task(&self, index: usize, task: &DownloadTask, cx: &mut Context<Self>) -> Div {
         let c = palette(cx);
         let status = task.status;
         let send = |command: fn(TaskId) -> Command| Self::on_click(cx, task.id.clone(), command);
@@ -193,7 +192,10 @@ impl Render for DownloadsPanel {
         let rows: Vec<_> = tasks
             .iter()
             .enumerate()
-            .map(|(i, t)| self.render_task(i, t, cx).into_any_element())
+            .map(|(i, t)| {
+                let row = self.render_task(i, t, cx);
+                motion::row_in(row, SharedString::from(format!("task-{}", t.id)), i, cx)
+            })
             .collect();
 
         v_flex()
@@ -233,10 +235,18 @@ impl Render for DownloadsPanel {
                     )
                 } else {
                     panel.child(
-                        v_flex()
-                            .id("download-rows")
-                            .overflow_y_scroll()
-                            .children(rows),
+                        // Sized by its rows up to a cap; the panel has no fixed height.
+                        div()
+                            .relative()
+                            .child(
+                                v_flex()
+                                    .id("download-rows")
+                                    .max_h(px(300.))
+                                    .overflow_y_scroll()
+                                    .track_scroll(self.scroll.handle())
+                                    .children(rows),
+                            )
+                            .child(self.scroll.driver()),
                     )
                 }
             })

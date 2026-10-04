@@ -14,6 +14,7 @@ use crate::theme::palette;
 use crate::views::detail_drawer::{DetailDrawer, DrawerEvent};
 use crate::views::downloads_panel::DownloadsPanel;
 use crate::views::library_page::LibraryPage;
+use crate::views::motion;
 use crate::views::search_page::{SearchPage, SearchPageEvent};
 use crate::views::settings_panel::{SettingsEvent, SettingsPanel};
 use crate::views::widgets::{icon_button, scrim};
@@ -115,7 +116,7 @@ impl Root {
             settings,
             tab: Tab::Search,
             drawer_row: None,
-            downloads_open: false,
+            downloads_open: cfg!(debug_assertions) && debug_open().as_deref() == Some("downloads"),
             downloads_closed_at: None,
             settings_open: cfg!(debug_assertions)
                 && debug_open().is_some_and(|v| v.starts_with("settings")),
@@ -260,6 +261,36 @@ impl Render for Root {
             Tab::Search => self.search.clone().into_any_element(),
             Tab::Library => self.library.clone().into_any_element(),
         };
+        // A new id per tab replays the fade when switching.
+        let page = motion::fade_in(
+            div().size_full().child(page),
+            ("page", self.tab as usize),
+            motion::FADE_MS,
+            cx,
+        );
+
+        // Overlays stay mounted while they animate out.
+        let drawer = motion::presence(
+            "drawer",
+            self.tab == Tab::Search && self.drawer_row.is_some(),
+            motion::DRAWER_MS,
+            window,
+            cx,
+        );
+        let downloads = motion::presence(
+            "downloads",
+            self.downloads_open,
+            motion::POPUP_MS,
+            window,
+            cx,
+        );
+        let settings = motion::presence(
+            "settings",
+            self.settings_open,
+            motion::OVERLAY_MS,
+            window,
+            cx,
+        );
 
         v_flex()
             .id("root")
@@ -281,42 +312,51 @@ impl Render for Root {
                     .child(self.render_tab(Tab::Library, tr!("tab.library"), cx)),
             )
             .child(div().flex_1().min_h_0().child(page))
-            // The drawer spans the whole window height, like the Qt build.
-            .when(
-                self.tab == Tab::Search && self.drawer_row.is_some(),
-                |root| {
-                    root.child(
-                        div()
-                            .absolute()
-                            .top_0()
-                            .right_0()
-                            .bottom_0()
-                            .w(drawer_width)
-                            .child(self.drawer.clone()),
-                    )
-                },
-            )
-            .when(self.downloads_open, |root| {
+            // The drawer spans the whole window height, like the Qt build, and
+            // slides in from the right edge.
+            .when_some(drawer, |root, shown| {
                 root.child(
                     div()
                         .absolute()
-                        .top(px(38.))
+                        .top_0()
+                        .bottom_0()
+                        .right(drawer_width * (shown - 1.0))
+                        .w(drawer_width)
+                        .child(self.drawer.clone()),
+                )
+            })
+            // The download list drops down from under the title bar.
+            .when_some(downloads, |root, shown| {
+                root.child(
+                    div()
+                        .absolute()
+                        .top(px(38. - (1.0 - shown) * 8.))
                         .right(px(8.))
-                        .on_mouse_down_out(cx.listener(|this, _, _, cx| {
-                            this.downloads_open = false;
-                            this.downloads_closed_at = Some(Instant::now());
-                            cx.notify();
-                        }))
+                        .opacity(shown)
+                        .when(self.downloads_open, |d| {
+                            d.on_mouse_down_out(cx.listener(|this, _, _, cx| {
+                                this.downloads_open = false;
+                                this.downloads_closed_at = Some(Instant::now());
+                                cx.notify();
+                            }))
+                        })
                         .child(self.downloads.clone()),
                 )
             })
-            .when(self.settings_open, |root| {
+            // Settings fade in over a dimmed window while rising slightly.
+            .when_some(settings, |root, shown| {
                 root.child(
                     scrim("settings-scrim")
+                        .opacity(shown)
                         .flex()
                         .items_center()
                         .justify_center()
-                        .child(self.settings.clone()),
+                        .child(
+                            div()
+                                .relative()
+                                .top(px((1.0 - shown) * 24.))
+                                .child(self.settings.clone()),
+                        ),
                 )
             })
     }

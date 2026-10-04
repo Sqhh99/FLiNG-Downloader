@@ -14,6 +14,8 @@ use gpui_kit::*;
 use crate::i18n::{language_name, source_name, theme_name, tr, update_status};
 use crate::state::AppModel;
 use crate::theme::{self, THEME_COUNT, palette};
+use crate::views::motion;
+use crate::views::smooth_scroll::SmoothScroll;
 use crate::views::widgets::icon_button;
 
 const REPOSITORY_URL: &str = "https://github.com/Sqhh99/FLiNG-Downloader";
@@ -40,6 +42,7 @@ pub struct SettingsPanel {
     language_select: Entity<TextSelect>,
     source_select: Entity<TextSelect>,
     language: Language,
+    content_scroll: SmoothScroll,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -130,6 +133,7 @@ impl SettingsPanel {
             language_select,
             source_select,
             language: settings.language,
+            content_scroll: SmoothScroll::new(),
             _subscriptions: subscriptions,
         }
     }
@@ -533,6 +537,13 @@ impl Render for SettingsPanel {
             Section::Language => self.render_language(cx),
             Section::About => self.render_about(cx),
         };
+        // Switching panes fades the new one in.
+        let content = motion::fade_in(
+            content,
+            ("settings-pane", self.section as usize),
+            motion::FADE_MS,
+            cx,
+        );
         v_flex()
             .id("settings-panel")
             .w(px(700.))
@@ -606,13 +617,20 @@ impl Render for SettingsPanel {
                     )
                     .child(
                         div()
-                            .id("settings-content")
+                            .relative()
                             .flex_1()
                             .min_w_0()
                             .h_full()
-                            .p_4()
-                            .overflow_y_scroll()
-                            .child(content),
+                            .child(
+                                div()
+                                    .id("settings-content")
+                                    .size_full()
+                                    .p_4()
+                                    .overflow_y_scroll()
+                                    .track_scroll(self.content_scroll.handle())
+                                    .child(content),
+                            )
+                            .child(self.content_scroll.driver()),
                     ),
             )
     }

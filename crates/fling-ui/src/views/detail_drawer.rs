@@ -14,6 +14,8 @@ use gpui_kit::*;
 use crate::i18n::tr;
 use crate::state::AppModel;
 use crate::theme::palette;
+use crate::views::motion;
+use crate::views::smooth_scroll::SmoothScroll;
 use crate::views::widgets::icon_button;
 
 pub enum DrawerEvent {
@@ -28,6 +30,7 @@ pub struct DetailDrawer {
     model: Entity<AppModel>,
     versions: Entity<SelectState<Vec<SharedString>>>,
     version_labels: Vec<String>,
+    options_scroll: SmoothScroll,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -63,6 +66,7 @@ impl DetailDrawer {
             model,
             versions,
             version_labels: Vec::new(),
+            options_scroll: SmoothScroll::new(),
             _subscriptions: subscriptions,
         }
     }
@@ -278,22 +282,29 @@ impl Render for DetailDrawer {
                     .gap_1()
                     .child(Self::caption(tr!("detail.options"), cx))
                     .child(
-                        Self::framed(cx)
-                            .id("drawer-options")
+                        div()
+                            .relative()
                             .flex_1()
                             .min_h_0()
-                            .px_3()
-                            .py_2()
-                            .overflow_y_scroll()
-                            .text_size(BODY_TEXT)
-                            .line_height(LINE_HEIGHT)
-                            .text_color(c.text)
-                            .children(m.options.iter().map(|line| {
-                                let header = line.starts_with('●');
-                                div()
-                                    .when(header, |d| d.font_weight(FontWeight::SEMIBOLD))
-                                    .child(line.clone())
-                            })),
+                            .child(
+                                Self::framed(cx)
+                                    .id("drawer-options")
+                                    .size_full()
+                                    .px_3()
+                                    .py_2()
+                                    .overflow_y_scroll()
+                                    .track_scroll(self.options_scroll.handle())
+                                    .text_size(BODY_TEXT)
+                                    .line_height(LINE_HEIGHT)
+                                    .text_color(c.text)
+                                    .children(m.options.iter().map(|line| {
+                                        let header = line.starts_with('●');
+                                        div()
+                                            .when(header, |d| d.font_weight(FontWeight::SEMIBOLD))
+                                            .child(line.clone())
+                                    })),
+                            )
+                            .child(self.options_scroll.driver()),
                     ),
             );
 
@@ -331,7 +342,9 @@ impl Render for DetailDrawer {
             .child(div().h(px(1.)).flex_shrink_0().bg(c.border))
             .map(|drawer| {
                 if !busy {
-                    return drawer.child(body);
+                    // Fades in once per selection's loaded details.
+                    let id = SharedString::from(format!("detail-{}", m.url));
+                    return drawer.child(motion::fade_in(body, id, motion::FADE_MS, cx));
                 }
                 let overlay = v_flex().flex_1().items_center().justify_center().gap_3();
                 drawer.child(if selection.detail == DetailState::Error {

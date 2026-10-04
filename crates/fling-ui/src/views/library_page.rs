@@ -11,6 +11,8 @@ use gpui_kit::*;
 use crate::i18n::tr;
 use crate::state::AppModel;
 use crate::theme::palette;
+use crate::views::motion;
+use crate::views::smooth_scroll::SmoothScroll;
 use crate::views::widgets::{Column, empty_table, icon_button, table_header, table_row, text_cell};
 
 /// How long the delete-failure banner stays up.
@@ -20,6 +22,7 @@ pub struct LibraryPage {
     model: Entity<AppModel>,
     selected_row: Option<usize>,
     banner_serial: u64,
+    scroll: SmoothScroll,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -42,6 +45,7 @@ impl LibraryPage {
         })];
         Self {
             model,
+            scroll: SmoothScroll::new(),
             selected_row: None,
             banner_serial: 0,
             _subscriptions: subscriptions,
@@ -93,7 +97,7 @@ impl Render for LibraryPage {
                     text_cell(item.display_date()),
                     actions,
                 ];
-                table_row(
+                let row = table_row(
                     ("library", i),
                     &columns,
                     cells,
@@ -107,7 +111,14 @@ impl Render for LibraryPage {
                         this.model.read(cx).send(Command::RunLibraryItem(i));
                     }
                     cx.notify();
-                }))
+                }));
+                // Keyed by file, so a new download rises in and the rest stay put.
+                motion::row_in(
+                    row,
+                    SharedString::from(format!("lib-{}", item.file_path)),
+                    i,
+                    cx,
+                )
             })
             .collect();
         let empty = rows.is_empty();
@@ -144,11 +155,19 @@ impl Render for LibraryPage {
                             table.child(empty_table(cx))
                         } else {
                             table.child(
-                                v_flex()
-                                    .id("library-rows")
+                                div()
+                                    .relative()
                                     .flex_1()
-                                    .overflow_y_scroll()
-                                    .children(rows),
+                                    .min_h_0()
+                                    .child(
+                                        v_flex()
+                                            .id("library-rows")
+                                            .size_full()
+                                            .overflow_y_scroll()
+                                            .track_scroll(self.scroll.handle())
+                                            .children(rows),
+                                    )
+                                    .child(self.scroll.driver()),
                             )
                         }
                     }),

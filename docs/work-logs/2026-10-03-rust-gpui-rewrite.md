@@ -371,3 +371,35 @@ The first CI run of PR #47 failed at `cargo fmt --all --check`: `xtask/src/main.
 
 ### CI run 2 (2026-10-04): passed
 Run `37169290956` on `7933968` passed in 19m40s. All steps passed: fmt, clippy, `cargo test --workspace` (131 passed on the runner), and `cargo xtask dist` (50.3 MB folder; the MSVC runtime was found through `ilammy/msvc-dev-cmd`). The `FLiNG-Downloader-Windows-x64` artifact (23 MB zipped) was uploaded. The release workflow (installer, portable zip) runs only on a `v*` tag and has not run yet.
+
+---
+
+## Follow-up 6 (2026-10-04): interface animations
+
+### Request
+> Please also add some animation effects to the interface interactions to improve the user
+> experience—for instance, when opening or closing the settings screen and details page, or
+> when scrolling through lists.
+
+PR #47 was still open, so this went onto the same branch.
+
+### Changes
+| Change | Files |
+|--------|-------|
+| `motion.rs`: shared helpers on GPUI Kit's `motion::Presence` (enter/exit with the overlay kept mounted while it animates out) and GPUI's `with_animation`. <ul><li>`presence(id, shown, ms)` → visibility 0..1;</li><li>`fade_in`;</li><li>`row_in` (fade plus an 8 px rise, staggered 18 ms per row up to row 16).</li></ul> Every helper renders the final state immediately when `cx.reduce_motion()` is set, which GPUI Kit reads from Windows' "Animation effects" setting. | `crates/fling-ui/src/views/motion.rs` (new) |
+| `smooth_scroll.rs`: smooth mouse-wheel scrolling. An overlay `canvas` takes line-based wheel events in the capture phase, but only when its hitbox would handle the scroll, so popups that occlude it are respected. It accumulates a target and eases the container's `ScrollHandle` toward it (28 % of the remaining distance per frame). Precise touchpad deltas and the reduced-motion case are left to GPUI. | `crates/fling-ui/src/views/smooth_scroll.rs` (new) |
+| Settings dialog: dims in and fades while rising 24 px (180 ms), and the reverse on close. Detail drawer: slides in and out from the right edge (220 ms). Download list: fades and drops 8 px (130 ms); its outside-click handler is active only while open. Tabs cross-fade. | `crates/fling-ui/src/views/root.rs` |
+| Search results: each new result set (`AppModel::results_generation`) rises in row by row and starts scrolled to the top. The suggestion popup fades in and out. Smooth scrolling on the results. | `crates/fling-ui/src/views/search_page.rs`, `crates/fling-ui/src/state.rs` |
+| Library rows are keyed by file path, so a new download rises in and existing rows don't replay; smooth scrolling. Download tasks are keyed by task id; smooth scrolling with the list capped at 300 px. Drawer content fades in per selection; smooth scrolling of the options. Settings panes cross-fade; smooth scrolling. | `crates/fling-ui/src/views/{library_page,downloads_panel,detail_drawer,settings_panel}.rs` |
+| Debug-only `FLING_DEBUG_OPEN=downloads` opens the download list at startup. | `crates/fling-ui/src/views/root.rs` |
+
+### Verification
+- `cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D warnings` and `cargo test --workspace` (131 passed): all exit code 0.
+- Final states captured with the debug hooks: drawer (`drawer:1`), settings (`settings-about`) and download list (`downloads`). All render as before, with no layout regressions.
+- **Capture method.** One capture used full-screen `CopyFromScreen` while the user was working in another window, so it captured the user's screen instead of the app. That image was deleted unviewed beyond recognizing it was not the app. Captures now use `PrintWindow` on the app's own window only.
+- **Not verified by me:**
+  - The motion itself (timing, smoothness); still captures cannot show it.
+  - Smooth wheel scrolling on a real mouse.
+  - The reduced-motion path.
+
+  These need the user's eye.

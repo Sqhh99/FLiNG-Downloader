@@ -10,6 +10,9 @@ pub struct AppModel {
     handle: BackendHandle,
     pub settings: SettingsSnapshot,
     pub results: Vec<ModifierInfo>,
+    /// Bumped whenever `results` is replaced (new search, re-sort), so views
+    /// can replay entrance animations and reset scrolling.
+    pub results_generation: u64,
     pub search_loading: bool,
     pub selection: Option<Selection>,
     pub tasks: Vec<DownloadTask>,
@@ -41,6 +44,7 @@ impl AppModel {
                 handle,
                 settings,
                 results: Vec::new(),
+                results_generation: 0,
                 search_loading: false,
                 selection: None,
                 tasks: Vec::new(),
@@ -71,7 +75,10 @@ impl AppModel {
     fn apply(&mut self, event: Event, cx: &mut Context<Self>) {
         match event {
             Event::SearchLoading(loading) => self.search_loading = loading,
-            Event::Results(results) => self.results = results,
+            Event::Results(results) => {
+                self.results = results;
+                self.results_generation += 1;
+            }
             Event::Selection(selection) => self.selection = Some(selection),
             Event::Tasks(tasks) => self.tasks = tasks,
             Event::Library(library) => self.library = library,
