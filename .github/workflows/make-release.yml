@@ -191,16 +191,36 @@ jobs:
           $utf8NoBom = New-Object System.Text.UTF8Encoding $false
           [System.IO.File]::WriteAllLines($sumsPath, $lines, $utf8NoBom)
 
+          $faq = 'https://github.com/Sqhh99/FLiNG-Downloader/blob/main/docs/ANTIVIRUS_FAQ.md'
           $intro = @(
-            '## 下载说明',
+            '## Download',
             '',
-            '- 请只从此 GitHub Release 页面下载。',
-            '- **便携包**：解压后运行 `FLiNG Downloader.exe`。',
-            '- **安装包**：运行 setup 可执行文件。',
-            '- **校验**：对照附件 `SHA256SUMS.txt` 检查 zip / exe 的 SHA-256。',
-            '- Windows Defender 可能误报，见 [杀毒 FAQ](https://github.com/Sqhh99/FLiNG-Downloader/blob/main/docs/ANTIVIRUS_FAQ.md)。',
+            '| File | What it is |',
+            '|------|------------|',
+            "| ``$(Split-Path -Leaf $installerExe)`` | Installer. Installs over an older version and keeps your settings, downloaded trainers and covers. |",
+            "| ``$(Split-Path -Leaf $portableZip)`` | Portable. Unzip anywhere and run ``FLiNG Downloader.exe``. |",
+            '| `SHA256SUMS.txt` | SHA-256 checksums of both files. |',
             '',
-            '下面是本版本合入的 Pull Request 列表。',
+            '- Windows 10 / 11, x64. Download only from this GitHub Releases page.',
+            "- Windows Defender or another antivirus may flag the app by mistake; see the [antivirus FAQ]($faq).",
+            '',
+            '<details><summary>简体中文</summary>',
+            '',
+            '- **安装包**（setup.exe）：可直接覆盖安装旧版本，设置、已下载的修改器和封面都会保留。',
+            '- **便携包**（zip）：解压后运行 `FLiNG Downloader.exe`。',
+            '- 用附件 `SHA256SUMS.txt` 校验文件；请只从本页面下载。',
+            "- 杀毒软件可能误报，见 [杀毒 FAQ]($faq)。",
+            '',
+            '</details>',
+            '',
+            '<details><summary>日本語</summary>',
+            '',
+            '- **インストーラー**（setup.exe）：旧バージョンに上書きでき、設定・ダウンロード済みトレーナー・カバーは保持されます。',
+            '- **ポータブル版**（zip）：展開して `FLiNG Downloader.exe` を実行します。',
+            '- 添付の `SHA256SUMS.txt` でファイルを検証してください。ダウンロードはこのページからのみ行ってください。',
+            "- ウイルス対策ソフトが誤検知する場合は [FAQ]($faq) を参照してください。",
+            '',
+            '</details>',
             ''
           )
           [System.IO.File]::WriteAllLines($notesPath, $intro, $utf8NoBom)
