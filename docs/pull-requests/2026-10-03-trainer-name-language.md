@@ -2,12 +2,12 @@
 
 - **Date:** 2026-10-03 / **Branch:** `feat/trainer-name-language` → `main` / **Base commit:** `372491d` / **Related records:** [work log](../work-logs/2026-10-03-trainer-name-language.md)
 
-## 关联
+## Related
 There is no issue for this. The maintainer asked for it directly: every trainer name is English, in search results, the detail drawer, the library and the names of downloaded files. That is awkward for Chinese and Japanese users. The bundled translation database already has a Chinese and a Japanese title for every game it covers, but until now it was used only to translate search input.
 
 The maintainer also asked for two additions to this PR: the database-updater repo as a submodule, and the new database release.
 
-## 改了什么
+## What changed
 **For users**
 - **New setting.** Settings › Language has a **Trainer names** option: Follow interface language (default), English, 简体中文, 日本語.
 - **Two-line names.** In search results, the library and the detail drawer header, a game the database knows shows its translated title, with the English title on a smaller second line. For example, "Elden Ring Trainer" becomes 艾尔登法环 over "Elden Ring". Both lines fit the existing 40 px table rows.
@@ -36,9 +36,16 @@ The maintainer also asked for two additions to this PR: the database-updater rep
 
 **Affected crates:** `fling-core`, `fling-mapping`, `fling-config`, `fling-download`, `fling-app`, `fling-ui`.
 
-## 怎么验证
-- [x] `cargo test --workspace`
-- [ ] 本地跑过相关界面 / 下载 / 搜索路径
+## Type of change
+- [ ] Bug fix
+- [x] New feature
+- [ ] Performance or refactoring (no behavior change intended)
+- [ ] Docs, CI, or build only
+
+## How it was tested
+- [x] `cargo test --workspace` passes
+- [x] `cargo clippy --workspace --all-targets -- -D warnings` and `cargo fmt --all --check` pass
+- [ ] Tried the affected flow in the app (search / download / covers / library / settings — say which)
 
 All of these ran on the Windows toolchain and exited 0:
 - `cargo test --workspace`. The new tests cover:
@@ -53,16 +60,19 @@ All of these ran on the Windows toolchain and exited 0:
 
 **The new database file** is byte-identical (SHA-256 `220d43ff…cfa3aa4`) to the v0.0.5 release asset. It has `schema_version` 1, no rows missing a Chinese or Japanese title, and `PRAGMA integrity_check` returns `ok`. `cargo test --workspace` passes with it.
 
-**The second box is unticked.** The UI was run and checked by screenshot, below. To show translated names without changing the maintainer's real `settings.ini`, a temporary, uncommitted patch made the name setting read an env var; it was reverted and rebuilt afterwards. Three checks remain for the maintainer before merge:
+**The third box is unticked.** The UI was run and checked by screenshot, below. To show translated names without changing the maintainer's real `settings.ini`, a temporary, uncommitted patch made the name setting read an env var; it was reverted and rebuilt afterwards. Three checks remain for the maintainer before merge:
 - switching the setting interactively;
 - downloading a trainer and checking the file name;
 - looking at existing library entries.
 
-## 检查项
-- [ ] 已阅读 [CONTRIBUTING.md](https://github.com/Sqhh99/FLiNG-Downloader/blob/main/CONTRIBUTING.md)
-- [x] 界面改动附了截图（不适用可删）
-- [x] 若改动了翻译库、i18n、模型或打包资源，已在上文写明
-- [x] AI 使用披露：否 / 是（说明用在哪一部分）
+## Checklist
+- [ ] I have read [CONTRIBUTING.md](https://github.com/Sqhh99/FLiNG-Downloader/blob/main/CONTRIBUTING.md)
+- [x] UI changes include before-and-after screenshots
+- [x] New user-facing strings are in `crates/fling-ui/locales/app.yml` with zh-CN, en and ja values
+- [x] Changes to the translation database, i18n files, ONNX model, or packaging layout are called out above
+- [x] AI disclosure: No / Yes (say which parts, and whether you verified them)
+
+> Headings and checklist converted on 2026-10-03 from the Chinese template the PR was opened with to the English one adopted in `docs/english-templates-release-notes`; the content is unchanged. The screenshots show the new state only, since the setting did not exist before.
 
 **Screenshots**
 
