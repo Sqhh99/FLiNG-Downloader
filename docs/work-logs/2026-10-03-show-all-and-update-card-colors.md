@@ -2,7 +2,7 @@
 
 - **Date:** 2026-10-03
 - **Branch:** `fix/show-all-and-update-card-colors` (from `main` at `74c47ef`)
-- **Related:** none yet
+- **Related:** [PR record](../pull-requests/2026-10-03-show-all-and-update-card-colors.md)
 
 ## 1. Request
 > The most suitable combination of modifications is the local demand modification, the main screen "Show All" optional background color is improved, the setting surface is "Software Updates" and the "Translation Database Updates" background color is improved, the most preferable is the main screen and the main screen is further modified.
