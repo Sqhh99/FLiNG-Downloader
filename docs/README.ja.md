@@ -85,6 +85,7 @@ cargo xtask notices                   :: THIRD_PARTY_NOTICES.md の依存一覧�
 - アプリは外部 SQLite データベース `fling_translations.db` を使用します
 - リリースパッケージにはアプリ配下の `resources/` に同梱版が含まれます
 - DB 更新後は AppData の上書き先に保存され、アプリは同梱版と上書き版のバージョンを比較して、新しい有効な方を使用します
+- DB は [game-mappings-updater](https://github.com/Sqhh99/game-mappings-updater) で生成・公開され、サブモジュールとして `tools/game-mappings-updater` に配置されています（`git submodule update --init` で取得）
 - 有効な DB には以下が必要です：
   - `metadata.release_tag`
   - `metadata.schema_version`（任意。存在する場合は `1` であること）

@@ -85,6 +85,7 @@ Cargo workspace，前后端分离：界面只通过命令 / 事件与后端通�
 - 程序运行时使用外置 SQLite 数据库：`fling_translations.db`
 - 发布包自带一份数据库，路径在程序目录下的 `resources/`
 - 数据库更新后会写入 `AppData` 覆盖层，程序会自动比较内置库与覆盖库版本，优先使用较新的有效版本
+- 数据库由 [game-mappings-updater](https://github.com/Sqhh99/game-mappings-updater) 生成并发布，以子模块形式位于 `tools/game-mappings-updater`（`git submodule update --init` 拉取）
 - 数据库文件必须包含：
   - `metadata.release_tag`
   - `metadata.schema_version`（可选；存在时必须为 `1`）

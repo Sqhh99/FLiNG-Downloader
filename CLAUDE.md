@@ -90,8 +90,11 @@ override copy. `TranslationDatabase` validates both (required: `metadata.release
 the `games.english`, `games.normalized_english`, `games.chinese_simplified`,
 `games.japanese` columns; `metadata.schema_version` is optional but rejected when present
 and not `1`) and picks the newer valid `release_tag` — an override older than the bundled
-copy is ignored. Changing this schema means changing the separate `game-mappings-updater`
-release repo too.
+copy is ignored. The database is built and released by the separate
+`game-mappings-updater` repo, checked out as a submodule at `tools/game-mappings-updater`
+(Python/uv; `git submodule update --init` to fetch it). Changing this schema means changing
+that repo too. To refresh the bundled copy, replace `resources/fling_translations.db` with
+the asset of its latest release.
 
 ### Packaging
 
