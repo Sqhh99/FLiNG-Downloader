@@ -116,9 +116,37 @@ The UI renders a second line only when there is a subtitle.
   - The first drawer capture had the title pressed against the top edge; `py_2` fixed it, confirmed in a re-capture.
 - [ ] **The download list** still shows the task's file name on one line (`艾尔登法环 (Elden Ring)`). That is the real file name, and it truncates like before. Not changed; see open items.
 
-## 6. Open items
+## 6. Follow-up: updater submodule and database v0.0.5
+
+> Please add the project at https://github.com/Sqhh99/game-mappings-updater.git as a submodule located in the `tools` directory, and also include the new `fling_translations.db` in the recent PR.
+
+**Plan**
+1. **Submodule.** There was already an ignored local clone at `tools/game-mappings-updater`, at `c7ef0ec` (v0.0.3) with a clean worktree.
+   - Fast-forward its `main` to `origin/main` at `fb94eeb`, the v0.0.5 release merge.
+   - Drop the `.gitignore` line, then `git submodule add` it. Git reported "Adding existing repo", so nothing was re-cloned and the clone's ignored files (`.env`, `.venv/`, `output/`) were left alone.
+2. **Database.** `resources/fling_translations.db` was already modified in the worktree when this request came in, presumably copied in by the maintainer. Before committing it, I checked that it is byte-identical (SHA-256 `220d43ff…cfa3aa4`) to:
+   - the `fling_translations.db` asset of the [v0.0.5 release](https://github.com/Sqhh99/game-mappings-updater/releases/tag/v0.0.5), downloaded with `gh release download`;
+   - the submodule's `output/fling_translations.db`.
+
+   It contains `release_tag` `v0.0.5`, `schema_version` `1` and 1,185 games, none missing a Chinese or Japanese title, and `PRAGMA integrity_check` returns `ok`.
+3. **Docs.** Say where the updater lives and how to fetch it.
+
+| File | Change | Addresses |
+|------|--------|-----------|
+| `.gitmodules`, `tools/game-mappings-updater` | New submodule at `fb94eeb` | Updater in the repo |
+| `.gitignore` | Removed `tools/game-mappings-updater` | It is tracked now |
+| `resources/fling_translations.db` | v0.0.3 (1,157 games) → v0.0.5 (1,185 games) | New trainers get translated names |
+| `CLAUDE.md`, `AGENTS.md` | Submodule location, `git submodule update --init`, how to refresh the bundled DB | Agent docs |
+| `README.md`, `docs/README.en.md`, `docs/README.ja.md` | One line in the translation-database section | User docs |
+
+**Verification**
+- [x] `cargo test --workspace` exits 0 with the new database.
+- [x] **Temporary real-database check**, re-run and then removed. All 15 of 15 trainers on the saved homepage fixture now get a Chinese title, up from 7 of 15 with v0.0.3. The v0.0.5 release adds exactly the titles that were missing: *Witcher 3 Remastered*, *Onimusha 2*, *Trails in the Sky 2nd Chapter*, and others.
+- [ ] **CI checkout.** `actions/checkout` does not fetch submodules by default. Nothing in the build uses the updater, so the workflows were left as they are.
+
+## 7. Open items
 - **The download popover** shows the one-line file name, not the two-line layout. Splitting it would need display fields on `DownloadTask`. Left as is unless asked.
-- **Coverage depends on the translation DB** (1,157 games, release `v0.0.3`). New releases stay English until the `game-mappings-updater` DB adds them.
+- **Coverage depends on the translation DB**, now v0.0.5 with 1,185 games (see §6). New releases stay English until the `game-mappings-updater` DB adds them.
 - **Existing downloaded files keep their names.** Only new downloads use the display name.
 - **A pending download keeps the name it was queued with.** Its file name is fixed at enqueue, so the task row doesn't change if the setting changes mid-download.
 - **Interactive checks are the user's.** The PR was opened on the user's request on 2026-10-03, before any manual test of the setting, the download file names or existing library entries.
