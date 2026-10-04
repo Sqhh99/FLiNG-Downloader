@@ -50,6 +50,11 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
+[InstallDelete]
+; Up to v1.1.x the Qt build put the real app (and the Qt runtime) in app\
+; behind a launcher; the Rust build runs from {app} directly.
+Type: filesandordirs; Name: "{app}\app"
+
 [Files]
 Source: "{#DistDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 

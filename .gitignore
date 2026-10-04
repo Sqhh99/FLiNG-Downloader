@@ -1,118 +1,28 @@
-# C++ objects and libs
-*.slo
-*.lo
-*.o
-*.a
-*.la
-*.lai
-*.so
-*.so.*
-*.dll
-*.dylib 
-.cache
+# Rust
+/target/
+/dist/
 
-# Qt-es
-object_script.*.Release
-object_script.*.Debug
-*_plugin_import.cpp
-/.qmake.cache
-/.qmake.stash
-*.pro.user
-*.pro.user.*
-*.qbs.user
-*.qbs.user.*
-*.moc
-moc_*.cpp
-moc_*.h
-qrc_*.cpp
-ui_*.h
-*.qmlc
-*.jsc
-Makefile*
-*build-*
-*.qm
-*.prl
-
-# Qt unit tests
-target_wrapper.*
-
-# QtCreator
-*.autosave
-
-# QtCreator Qml
-*.qmlproject.user
-*.qmlproject.user.*
-
-# QtCreator CMake
-CMakeLists.txt.user*
-
-# QtCreator local machine specific files for imported projects
-*creator.user*
-
-# Visual Studio files
-*.ib_pdb_index
-*.idb
-*.ilk
-*.pdb
-*.sln
-*.suo
-*.vcproj
-*vcproj.*.*.user
-*.ncb
-*.sdf
-*.opensdf
-*.vcxproj
-*vcxproj.*
-.qtcreator
-
-# Debug and Release directories
-debug/
-release/
-
-# Build directories
-build/
-bin/
-release-package/
-GameModMaster/
-
-# User-specific files
-*.user
-*.user.*
-*.stash
-
-# Local configuration files
-local.pri
-
-# Qt translation binary files (except those in resources/translations which are needed for build)
-*.qm
-!resources/translations/*.qm
-
-# Temporary files
-*.tmp
-*~
-
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db 
-
-# vcpkg installed packages
-third_party/vcpkg
-third_party/x64-windows
-third_party/x64-windows-static-md
-onnxruntime-win-*
+# Leftovers of the former Qt/CMake build (safe to delete locally)
+/build/
+/third_party/
 __cmake_systeminformation
+
+# Editors and OS
+.cache/
+.vscode/
+.idea/
+*.user
+*.swp
+*~
+*.tmp
+.DS_Store
+Thumbs.db
+ehthumbs.db
 
 # Agents
 agents/*
 # ...except the shared skills, which are part of the repo, not local scratch.
 !agents/skills/
 
-tools/qt6-qml-module-migration.md
 tools/game-mappings-updater
-# Rust
-/target/
+tools/qt6-qml-module-migration.md

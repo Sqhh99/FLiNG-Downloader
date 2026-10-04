@@ -15,10 +15,9 @@ permissions:
   contents: read
 
 env:
-  QT_VERSION: "6.9.0"
+  CARGO_TERM_COLOR: always
   DIST_DIR: "dist/FLiNG Downloader"
   INSTALLER_DIR: "dist/installer"
-  APP_SUBDIR: "app"
 
 jobs:
   make-release-windows:
@@ -29,33 +28,22 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      # Puts VCToolsRedistDir on the environment for `cargo xtask dist`.
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
 
-      - name: Install Qt
-        uses: jurplel/install-qt-action@v4
-        with:
-          version: ${{ env.QT_VERSION }}
-          host: windows
-          target: desktop
-          arch: win64_msvc2022_64
-          cache: true
-
-      - name: Update translations for release
+      - name: Install packaging tools
         shell: pwsh
-        run: .\build.cmd i18n
-
-      - name: Install build and packaging tools
-        shell: pwsh
-        run: |
-          choco install ninja --no-progress -y
-          choco install pkgconfiglite --no-progress -y
-          choco install innosetup --no-progress -y
+        run: choco install innosetup --no-progress -y
 
       - name: Resolve version
         id: version
@@ -75,297 +63,39 @@ jobs:
           "version=$version" >> $env:GITHUB_OUTPUT
           Write-Host "Resolved version: $version"
 
-      - name: Build release binary
-        shell: pwsh
-        run: |
-          $env:VCPKG_ROOT = $env:VCPKG_INSTALLATION_ROOT
-          .\build.cmd release --app-version "${{ steps.version.outputs.version }}"
-        env:
-          PKG_CONFIG: C:\ProgramData\chocolatey\bin\pkg-config.exe
-          VCPKG_PKGCONFIG: C:\ProgramData\chocolatey\bin\pkg-config.exe
-
-      - name: Prepare Qt runtime package
+      - name: Build and package
         id: package
         shell: pwsh
         run: |
-          $workspace = $env:GITHUB_WORKSPACE
-          $distDir = Join-Path $workspace $env:DIST_DIR
-          $appDir = Join-Path $distDir $env:APP_SUBDIR
-          $buildDir = Join-Path $workspace "build\ninja-release"
-          $exePath = Join-Path $buildDir "FLiNG Downloader.exe"
-          $launcherPath = Join-Path $buildDir "FLiNG Launcher.exe"
-          $onnxRuntimeDll = Join-Path $buildDir "onnxruntime.dll"
-          $modelsSourceDir = Join-Path $buildDir "models"
-          $qmlSourceDir = Join-Path $workspace "qml"
-          $translationDbSource = Join-Path $workspace "resources\fling_translations.db"
-          $translationDbDir = Join-Path $appDir "resources"
-          $translationDbDest = Join-Path $translationDbDir "fling_translations.db"
-
-          if (!(Test-Path $exePath)) {
-            throw "Executable not found: $exePath"
-          }
-          if (!(Test-Path $launcherPath)) {
-            throw "Launcher executable not found: $launcherPath"
-          }
-          if (!(Test-Path $qmlSourceDir)) {
-            throw "QML source dir not found: $qmlSourceDir"
-          }
-          if (!(Test-Path $translationDbSource)) {
-            throw "Translation database not found: $translationDbSource"
-          }
-          if (!(Test-Path $onnxRuntimeDll)) {
-            throw "ONNX Runtime DLL not found: $onnxRuntimeDll"
-          }
-          if (!(Test-Path $modelsSourceDir)) {
-            throw "Cover detection model dir not found: $modelsSourceDir"
-          }
-
-          New-Item -ItemType Directory -Force -Path $distDir | Out-Null
-          New-Item -ItemType Directory -Force -Path $appDir | Out-Null
-          New-Item -ItemType Directory -Force -Path $translationDbDir | Out-Null
-
-          $rootLauncherPath = Join-Path $distDir "FLiNG Downloader.exe"
-          $appExePath = Join-Path $appDir "FLiNG Downloader.exe"
-
-          Copy-Item -Path $launcherPath -Destination $rootLauncherPath -Force
-          Copy-Item -Path $exePath -Destination $appExePath -Force
-          Copy-Item -Path $translationDbSource -Destination $translationDbDest -Force
-
-          # ONNX Runtime + the YOLO cover-detection model are required by the app
-          # at runtime (CoverExtractor loads models/ next to the executable).
-          Copy-Item -Path $onnxRuntimeDll -Destination (Join-Path $appDir "onnxruntime.dll") -Force
-          Copy-Item -Path $modelsSourceDir -Destination (Join-Path $appDir "models") -Recurse -Force
-
-          & windeployqt.exe --release --compiler-runtime --no-translations --no-opengl-sw --qmldir "$qmlSourceDir" --dir "$appDir" "$appExePath"
+          cargo xtask dist --version "${{ steps.version.outputs.version }}"
           if ($LASTEXITCODE -ne 0) {
-            throw "windeployqt failed with exit code $LASTEXITCODE"
+            throw "cargo xtask dist failed with exit code $LASTEXITCODE"
           }
-
-          # Some CI environments drop vc_redist.x64.exe instead of app-local CRT DLLs.
-          # Force a self-contained package by copying the runtime DLLs into app/.
-          $vcruntimeDlls = Get-ChildItem -Path $appDir -File -Filter "vcruntime*.dll" -ErrorAction SilentlyContinue
-          $msvcpDlls = Get-ChildItem -Path $appDir -File -Filter "msvcp*.dll" -ErrorAction SilentlyContinue
-          if ($vcruntimeDlls.Count -eq 0 -or $msvcpDlls.Count -eq 0) {
-            $crtDir = $null
-
-            if ($env:VCToolsRedistDir) {
-              $candidateRoots = @(
-                $env:VCToolsRedistDir,
-                (Join-Path $env:VCToolsRedistDir "x64")
-              )
-
-              foreach ($candidateRoot in $candidateRoots) {
-                if (!(Test-Path $candidateRoot)) {
-                  continue
-                }
-
-                $candidateInfo = Get-Item -Path $candidateRoot
-                if ($candidateInfo.PSIsContainer -and $candidateInfo.Name -like "Microsoft.VC*.CRT") {
-                  $crtDir = $candidateInfo
-                  break
-                }
-
-                $crtDir = Get-ChildItem -Path $candidateRoot -Directory -Filter "Microsoft.VC*.CRT" |
-                  Sort-Object Name -Descending |
-                  Select-Object -First 1
-                if ($null -ne $crtDir) {
-                  break
-                }
-              }
-            }
-
-            if ($null -eq $crtDir) {
-              throw "MSVC CRT runtime DLLs were not deployed and VCToolsRedistDir did not resolve to a CRT directory"
-            }
-
-            Get-ChildItem -Path $crtDir.FullName -File | Where-Object {
-              $_.Name -like "vcruntime*.dll" -or
-              $_.Name -like "msvcp*.dll" -or
-              $_.Name -like "concrt*.dll"
-            } |
-              Copy-Item -Destination $appDir -Force
-          }
-
-          $pluginRoot = $appDir
-          $pluginProbeDir = Join-Path $appDir "plugins"
-          if (Test-Path $pluginProbeDir) {
-            $pluginRoot = $pluginProbeDir
-          }
-
-          $sizeBeforeBytes = (Get-ChildItem -Path $distDir -Recurse -File | Measure-Object -Property Length -Sum).Sum
-
-          $qtConfPath = Join-Path $appDir "qt.conf"
-          @(
-            "[Paths]",
-            "Prefix=.",
-            "Plugins=.",
-            "Qml2Imports=qml",
-            "Imports=qml"
-          ) | Set-Content -Path $qtConfPath -Encoding Ascii
-
-          $prunePluginDirs = @(
-            "generic",
-            "networkinformation",
-            "sceneparsers",
-            "assetimporters",
-            "geometryloaders",
-            "renderers",
-            "iconengines",
-            "qmltooling"
-          )
-          foreach ($relativeDir in $prunePluginDirs) {
-            $fullDir = Join-Path $pluginRoot $relativeDir
-            if (Test-Path $fullDir) {
-              Remove-Item -Path $fullDir -Recurse -Force
+          $distDir = Join-Path $env:GITHUB_WORKSPACE $env:DIST_DIR
+          foreach ($relativePath in @(
+            "FLiNG Downloader.exe",
+            "models\game-cover-v2.onnx",
+            "resources\fling_translations.db",
+            "vcruntime140.dll",
+            "msvcp140.dll"
+          )) {
+            if (!(Test-Path (Join-Path $distDir $relativePath))) {
+              throw "Missing packaged file: $relativePath"
             }
           }
-
-          $imageFormatsDir = Join-Path $pluginRoot "imageformats"
-          if (Test-Path $imageFormatsDir) {
-            Get-ChildItem -Path $imageFormatsDir -File -Filter "*.dll" | Where-Object {
-              $_.Name -notin @("qjpeg.dll", "qpng.dll", "qico.dll", "qgif.dll")
-            } | Remove-Item -Force
-          }
-
-          # Remove unused top-level DLLs (verified by runtime loading analysis)
-          $pruneDlls = @(
-            "d3dcompiler_47.dll",
-            "dxcompiler.dll",
-            "dxil.dll",
-            "Qt6Svg.dll",
-            "Qt6QuickEffects.dll",
-            "Qt6QuickShapes.dll",
-            "Qt6LabsFolderListModel.dll",
-            "Qt6LabsQmlModels.dll",
-            "Qt6QuickControls2FluentWinUI3StyleImpl.dll",
-            "Qt6QuickControls2Fusion.dll",
-            "Qt6QuickControls2FusionStyleImpl.dll",
-            "Qt6QuickControls2Imagine.dll",
-            "Qt6QuickControls2ImagineStyleImpl.dll",
-            "Qt6QuickControls2Material.dll",
-            "Qt6QuickControls2MaterialStyleImpl.dll",
-            "Qt6QuickControls2Universal.dll",
-            "Qt6QuickControls2UniversalStyleImpl.dll",
-            "Qt6QuickControls2WindowsStyleImpl.dll"
-          )
-          foreach ($dll in $pruneDlls) {
-            $dllPath = Join-Path $appDir $dll
-            if (Test-Path $dllPath) {
-              Remove-Item -Path $dllPath -Force
-            }
-          }
-
-          # Remove unused QML style modules (only Basic + FluentWinUI3 are needed)
-          $pruneQmlStyleDirs = @(
-            "qml\QtQuick\Controls\Fusion",
-            "qml\QtQuick\Controls\Imagine",
-            "qml\QtQuick\Controls\Material",
-            "qml\QtQuick\Controls\Universal",
-            "qml\QtQuick\Controls\Windows",
-            "qml\QtQuick\NativeStyle",
-            "qml\QtQuick\Effects",
-            "qml\QtQuick\Shapes",
-            "qml\QtQuick\Particles",
-            "qml\QtQuick\LocalStorage",
-            "qml\QtQuick\tooling",
-            "qml\QtQuick\VectorImage"
-          )
-          foreach ($relativeDir in $pruneQmlStyleDirs) {
-            $fullDir = Join-Path $appDir $relativeDir
-            if (Test-Path $fullDir) {
-              Remove-Item -Path $fullDir -Recurse -Force
-            }
-          }
-
-          $requiredQmlModules = @(
-            "qml\QtQuick\Window\qmldir",
-            "qml\QtQuick\Layouts\qmldir",
-            "qml\QtQuick\Dialogs\qmldir",
-            "qml\QtQuick\Controls\Basic\qmldir"
-          )
-          foreach ($relativePath in $requiredQmlModules) {
-            $modulePath = Join-Path $appDir $relativePath
-            if (!(Test-Path $modulePath)) {
-              throw "Missing deployed QML module: $modulePath"
-            }
-          }
-
-          $requiredRuntimeFiles = @(
-            "Qt6Core.dll",
-            "Qt6Qml.dll",
-            "Qt6Quick.dll"
-          )
-          foreach ($relativePath in $requiredRuntimeFiles) {
-            $runtimePath = Join-Path $appDir $relativePath
-            if (!(Test-Path $runtimePath)) {
-              throw "Missing deployed runtime file: $runtimePath"
-            }
-          }
-
-          if (!(Test-Path $translationDbDest)) {
-            throw "Missing bundled translation database: $translationDbDest"
-          }
-
-          $onnxRuntimeDest = Join-Path $appDir "onnxruntime.dll"
-          if (!(Test-Path $onnxRuntimeDest)) {
-            throw "Missing bundled ONNX Runtime DLL: $onnxRuntimeDest"
-          }
-          $coverModelDest = Join-Path $appDir "models\game-cover-v2.onnx"
-          if (!(Test-Path $coverModelDest)) {
-            throw "Missing bundled cover detection model: $coverModelDest"
-          }
-
-          # Ensure MSVC runtime is present for /MD-built main app.
-          $vcruntimeDlls = Get-ChildItem -Path $appDir -File -Filter "vcruntime*.dll" -ErrorAction SilentlyContinue
-          $msvcpDlls = Get-ChildItem -Path $appDir -File -Filter "msvcp*.dll" -ErrorAction SilentlyContinue
-          $vcRedistInApp = Join-Path $appDir "vc_redist.x64.exe"
-          $vcRedistInDist = Join-Path $distDir "vc_redist.x64.exe"
-
-          if ($vcruntimeDlls.Count -eq 0 -or $msvcpDlls.Count -eq 0) {
-            throw "Missing MSVC runtime deployment in $appDir (expected vcruntime*.dll + msvcp*.dll)"
-          }
-
-          if (Test-Path $vcRedistInApp) {
-            Remove-Item -Path $vcRedistInApp -Force
-          }
-          if (Test-Path $vcRedistInDist) {
-            Remove-Item -Path $vcRedistInDist -Force
-          }
-
-          $qwindowsPath = Join-Path (Join-Path $pluginRoot "platforms") "qwindows.dll"
-          if (!(Test-Path $qwindowsPath)) {
-            throw "Missing deployed runtime file: $qwindowsPath"
-          }
-
-          if (!(Test-Path $rootLauncherPath)) {
-            throw "Root launcher missing after packaging: $rootLauncherPath"
-          }
-
-          Get-ChildItem -Path $distDir -Recurse -File -Include *.pdb,*.ilk,*.exp,*.lib,*.ipdb,*.iobj |
-            Remove-Item -Force -ErrorAction SilentlyContinue
-
-          $sizeAfterBytes = (Get-ChildItem -Path $distDir -Recurse -File | Measure-Object -Property Length -Sum).Sum
-          if ($null -eq $sizeBeforeBytes) { $sizeBeforeBytes = 0 }
-          if ($null -eq $sizeAfterBytes) { $sizeAfterBytes = 0 }
-
-          $sizeBeforeMB = [Math]::Round($sizeBeforeBytes / 1MB, 2)
-          $sizeAfterMB = [Math]::Round($sizeAfterBytes / 1MB, 2)
-          $sizeSavedMB = [Math]::Round(($sizeBeforeBytes - $sizeAfterBytes) / 1MB, 2)
-
+          $sizeBytes = (Get-ChildItem -Path $distDir -Recurse -File | Measure-Object -Property Length -Sum).Sum
           "dist_dir=$distDir" >> $env:GITHUB_OUTPUT
-          "size_before_mb=$sizeBeforeMB" >> $env:GITHUB_OUTPUT
-          "size_after_mb=$sizeAfterMB" >> $env:GITHUB_OUTPUT
-          "size_saved_mb=$sizeSavedMB" >> $env:GITHUB_OUTPUT
+          "size_mb=$([Math]::Round($sizeBytes / 1MB, 2))" >> $env:GITHUB_OUTPUT
 
       - name: Smoke test packaged app startup
         shell: pwsh
         run: |
-          $launcherExe = Join-Path "${{ steps.package.outputs.dist_dir }}" "FLiNG Downloader.exe"
-          if (!(Test-Path $launcherExe)) {
-            throw "Packaged launcher not found: $launcherExe"
+          $appExe = Join-Path "${{ steps.package.outputs.dist_dir }}" "FLiNG Downloader.exe"
+          if (!(Test-Path $appExe)) {
+            throw "Packaged app not found: $appExe"
           }
 
-          $proc = Start-Process -FilePath $launcherExe -PassThru
+          $proc = Start-Process -FilePath $appExe -PassThru
           Start-Sleep -Seconds 8
 
           if ($proc.HasExited) {
@@ -381,9 +111,7 @@ jobs:
         run: |
           @"
           ### Packaging Size Report
-          - Before prune: ${{ steps.package.outputs.size_before_mb }} MB
-          - After prune: ${{ steps.package.outputs.size_after_mb }} MB
-          - Saved: ${{ steps.package.outputs.size_saved_mb }} MB
+          - Package folder: ${{ steps.package.outputs.size_mb }} MB
           "@ | Add-Content -Path $env:GITHUB_STEP_SUMMARY
 
       - name: Create portable release zip

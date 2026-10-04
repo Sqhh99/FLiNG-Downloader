@@ -1,5 +1,5 @@
 //! The real cover model over the sample trainer screenshots in
-//! `tests/resources/fling_trainer_screenshot/` (the set the Qt build's
+//! `crates/fling-cover/tests/screenshots/` (the set the Qt build's
 //! benchmark used). Every sample is a FLiNG screenshot with a cover in it.
 
 #![cfg(feature = "onnx")]
@@ -18,7 +18,7 @@ fn finds_a_cover_in_every_sample() {
         .expect("model loads");
     let dump = std::env::var_os("FLING_COVER_DUMP").map(PathBuf::from);
     let mut samples: Vec<_> =
-        std::fs::read_dir(repo().join("tests/resources/fling_trainer_screenshot"))
+        std::fs::read_dir(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/screenshots"))
             .unwrap()
             .map(|e| e.unwrap().path())
             .filter(|p| {

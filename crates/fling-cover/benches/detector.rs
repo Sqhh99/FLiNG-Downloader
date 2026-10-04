@@ -15,7 +15,7 @@ fn repo() -> PathBuf {
 fn detect(c: &mut Criterion) {
     let detector = OnnxCoverDetector::load(&repo().join("resources/models/game-cover-v2.onnx"))
         .expect("model");
-    let samples = repo().join("tests/resources/fling_trainer_screenshot");
+    let samples = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/screenshots");
     let mut group = c.benchmark_group("CoverExtractor");
     for entry in std::fs::read_dir(samples).unwrap() {
         let path = entry.unwrap().path();
