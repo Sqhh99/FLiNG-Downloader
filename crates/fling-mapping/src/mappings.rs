@@ -1,10 +1,10 @@
 //! CN/JA → English title lookup (port of `GameMappingManager`), and the
 //! reverse English → CN/JA lookup behind localized trainer names.
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use fling_core::Language;
-use fling_core::text::normalize_lookup_text;
+use fling_core::text::{contains_chinese, contains_japanese_kana, normalize_lookup_text};
 
 use crate::GameRecord;
 
@@ -44,6 +44,46 @@ fn add_lookup(map: &mut HashMap<String, String>, key: String, english: &str) {
     if !key.is_empty() && !english.is_empty() {
         map.entry(key).or_insert_with(|| english.to_owned());
     }
+}
+
+/// Most titles searched one by one when a query matches several games that
+/// share no leading English words.
+pub const MAX_SEARCH_TITLES: usize = 5;
+
+/// Leading words too generic to search on their own ("The" of "The Witcher"
+/// and "The Last of Us").
+const GENERIC_WORDS: [&str; 5] = ["the", "a", "an", "of", "and"];
+
+/// The leading words every title shares (compared after
+/// `normalize_lookup_text`), spelled as in the first title. `None` unless
+/// they include a word of three or more characters that isn't generic.
+fn common_leading_words(titles: &[&str]) -> Option<String> {
+    let split: Vec<Vec<&str>> = titles
+        .iter()
+        .map(|t| t.split_whitespace().collect())
+        .collect();
+    let first = split.first()?;
+    let shared = (0..first.len())
+        .take_while(|&i| {
+            let word = normalize_lookup_text(first[i]);
+            split.iter().all(|words| {
+                words
+                    .get(i)
+                    .is_some_and(|w| normalize_lookup_text(w) == word)
+            })
+        })
+        .count();
+    let words = &first[..shared];
+    words
+        .iter()
+        .map(|w| normalize_lookup_text(w))
+        .any(|w| w.chars().count() >= 3 && !GENERIC_WORDS.contains(&w.as_str()))
+        .then(|| {
+            words
+                .join(" ")
+                .trim_end_matches([':', '：', '-', '–', ','])
+                .to_owned()
+        })
 }
 
 fn contains_either_way(
@@ -131,6 +171,66 @@ impl GameMappings {
     /// Returns `None` when there is no such match.
     pub fn translate_for_search(&self, input: &str) -> Option<String> {
         self.translate(input, false)
+    }
+
+    /// The English site searches for `input`, best first. Empty when the input
+    /// should be searched as typed.
+    ///
+    /// - An exact or normalized-exact match gives its title.
+    /// - Otherwise a Chinese or Japanese query that is part of database titles
+    ///   gives those games: their shared leading English words when they have
+    ///   some (生化危机 → "Resident Evil"), else up to
+    ///   [`MAX_SEARCH_TITLES`] titles.
+    /// - A query that contains a whole title (艾尔登法环 黑夜君临 修改器) gives
+    ///   the longest such title.
+    ///
+    /// Latin input without an exact match gives nothing, so broad queries
+    /// stay site searches.
+    pub fn search_terms(&self, input: &str) -> Vec<String> {
+        if let Some(english) = self.translate_for_search(input) {
+            return vec![english];
+        }
+        let normalized = normalize_lookup_text(input);
+        if normalized.is_empty() || !(contains_chinese(input) || contains_japanese_kana(input)) {
+            return Vec::new();
+        }
+        fn localized(info: &MappingInfo) -> [&String; 2] {
+            [&info.normalized_chinese, &info.normalized_japanese]
+        }
+
+        // Titles starting with the query rank above titles merely containing it.
+        let (mut starting, mut containing) = (Vec::new(), Vec::new());
+        for info in self.by_chinese.values() {
+            let titles = localized(info);
+            if titles.iter().any(|t| t.starts_with(&normalized)) {
+                starting.push(info.english.as_str());
+            } else if titles.iter().any(|t| t.contains(&normalized)) {
+                containing.push(info.english.as_str());
+            }
+        }
+        starting.append(&mut containing);
+        let mut seen = HashSet::new();
+        starting.retain(|english| seen.insert(*english));
+
+        match starting.as_slice() {
+            [] => self
+                .by_chinese
+                .values()
+                .flat_map(|info| localized(info).map(move |t| (t, info)))
+                .filter(|(t, _)| t.chars().count() >= 2 && normalized.contains(t.as_str()))
+                .max_by_key(|(t, _)| t.chars().count())
+                .map(|(_, info)| vec![info.english.clone()])
+                .unwrap_or_default(),
+            [one] => vec![(*one).to_owned()],
+            many => match common_leading_words(many) {
+                Some(prefix) => vec![prefix],
+                None => many
+                    .iter()
+                    .take(MAX_SEARCH_TITLES)
+                    .map(|e| (*e).to_owned())
+                    .collect(),
+            },
+        }
     }
 
     /// Like [`translate_for_search`](Self::translate_for_search), then falls back
@@ -251,6 +351,101 @@ mod tests {
             m.translate_to_english(ACE_JA_MIDDLE_DOT).as_deref(),
             Some(expected.as_str())
         );
+    }
+
+    fn series() -> GameMappings {
+        GameMappings::from_records(&[
+            record(
+                "Elden Ring Nightreign",
+                "elden ring nightreign",
+                "艾尔登法环 黑夜君临",
+                "エルデンリング ナイトレイン",
+            ),
+            record(
+                "Elden Ring Shadow of the Erdtree",
+                "elden ring shadow of the erdtree",
+                "艾尔登法环 黄金树幽影",
+                "エルデンリング 黄金樹の影",
+            ),
+            record(
+                "Resident Evil 7: Biohazard",
+                "resident evil 7 biohazard",
+                "生化危机7",
+                "バイオハザード7",
+            ),
+            record(
+                "Resident Evil 4",
+                "resident evil 4",
+                "生化危机4 重制版",
+                "バイオハザード RE:4",
+            ),
+            record("The Last of Us Part I", "", "最后生还者 第一部", ""),
+            record("The Witcher 3", "", "巫师3", ""),
+            record("Cyberpunk 2077", "", "赛博朋克2077", ""),
+        ])
+    }
+
+    #[test]
+    fn search_terms_exact_title_wins() {
+        assert_eq!(
+            series().search_terms("生化危机7"),
+            ["Resident Evil 7: Biohazard"]
+        );
+    }
+
+    #[test]
+    fn search_terms_partial_cjk_uses_shared_english_words() {
+        let m = series();
+        assert_eq!(m.search_terms("艾尔登法环"), ["Elden Ring"]);
+        assert_eq!(m.search_terms("エルデンリング"), ["Elden Ring"]);
+        assert_eq!(m.search_terms("生化危机"), ["Resident Evil"]);
+        assert_eq!(m.search_terms("バイオハザード"), ["Resident Evil"]);
+        // Part of a single title.
+        assert_eq!(m.search_terms("生化危机4"), ["Resident Evil 4"]);
+        assert_eq!(m.search_terms("黑夜君临"), ["Elden Ring Nightreign"]);
+        assert_eq!(m.search_terms("赛博"), ["Cyberpunk 2077"]);
+    }
+
+    #[test]
+    fn search_terms_without_shared_words_lists_titles() {
+        let m = GameMappings::from_records(&[
+            record("The Last of Us Part I", "", "最后生还者 第一部", ""),
+            record("The Witcher 3", "", "生还之地", ""),
+        ]);
+        // Only "The" is shared, which is too generic to search alone.
+        assert_eq!(
+            m.search_terms("生还"),
+            ["The Witcher 3", "The Last of Us Part I"].map(String::from),
+            "titles starting with the query rank first"
+        );
+        assert!(m.search_terms("三").is_empty());
+    }
+
+    #[test]
+    fn search_terms_finds_a_title_inside_a_longer_query() {
+        let m = series();
+        assert_eq!(
+            m.search_terms("艾尔登法环 黑夜君临 修改器"),
+            ["Elden Ring Nightreign"]
+        );
+    }
+
+    #[test]
+    fn search_terms_leave_latin_input_alone() {
+        let m = series();
+        assert!(m.search_terms("elden").is_empty());
+        assert!(m.search_terms("resident evil").is_empty());
+        assert!(m.search_terms("   ").is_empty());
+        assert_eq!(m.search_terms("cyberpunk 2077"), ["Cyberpunk 2077"]);
+    }
+
+    #[test]
+    fn search_terms_cap_unrelated_titles() {
+        let records: Vec<_> = (0..8)
+            .map(|i| record(&format!("Game{i} Title"), "", &format!("游戏{i}"), ""))
+            .collect();
+        let terms = GameMappings::from_records(&records).search_terms("游戏");
+        assert_eq!(terms.len(), MAX_SEARCH_TITLES);
     }
 
     #[test]

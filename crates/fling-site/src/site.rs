@@ -55,12 +55,14 @@ impl SiteClient {
         format!("{}?s={}", self.base_url, term.replace(' ', "+"))
     }
 
-    /// Searches the site. CN/JA titles with an exact database match are
-    /// searched by their English title; an empty input loads the homepage's
+    /// Searches the site. CN/JA input is searched by the English titles from
+    /// [`GameMappings::search_terms`]; an empty input loads the homepage's
     /// featured trainers.
     ///
-    /// Results are relevance-sorted and their options count / game version are
-    /// filled in from detail pages.
+    /// Results are relevance-sorted (per term, in term order, without
+    /// duplicates when there are several terms) and their options count / game
+    /// version are filled in from detail pages. Fails only when every term's
+    /// request fails.
     pub async fn search(
         &self,
         input: &str,
@@ -69,16 +71,43 @@ impl SiteClient {
         if input.is_empty() {
             return self.featured().await;
         }
-        let term = mappings
-            .translate_for_search(input)
-            .unwrap_or_else(|| input.to_owned());
-        let html = get_text(&*self.http, &self.search_url(&term)).await?;
-
-        let mut list = parse_modifier_list(&html, &term);
-        for modifier in &mut list {
-            modifier.name = format_modifier_name(&modifier.name);
+        let mut terms = mappings.search_terms(input);
+        if terms.is_empty() {
+            terms.push(input.to_owned());
         }
-        sort_by_relevance(&mut list, &term);
+        let pages = futures::future::join_all(terms.iter().map(|term| {
+            let url = self.search_url(term);
+            async move { get_text(&*self.http, &url).await }
+        }))
+        .await;
+
+        let mut list = Vec::new();
+        let mut seen = std::collections::HashSet::new();
+        let mut error = None;
+        let mut answered = false;
+        for (term, page) in terms.iter().zip(pages) {
+            let html = match page {
+                Ok(html) => html,
+                Err(err) => {
+                    tracing::warn!(term, %err, "search request failed");
+                    error.get_or_insert(err);
+                    continue;
+                }
+            };
+            answered = true;
+            let mut found = parse_modifier_list(&html, term);
+            for modifier in &mut found {
+                modifier.name = format_modifier_name(&modifier.name);
+            }
+            sort_by_relevance(&mut found, term);
+            if terms.len() > 1 {
+                found.retain(|m| m.url.is_empty() || seen.insert(m.url.clone()));
+            }
+            list.append(&mut found);
+        }
+        if let Some(err) = error.filter(|_| !answered) {
+            return Err(err);
+        }
         if list
             .iter()
             .any(|m| m.options_count == 0 || m.game_version.is_empty())
@@ -249,6 +278,83 @@ mod tests {
             fake.requested_gets(),
             [format!("{BASE}?s=Ace+Combat+7:+Skies+Unknown")]
         );
+    }
+
+    fn record(english: &str, chinese: &str) -> GameRecord {
+        GameRecord {
+            english: english.into(),
+            normalized_english: String::new(),
+            chinese_simplified: chinese.into(),
+            japanese: String::new(),
+        }
+    }
+
+    #[tokio::test]
+    async fn partial_chinese_input_searches_shared_english_words() {
+        let fake = FakeHttpClient::new();
+        fake.on_get(|_| Some(Ok(b"<html></html>".to_vec())));
+        let mappings = GameMappings::from_records(&[
+            record("Resident Evil 4", "生化危机4 重制版"),
+            record("Resident Evil Village", "生化危机：村庄"),
+        ]);
+        client(&fake).search("生化危机", &mappings).await.unwrap();
+        assert_eq!(fake.requested_gets(), [format!("{BASE}?s=Resident+Evil")]);
+    }
+
+    #[tokio::test]
+    async fn several_titles_are_searched_and_merged() {
+        let fake = FakeHttpClient::new();
+        fake.page(
+            &format!("{BASE}?s=Hollow+Knight"),
+            search_page(&[
+                ("Hollow Knight Trainer", "https://fling.test/hk/"),
+                ("Hollow Knight Silksong Trainer", "https://fling.test/silk/"),
+            ]),
+        );
+        fake.page(
+            &format!("{BASE}?s=Silksong"),
+            search_page(&[("Hollow Knight Silksong Trainer", "https://fling.test/silk/")]),
+        );
+        let mappings = GameMappings::from_records(&[
+            record("Hollow Knight", "空洞骑士"),
+            record("Silksong", "空洞骑士：丝之歌"),
+        ]);
+        let list = client(&fake).search("空洞", &mappings).await.unwrap();
+        let mut gets = fake.requested_gets();
+        gets.retain(|url| url.contains("?s="));
+        gets.sort();
+        assert_eq!(
+            gets,
+            [
+                format!("{BASE}?s=Hollow+Knight"),
+                format!("{BASE}?s=Silksong")
+            ]
+        );
+        let names: Vec<_> = list.iter().map(|m| m.name.as_str()).collect();
+        // The Silksong row both searches found appears once.
+        assert_eq!(
+            names,
+            ["Hollow Knight Trainer", "Hollow Knight Silksong Trainer"]
+        );
+    }
+
+    #[tokio::test]
+    async fn one_failed_title_search_keeps_the_others() {
+        let fake = FakeHttpClient::new();
+        fake.page(
+            &format!("{BASE}?s=Silksong"),
+            search_page(&[("Silksong Trainer", "https://fling.test/silk/")]),
+        );
+        let mappings = GameMappings::from_records(&[
+            record("Hollow Knight", "空洞骑士"),
+            record("Silksong", "空洞骑士：丝之歌"),
+        ]);
+        let list = client(&fake).search("空洞", &mappings).await.unwrap();
+        assert_eq!(list.len(), 1);
+
+        let fake = FakeHttpClient::new();
+        let result = client(&fake).search("空洞", &mappings).await;
+        assert_eq!(result, Err(GetError::Status(404)));
     }
 
     #[tokio::test]
