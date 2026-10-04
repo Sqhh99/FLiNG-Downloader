@@ -368,3 +368,6 @@ The maintainer reported that their manual testing is complete. The PR record's "
 
 ### CI run 1 (2026-10-04): format check failed
 The first CI run of PR #47 failed at `cargo fmt --all --check`: `xtask/src/main.rs` (the `notices` task) was not rustfmt-formatted. Earlier local "fmt/clippy clean" claims in this log rested on commands whose output was piped through `grep -E "^(error|warning)"`. `cargo fmt --check` prints `Diff in …` lines and signals failure only through its exit code, so the filter hid it. Fixed by running `cargo fmt --all`. Format, clippy and tests were then re-verified by exit code (all 0; 131 tests passed).
+
+### CI run 2 (2026-10-04): passed
+Run `37169290956` on `7933968` passed in 19m40s. All steps passed: fmt, clippy, `cargo test --workspace` (131 passed on the runner), and `cargo xtask dist` (50.3 MB folder; the MSVC runtime was found through `ilammy/msvc-dev-cmd`). The `FLiNG-Downloader-Windows-x64` artifact (23 MB zipped) was uploaded. The release workflow (installer, portable zip) runs only on a `v*` tag and has not run yet.
