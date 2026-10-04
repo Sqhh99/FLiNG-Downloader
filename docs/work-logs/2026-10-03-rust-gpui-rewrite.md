@@ -2,7 +2,7 @@
 
 - **Date:** 2026-10-03
 - **Branch:** `rewrite/rust-gpui` (from `main` at `6701ab6`)
-- **Related:** no review archive or PR record yet. Phase 5 (packaging, CI, Qt removal) has not started, so no PR has been opened.
+- **Related:** [PR record](../pull-requests/2026-10-04-rust-gpui-rewrite.md)
 
 ## 1. Request
 > Please take a look at this project; I want to rewrite it using Rust and GPUI. We can handle
@@ -315,3 +315,45 @@ LZMA compression of the exe, the same family the Inno installer uses, gives 11.3
 - `cargo clippy --workspace --all-targets -- -D warnings` clean; `cargo test --workspace` 131 passed.
 - Not measured: UI frame timing under `opt-level = "s"`. No difference is expected, since rendering runs on the GPU, but it was not profiled.
 - The temporary experiment target dirs were deleted afterwards.
+
+---
+
+## Phase 5 (2026-10-03/04): packaging, CI, Qt removal, docs
+
+### Request
+> We can move on to the next stage.
+
+This is phase 5 of the approved plan.
+
+### Changes
+| File(s) | Change | Commit |
+|---------|--------|--------|
+| `xtask/src/main.rs`, `xtask/Cargo.toml` | `cargo xtask dist [--version] [--out]`: builds the release app and lays out `dist/FLiNG Downloader/` (exe renamed from `fling-downloader.exe`, `models/`, `resources/fling_translations.db`, `LICENSE`, `THIRD_PARTY_NOTICES.md`, and the four MSVC runtime DLLs). The DLLs come from `VCToolsRedistDir`, or the newest VS found by `vswhere`. `cargo xtask notices` regenerates the crate table in `THIRD_PARTY_NOTICES.md` from `cargo metadata` (runtime dependencies of `fling-ui` on `x86_64-pc-windows-msvc`). | `41d623b`, `08ecfa2` |
+| `.github/workflows/build.yml` | Rust toolchain plus `rust-cache`, then `ilammy/msvc-dev-cmd` (for the CRT redist path); `cargo fmt --check`, `clippy -D warnings`, `cargo test`, `cargo xtask dist`; uploads the dist folder. | `41d623b` |
+| `.github/workflows/make-release.yml` | `cargo xtask dist --version <tag>` replaces the Qt build and `windeployqt` packaging. A file check covers exe, model, DB and CRT. Kept unchanged: the smoke test (now the exe itself, no launcher), portable zip, Inno installer, `SHA256SUMS.txt`, release notes and `softprops/action-gh-release`. | `41d623b` |
+| `tools/FLiNG Downloader-Setup.iss` | `[InstallDelete] {app}\app` removes the Qt-era app folder on in-place upgrade. Unchanged: AppId, exe name and output name. | `41d623b` |
+| `src/`, `qml/`, `tests/` (C++), `CMakeLists.txt`, `CMakePresets.json`, `cmake/`, `vcpkg*.json`, `third_party/YOLOs-CPP`, `build.cmd`, `icon.rc.in`, `resources/translations/`, `tools/i18n.cmd`, `resources/models/game-cover.names`, `resources/icons/*.png` except `app_icon.*` | Deleted (119 files). The 7 cover sample screenshots moved to `crates/fling-cover/tests/screenshots/`; the model test and benchmark were updated. | `41d623b` |
+| `.gitignore` | Rewritten for Rust (`/target/`, `/dist/`). Local Qt build leftovers (`/build/`, `/third_party/`, `__cmake_systeminformation`) stay ignored. The rewrite first dropped the rule for the local `tools/qt6-qml-module-migration.md`, which got committed; the commit was amended to untrack it again and restore the rule. | `41d623b` |
+| `README.md`, `docs/README.en.md`, `docs/README.ja.md` | Updated: <ul><li>features (9 themes, instant language switch, cover detection);</li><li>requirements (Windows 10 1903+, x64, no runtimes);</li><li>cargo build commands, crate map and tests;</li><li>`schema_version` marked optional;</li><li>CI/package contents.</li></ul> | `08ecfa2` |
+| `resources/interface.png` | New screenshot of the GPUI app with the drawer open (debug build, `FLING_DEBUG_OPEN=drawer:1`). | `08ecfa2` |
+| `CLAUDE.md`, `AGENTS.md`, `CONTRIBUTING.md` | Rewritten for the Rust workspace: build/test from WSL, layering, services, test seams, packaging and UI gotchas. The mandatory-records section of `CLAUDE.md` is unchanged. | `08ecfa2` |
+| `THIRD_PARTY_NOTICES.md` | GPUI / GPUI Kit (Apache-2.0), Lucide (ISC), ONNX Runtime 1.28.0 (MIT, DirectML build), `ort`, SQLite, the MSVC runtime, and the generated table of all 537 compiled-in crates. Every license is permissive (one MPL-2.0); none is GPL. | `08ecfa2` |
+| `.github/pull_request_template.md`, `agents/skills/project-records/SKILL.md` | `build.cmd tests` → `cargo test --workspace`; "UI / QML" → "界面". The skill's verification note now names cargo/cmd.exe. | `08ecfa2` |
+| `docs/pull-requests/2026-10-04-rust-gpui-rewrite.md` | PR record. | this commit |
+
+### Verification
+- `cargo xtask dist --version 0.0.0-dist.test` produced the expected layout (50.4 MB in total; MSVC runtime from VS 18 `Microsoft.VC145.CRT`). The packaged exe started, and its log showed `cover model loaded` from `dist\FLiNG Downloader\models\`.
+- `cargo xtask notices` regenerated 537 crate rows.
+- Import table of the release exe: `VCRUNTIME140(_1)`/`MSVCP140(_1)`, which the package ships, plus system DLLs. `DirectML.dll` and `icuuc.dll` are Windows components (10 1903+), which is why the README states that minimum.
+- `cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D warnings` and `cargo test --workspace` (131 passed) all pass after the Qt tree was removed.
+- **Not run:**
+  - The GitHub workflows; they run on push/PR.
+  - The Inno installer: Inno Setup is not installed locally, so the `.iss` change compiles only in CI.
+  - An upgrade over an existing Qt install.
+  - A tagged release.
+
+### Open items
+- The user should check an in-place upgrade over a v1.1.x Qt install: the old `app\` folder should be removed and settings, library and covers kept.
+- Locally, `build\`, `third_party\` (vcpkg installs) and `__cmake_systeminformation\` are untracked Qt leftovers that can be deleted.
+- The Gitee mirror still needs a manual release upload, as before.
+- Carried over: the preserved parsing quirks; relevance-vs-date ordering of search results; translations filled during the rewrite still to be reviewed; manual UI checks not done by me (downloads, pause/resume, library delete, suggestion keys, folder picker, update cards).
