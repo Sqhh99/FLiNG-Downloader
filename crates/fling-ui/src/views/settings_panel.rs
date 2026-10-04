@@ -448,7 +448,8 @@ impl SettingsPanel {
             .rounded(px(8.))
             .border_1()
             .border_color(c.border)
-            .bg(c.card)
+            // The section tint (as the navigation column), not a stark card white.
+            .bg(c.alternate_row)
             .child(
                 h_flex()
                     .justify_between()
