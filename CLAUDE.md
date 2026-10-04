@@ -2,131 +2,114 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-FLiNG Downloader is a Windows-only Qt 6 / QML desktop app (C++17) that searches
-flingtrainer.com, downloads game trainers, and manages them locally. Chinese and
+FLiNG Downloader is a Windows-only Rust desktop app (GPUI / GPUI Kit frontend) that
+searches flingtrainer.com, downloads game trainers, and manages them locally. Chinese and
 Japanese game titles are resolved to the site's canonical English titles through a
-bundled SQLite translation database.
+bundled SQLite translation database. Until v1.1.x it was a Qt 6 / QML app; the Rust
+rewrite keeps its data formats and on-disk paths so upgrades keep users' settings,
+library, cover cache and database override.
 
 See [AGENTS.md](AGENTS.md) for the repository map and coding conventions, and
 [CONTRIBUTING.md](CONTRIBUTING.md) for human-facing contribution rules.
 
 ## Build & test
 
-Everything goes through `build.cmd` (a Windows batch script wrapping CMake presets +
-Ninja). It requires Visual Studio 2022, CMake ≥ 3.25, Ninja, Qt 6, vcpkg, `VCPKG_ROOT`,
-and `CMAKE_PREFIX_PATH` when Qt is not at the hard-coded default (`D:/Qt/6.10.0/msvc2022_64`).
+Needs stable Rust (`x86_64-pc-windows-msvc`) and the Visual Studio 2022+ C++ build tools.
+ONNX Runtime is downloaded by `ort` on the first build and linked statically.
 
 ```bat
-build.cmd                  :: Release  -> build\ninja-release\
-build.cmd debug            :: Debug    -> build\ninja-debug\
-build.cmd run debug        :: build + launch
-build.cmd tests            :: configure -DFLING_BUILD_TESTS=ON, build, run via ctest
-build.cmd benchmark --filter CoverExtractor/.*
-build.cmd i18n             :: regenerate .ts + .qm
-build.cmd i18n check       :: verify translations are in sync (local check, not a CI gate)
-build.cmd rebuild / clean
+cargo run -p fling-ui                   :: debug app
+cargo test --workspace                  :: all tests
+cargo clippy --workspace --all-targets -- -D warnings
+cargo fmt --all
+cargo bench -p fling-cover --bench detector
+cargo xtask dist [--version 1.2.3]      :: dist\FLiNG Downloader\ (exe, models, resources, MSVC runtime)
+cargo xtask notices                     :: regenerate the crate table in THIRD_PARTY_NOTICES.md
 ```
 
-**Working from WSL:** the batch script cannot run under bash. Invoke it through
-`cmd.exe /c` from the Windows path, e.g.
-`cmd.exe /c build.cmd tests`.
-Reading/editing sources from WSL is fine; only building and running need Windows.
+**Working from WSL:** cargo must run on the Windows toolchain. Invoke it through `cmd.exe`,
+e.g. `cmd.exe /c "cd /d D:\workspace\qt-workspace\FLiNG-Downloader && cargo test --workspace"`.
+No vcvars setup is needed. Editing sources from WSL is fine. A first build of `fling-ui`
+takes several minutes (GPUI); `cargo test`/`clippy` do **not** rebuild the app binary, so
+rebuild (`cargo build -p fling-ui`) before handing an exe to the user.
 
-**Running a single test:** ctest registers one aggregate test, so filter at the GoogleTest
-level instead of through ctest:
-
-```bat
-"build\ninja-release\FLiNG Downloader Tests.exe" --gtest_filter=BackendTest.*
-```
-
-The test binary lands in the *root* of the build dir (`RUNTIME_OUTPUT_DIRECTORY`), next to
-the `onnxruntime.dll` and `models/` copied there by a POST_BUILD step — running it from
-elsewhere breaks `CoverExtractor`, which loads both via `applicationDirPath()`.
+**Single test:** `cargo test -p <crate> <name filter>`, e.g. `cargo test -p fling-site parser`.
 
 ## Architecture
 
 ### Layering
 
-QML owns all presentation; C++ owns all logic. There is exactly one bridge object.
+`fling-ui → fling-app → {site, download, update, cover, mapping, config} → {net, core}`.
+No crate below `fling-app` knows about the UI, and `fling-ui` contains no business logic.
 
-- `src/main.cpp` — installs `Logger`, applies the saved language, initializes
-  `GameMappingManager`, constructs `Backend`, injects it into QML via
-  `engine.setInitialProperties({{"backend", ...}})`, and loads `qrc:/qml/Main.qml`.
-  `initialTheme` and a `Log` facade go in as context properties.
-- `src/Backend.{h,cpp}` — the single `QML_ELEMENT QML_SINGLETON` bridge. Every
-  `Q_PROPERTY` / `Q_INVOKABLE` QML touches lives here; it owns the two list models,
-  the download-task queue, and the update-manager instances. New user-visible features
-  almost always mean a new property/invokable here plus wiring into a manager.
-- `qml/` — `Main.qml` (frameless window) hosts `pages/` (SearchPage, DownloadedPage) built
-  from `components/`. `themes/ThemeProvider.qml` is a QML singleton holding all nine theme
-  palettes; C++ `ThemeManager` only persists the selected index, it does not style anything.
+- `fling-app` is the only contract between frontend and backend. `start(BackendConfig)`
+  returns a `BackendHandle` (`send(Command)`, synchronous `suggestions()`,
+  `initial_settings()`) and an `EventReceiver`. The backend runs on its own thread with
+  its own tokio runtime; one task owns all state and handles commands and finished
+  background work in order, so application state needs no locks. Each `Event` carries the
+  full current value of one piece of state.
+- Staleness guards live in `fling-app/src/backend.rs`: search request ids, detail request
+  id + URL, and the cover guard (game id + screenshot URL). New async flows need their own.
+- `fling-ui`: `state::AppModel` mirrors events. Views (`src/views/`) read it and send
+  commands, opening files/folders on `Event::Open`. `theme/` maps the nine Qt palettes onto
+  GPUI Kit's theme (`theme::palette(cx)` for the app's own tokens). `i18n.rs` provides
+  `tr!`.
 
-The QML module is declared with `qt_add_qml_module` in the root `CMakeLists.txt` — new
-`.qml` files and resources must be added to its `QML_FILES` / `RESOURCES` lists or they
-won't exist at runtime.
+### Services (plain structs, built once by `fling-app`; no singletons)
 
-### Managers (all singletons, `getInstance()`)
-
-Business logic sits in independent, callback-driven singletons under `src/`; `Backend`
-orchestrates them and none of them know about QML.
-
-- `NetworkManager` — search, download, and update traffic all goes through
-  `sendGetRequest` / `downloadFile` / `downloadFileWithStatus`. The one exception is
-  `CoverExtractor`, which owns a private `QNetworkAccessManager` and calls `get()`
-  directly, so it bypasses the test hooks below.
-- `SearchManager` → `ModifierParser` (pugixml) — scrapes `flingtrainer.com/?s=` and the
-  homepage, parses HTML into `ModifierInfo`, sorts by relevance, and back-fills missing
-  option counts/game versions from detail pages.
-- `GameMappingManager` / `TranslationDatabase` — CN/JA → canonical English resolution.
-  `translateToEnglishForSearch()` deliberately only accepts exact and normalized-exact
-  matches so broad Latin queries stay site searches instead of collapsing to one title.
-- `DownloadManager` / `ModifierManager` / `FileSystem` — download queue, `.crdownload`
-  temp files, resume, archive/executable detection and renaming, downloaded-list persistence.
-- `AppUpdateManager` / `DatabaseUpdateManager` — GitHub or Gitee release checks (the
-  configured source is used *strictly*, with no cross-fallback) plus installer/DB download.
-- `ConfigManager` — `QSettings`-backed; theme, language, download path, update prefs.
-- `CoverExtractor` — downloads the trainer screenshot and crops the game cover with a
-  YOLO ONNX model via OpenCV + header-only YOLOs-CPP; runs off the GUI thread and caches
-  results on disk. The staleness guard for switching modifiers mid-flight is
-  `Backend::m_coverRequestId`, not part of `CoverExtractor` — new callers do not inherit it.
-- `Logger` — installs a Qt message handler; use the `LOG_DEBUG()/LOG_WARN()` macros in
-  C++ and `Log.debug(...)` in QML rather than `qDebug()`/`console.log()`.
+- `fling-net`: all HTTP goes through `Arc<dyn HttpClient>`. `ReqwestClient` uses a Chrome
+  UA, HTTP/1.1, refuses https→http redirects, and sends an origin-only Referer on
+  downloads (flingtrainer answers 403 without it). GETs have a 30 s total timeout,
+  downloads a 30 s idle timeout, and resume uses Range with 200/206/416 handling.
+- `fling-site`: regex ports of the Qt parsers. `parser::re` keeps PCRE's ASCII `\s`/`\d`.
+  Parsing quirks are preserved deliberately; see the work log before "fixing" one.
+- `fling-mapping`: `translate_for_search` only accepts exact and normalized-exact
+  matches, so broad Latin queries stay site searches instead of collapsing to one title.
+- `fling-download`: at most 3 transfers at once; tasks sharing a temp file never run
+  together. Data goes to `.crdownload`, then the file is renamed and its extension
+  corrected by magic bytes. The library is `downloaded_modifiers.json`.
+- `fling-update`: GitHub or Gitee is used **strictly**, with no cross-fallback. App
+  asset: `FLiNG-Downloader-v{ver}-win-x64-setup.exe`; DB asset: `fling_translations.db`.
+- `fling-cover`: cache in `<LocalAppData>/FLiNG Downloader/cache/covers` (`<id>.png`,
+  `<id>.game-cover-v2.nocover`). `OnnxCoverDetector` reproduces the YOLOs-CPP
+  letterbox/end-to-end pipeline. Behind the `onnx` feature (default on).
+- `fling-config`: `AppPaths` match Qt's `QStandardPaths` layout. `settings.ini` is read and
+  written by a round-tripping QSettings-compatible INI implementation that keeps unknown
+  keys.
 
 ### Translation database
 
-`resources/fling_translations.db` ships with the app, and updates are written to an
-AppData override copy. `TranslationDatabase::resolveDatabasePath()` validates both
-(required: `metadata.release_tag` and the `games.english`, `games.normalized_english`,
-`games.chinese_simplified`, `games.japanese` columns; `metadata.schema_version` is
-optional but rejected when present and not `1`) and picks the newer valid `release_tag` — an override older than the bundled copy is ignored. Changing
-this schema means changing the separate `game-mappings-updater` release repo too.
+`resources/fling_translations.db` ships with the app; updates are written to an AppData
+override copy. `TranslationDatabase` validates both (required: `metadata.release_tag` and
+the `games.english`, `games.normalized_english`, `games.chinese_simplified`,
+`games.japanese` columns; `metadata.schema_version` is optional but rejected when present
+and not `1`) and picks the newer valid `release_tag` — an override older than the bundled
+copy is ignored. Changing this schema means changing the separate `game-mappings-updater`
+release repo too.
 
 ### Packaging
 
-Two executables: `FLiNG Downloader.exe` (the Qt app) and `FLiNG Launcher.exe`, a tiny
-`/MT`, Qt-free shim that starts `app\FLiNG Downloader.exe` — release layouts put the real
-app in an `app\` subdirectory behind the launcher.
+`cargo xtask dist` produces the portable layout: `FLiNG Downloader.exe` (the Cargo bin is
+`fling-downloader`), `models/game-cover-v2.onnx`, `resources/fling_translations.db`, the
+four MSVC runtime DLLs, `LICENSE` and `THIRD_PARTY_NOTICES.md`. The Inno Setup script
+(`tools/FLiNG Downloader-Setup.iss`) keeps the Qt-era AppId and removes the old `app\`
+folder on upgrade.
 
 ## Testing
 
-`tests/` is compiled from the same `TESTABLE_PROJECT_SOURCES` as the app (everything
-except `main.cpp`), so tests link the production singletons directly. New test files must
-be added to `TEST_SOURCES` in `tests/CMakeLists.txt`.
+Never hit the live network or the user's real settings from a test. The seams:
 
-Never hit the live network or the user's real settings from a test. `tests/fixtures/test_support.h`
-provides the seams — note they cover `NetworkManager` only, so a `CoverExtractor` test would
-still reach the real network through its private manager:
+- `fling_net::fake::FakeHttpClient` (feature `test-util`): canned pages/files, request log,
+  custom handlers.
+- `fling_config::AppPaths::rooted(tempdir)`: every path under a temp dir.
+- `fling_mapping::test_util::create_database(...)`: throwaway SQLite fixtures, including a
+  deliberately malformed variant.
+- `crates/fling-app/tests/backend.rs` drives the whole backend through `Command`/`Event`.
 
-- `ScopedNetworkHooks` — installs `NetworkManager::setGetRequestHandlerForTesting` /
-  `setDownloadRequestHandlerForTesting` and resets them on destruction.
-- `ScopedConfigState` — snapshots and restores `ConfigManager` state.
-- `createTranslationDatabase(...)` — builds throwaway SQLite fixtures, including a
-  deliberately malformed variant for schema-validation tests.
-
-`tests/unit/` holds isolated behavior, `tests/integration/` the network/database
-workflows, `tests/performance/` Google Benchmark cases (built separately with
-`-DFLING_BUILD_BENCHMARKS=ON`; only `CoverExtractor` is covered, over the sample images
-in `tests/resources/fling_trainer_screenshot/`).
+UI checks: debug builds read `FLING_DEBUG_OPEN` (`drawer[:row]`, `settings`,
+`settings-about`, `settings-download`, `suggest:<text>`) to open a screen at startup, so
+layouts can be verified by screenshot without injecting input. Interactive checks are the
+user's.
 
 ## Mandatory records
 
@@ -152,15 +135,17 @@ honestly.
 
 ## Gotchas
 
-- The app version is derived from `git describe --tags` at configure time and injected as
-  `FLING_APP_VERSION`; override with `build.cmd release --app-version 1.2.3`. Pushing a
-  `v*` tag triggers the release workflow (a tag containing `-` becomes a GitHub pre-release).
-- vcpkg installs into `third_party/` (`VCPKG_INSTALLED_DIR`) with the
-  `x64-windows-static-md` triplet — static libs, dynamic CRT, to match Qt's prebuilt DLLs.
-  `third_party/YOLOs-CPP` is vendored; ONNX Runtime is fetched by `cmake/FetchONNXRuntime.cmake`.
-- User-facing strings need `qsTr()` in QML / `tr()` in C++, followed by `build.cmd i18n`
-  to regenerate `.ts`/`.qm`. `build.cmd i18n check` verifies they are in sync; CI
-  regenerates them before building and prints the diff for information only.
-- vcpkg port versions come from `vcpkg.json`'s `builtin-baseline` — do not `git pull` the
-  vcpkg clone to fix a dependency problem.
+- The app version comes from `git describe --tags` in `crates/fling-ui/build.rs`
+  (`X.Y.Z` or `X.Y.Z-dev.N+gHASH`). Override it with the `FLING_APP_VERSION` env var or
+  `cargo xtask dist --version`. Pushing a `v*` tag triggers the release workflow (a tag
+  containing `-` becomes a GitHub pre-release).
+- User-facing strings need a key in `crates/fling-ui/locales/app.yml` with zh-CN, en and
+  ja values (a test fails otherwise). Values starting with `%` must be quoted in YAML.
+- Lucide icons must be listed in `icon_assets!` in `crates/fling-ui/src/assets.rs`; GPUI
+  Kit's default set lacks some (e.g. `X`), and a missing one renders as an empty button
+  (a test scans the views).
+- In GPUI, later siblings paint over earlier ones. Popups that must overlap following
+  content need `deferred(...)`, and buttons inside a caption drag area need `.occlude()`.
+- In `fling-ui` tests, do not `use super::*`: it imports GPUI's `test` macro, which
+  shadows `#[test]`.
 - `agents/prompts/knowledge_base.md` is stale WebRTC boilerplate and does not apply here.

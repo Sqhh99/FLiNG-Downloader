@@ -1,0 +1,89 @@
+[workspace]
+resolver = "3"
+members = ["crates/*", "xtask"]
+default-members = ["crates/*"]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.90"
+license = "AGPL-3.0-only"
+repository = "https://github.com/Sqhh99/FLiNG-Downloader"
+publish = false
+
+[workspace.dependencies]
+# Internal crates
+fling-core = { path = "crates/fling-core" }
+fling-net = { path = "crates/fling-net" }
+fling-site = { path = "crates/fling-site" }
+fling-mapping = { path = "crates/fling-mapping" }
+fling-config = { path = "crates/fling-config" }
+fling-download = { path = "crates/fling-download" }
+fling-update = { path = "crates/fling-update" }
+fling-cover = { path = "crates/fling-cover", default-features = false }
+fling-app = { path = "crates/fling-app", default-features = false }
+
+# Async + networking
+tokio = { version = "1.53", features = ["rt-multi-thread", "macros", "sync", "time", "fs", "io-util"] }
+tokio-util = { version = "0.7.19", features = ["rt"] }
+futures = "0.3.34"
+bytes = "1"
+async-channel = "2.5"
+reqwest = { version = "0.13.5", default-features = false, features = ["native-tls", "charset", "system-proxy", "gzip", "brotli", "deflate", "stream", "cookies"] }
+
+# Parsing / data
+regex = "1.13"
+html-escape = "0.2.15"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+rusqlite = { version = "0.40", features = ["bundled"] }
+chrono = { version = "0.4.45", default-features = false, features = ["clock", "std", "serde"] }
+
+# Errors / logging
+thiserror = "2.0"
+anyhow = "1.0"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt"] }
+
+# Platform
+dirs = "7.0"
+parking_lot = "0.12"
+windows-sys = "0.61"
+
+# Cover extraction
+ort = { version = "=2.0.0-rc.13", default-features = false, features = ["std", "download-binaries", "tls-native"] }
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "gif", "webp"] }
+
+# UI
+gpui-kit = "0.7.0"
+rust-i18n = "4.2"
+rust-embed = { version = "8.12", features = ["include-exclude"] }
+rfd = "0.17"
+opener = "0.9"
+winresource = "0.1.31"
+
+# Dev
+tempfile = "3.27"
+criterion = "0.8"
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+
+[profile.release]
+# Size over speed for the bulk of the code (UI, networking, parsing): about
+# 8 MB smaller than opt-level 3 with no visible difference. The ONNX Runtime
+# part (~21 MB) is a prebuilt library these settings cannot shrink.
+opt-level = "s"
+lto = "fat"
+codegen-units = 1
+strip = "symbols"
+
+# Pixel loops (cover letterboxing, image decode/resize) stay fully optimized.
+[profile.release.package.fling-cover]
+opt-level = 3
+
+[profile.release.package.image]
+opt-level = 3

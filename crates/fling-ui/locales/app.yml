@@ -1,0 +1,499 @@
+_version: 2
+
+# Translations carried over from resources/translations/*.ts where they
+# existed; entries the Qt build never translated were filled in during the
+# Rust rewrite (see docs/work-logs/2026-10-03-rust-gpui-rewrite.md).
+
+app.title:
+  zh-CN: FLiNG Downloader
+  en: FLiNG Downloader
+  ja: FLiNG Downloader
+
+tab.search:
+  zh-CN: 搜索修改器
+  en: Search Mods
+  ja: MODを検索
+tab.library:
+  zh-CN: 已下载修改器
+  en: Downloaded Mods
+  ja: ダウンロード済みMOD
+
+titlebar.downloads:
+  zh-CN: 下载列表
+  en: Download List
+  ja: ダウンロードリスト
+titlebar.settings:
+  zh-CN: 设置
+  en: Settings
+  ja: 設定
+
+common.loading:
+  zh-CN: 加载中...
+  en: Loading...
+  ja: 読み込み中...
+common.close:
+  zh-CN: 关闭
+  en: Close
+  ja: 閉じる
+common.retry:
+  zh-CN: 重试
+  en: Retry
+  ja: 再試行
+common.unknown:
+  zh-CN: 未知
+  en: Unknown
+  ja: 不明
+table.empty:
+  zh-CN: 暂无数据
+  en: No data available
+  ja: 利用可能なデータはありません
+
+search.placeholder:
+  zh-CN: 搜索游戏...
+  en: Search games...
+  ja: ゲームを検索...
+search.button:
+  zh-CN: 搜索
+  en: Search
+  ja: 検索
+search.show_all:
+  zh-CN: 显示全部
+  en: Show All
+  ja: 全て表示
+sort.recent:
+  zh-CN: 最近更新
+  en: Recent Updates
+  ja: 最新更新
+sort.name:
+  zh-CN: 按名称
+  en: By Name
+  ja: 名前で
+sort.options:
+  zh-CN: 选项数量
+  en: Option Count
+  ja: オプション数
+
+col.game_name:
+  zh-CN: 游戏名称
+  en: Game Name
+  ja: ゲーム名
+col.update_date:
+  zh-CN: 更新日期
+  en: Update Date
+  ja: 更新日
+col.game_version:
+  zh-CN: 支持版本
+  en: Supported Version
+  ja: 対応バージョン
+col.options:
+  zh-CN: 选项数量
+  en: Option Count
+  ja: オプション数
+col.actions:
+  zh-CN: 操作
+  en: Actions
+  ja: 操作
+col.mod_name:
+  zh-CN: 修改器名称
+  en: Mod Name
+  ja: MOD名
+col.version:
+  zh-CN: 版本
+  en: Version
+  ja: バージョン
+col.download_date:
+  zh-CN: 下载日期
+  en: Download Date
+  ja: ダウンロード日
+
+detail.details:
+  zh-CN: 详情
+  en: Details
+  ja: 詳細
+detail.cover_loading:
+  zh-CN: 封面加载中
+  en: Loading cover...
+  ja: カバーを読み込み中...
+detail.no_cover:
+  zh-CN: 暂无封面
+  en: No Cover
+  ja: カバーなし
+detail.game_version:
+  zh-CN: "游戏版本:"
+  en: "Game Version:"
+  ja: "ゲームバージョン:"
+detail.options_count:
+  zh-CN: "选项数量:"
+  en: "Options Count:"
+  ja: "オプション数:"
+detail.last_update:
+  zh-CN: "最后更新:"
+  en: "Last Update:"
+  ja: "最終更新:"
+detail.select_version:
+  zh-CN: 选择版本下载
+  en: Select Version to Download
+  ja: ダウンロードするバージョンを選択
+detail.download:
+  zh-CN: 下载
+  en: Download
+  ja: ダウンロード
+detail.options:
+  zh-CN: 修改器选项
+  en: Mod Options
+  ja: MODオプション
+detail.no_versions:
+  zh-CN: 该页面暂无可下载的版本。
+  en: This page has no downloadable versions.
+  ja: このページにはダウンロード可能なバージョンがありません。
+detail.load_failed:
+  zh-CN: 详情加载失败
+  en: Failed to load details
+  ja: 詳細の読み込みに失敗しました
+detail.load_failed_hint:
+  zh-CN: 无法获取该修改器的详情页，请检查网络后重试。
+  en: Couldn't load this trainer's page. Check your connection and try again.
+  ja: このMODの詳細ページを取得できませんでした。ネットワークを確認して再試行してください。
+
+library.open_folder:
+  zh-CN: 打开文件夹
+  en: Open Folder
+  ja: フォルダを開く
+library.delete:
+  zh-CN: 删除
+  en: Delete
+  ja: 削除
+library.delete_failed:
+  zh-CN: 无法删除「%{name}」，文件可能正在使用中：%{path}
+  en: "Couldn't delete \"%{name}\"; the file may be in use: %{path}"
+  ja: 「%{name}」を削除できません。ファイルが使用中の可能性があります：%{path}
+
+downloads.title:
+  zh-CN: 下载列表
+  en: Download List
+  ja: ダウンロードリスト
+downloads.active:
+  zh-CN: 正在下载 %{count} 项
+  en: Downloading %{count} items
+  ja: "%{count} 件をダウンロード中"
+downloads.none_active:
+  zh-CN: 无活动下载
+  en: No active downloads
+  ja: アクティブなダウンロードはありません
+downloads.empty:
+  zh-CN: 暂无下载任务
+  en: No download tasks
+  ja: ダウンロードタスクはありません
+downloads.unknown_file:
+  zh-CN: 未知文件
+  en: Unknown file
+  ja: 不明なファイル
+downloads.pause:
+  zh-CN: 暂停
+  en: Pause
+  ja: 一時停止
+downloads.resume:
+  zh-CN: 继续
+  en: Resume
+  ja: 再開
+downloads.retry:
+  zh-CN: 重试
+  en: Retry
+  ja: 再試行
+downloads.cancel:
+  zh-CN: 取消
+  en: Cancel
+  ja: キャンセル
+downloads.remove:
+  zh-CN: 移除
+  en: Remove
+  ja: 削除
+downloads.open_folder:
+  zh-CN: 打开文件夹
+  en: Open Folder
+  ja: フォルダを開く
+status.queued:
+  zh-CN: 队列中
+  en: Queued
+  ja: 待機中
+status.downloading:
+  zh-CN: 下载中
+  en: Downloading
+  ja: ダウンロード中
+status.paused:
+  zh-CN: 已暂停
+  en: Paused
+  ja: 一時停止中
+status.completed:
+  zh-CN: 已完成
+  en: Completed
+  ja: 完了
+status.failed:
+  zh-CN: 失败
+  en: Failed
+  ja: 失敗
+status.canceled:
+  zh-CN: 已取消
+  en: Canceled
+  ja: キャンセル済み
+
+settings.title:
+  zh-CN: 设置
+  en: Settings
+  ja: 設定
+settings.appearance:
+  zh-CN: 外观
+  en: Appearance
+  ja: 外観
+settings.appearance_title:
+  zh-CN: 外观设置
+  en: Appearance Settings
+  ja: 外観設定
+settings.theme:
+  zh-CN: 主题
+  en: Theme
+  ja: テーマ
+settings.download:
+  zh-CN: 下载
+  en: Download
+  ja: ダウンロード
+settings.download_title:
+  zh-CN: 下载设置
+  en: Download Settings
+  ja: ダウンロード設定
+settings.download_dir:
+  zh-CN: 下载目录
+  en: Download Directory
+  ja: ダウンロードディレクトリ
+settings.not_set:
+  zh-CN: 未设置
+  en: Not Set
+  ja: 未設定
+settings.browse:
+  zh-CN: 浏览...
+  en: Browse...
+  ja: 参照...
+settings.download_hint:
+  zh-CN: 修改器将下载到此目录
+  en: Mods will be downloaded to this directory
+  ja: MODはこのディレクトリにダウンロードされます
+settings.pick_folder:
+  zh-CN: 选择下载目录
+  en: Select download directory
+  ja: ダウンロードディレクトリを選択
+settings.language:
+  zh-CN: 语言
+  en: Language
+  ja: 言語
+settings.language_title:
+  zh-CN: 语言设置
+  en: Language Settings
+  ja: 言語設定
+settings.ui_language:
+  zh-CN: 界面语言
+  en: Interface Language
+  ja: インターフェース言語
+settings.about:
+  zh-CN: 关于
+  en: About
+  ja: このアプリについて
+settings.author:
+  zh-CN: "作者: Sqhh99"
+  en: "Author: Sqhh99"
+  ja: "作者: Sqhh99"
+settings.update_source:
+  zh-CN: 更新源
+  en: Update source
+  ja: 更新ソース
+settings.update_source_hint:
+  zh-CN: 软件与数据库更新共用此源
+  en: Used for both software and database updates
+  ja: ソフトウェアとデータベースの更新で共通
+settings.app_updates:
+  zh-CN: 软件更新
+  en: Software Updates
+  ja: ソフトウェア更新
+settings.db_updates:
+  zh-CN: 翻译数据库更新
+  en: Translation Database Updates
+  ja: 翻訳データベース更新
+settings.auto_check:
+  zh-CN: 自动检查
+  en: Auto Check
+  ja: 自動確認
+settings.check:
+  zh-CN: 检查更新
+  en: Check for Updates
+  ja: 更新を確認
+settings.check_db:
+  zh-CN: 检查数据库更新
+  en: Check Database Updates
+  ja: データベース更新を確認
+settings.checking:
+  zh-CN: 检查中...
+  en: Checking...
+  ja: 確認中...
+settings.install:
+  zh-CN: 下载并安装
+  en: Download and Install
+  ja: ダウンロードしてインストール
+settings.apply_db:
+  zh-CN: 下载并应用
+  en: Download and Apply
+  ja: ダウンロードして適用
+settings.downloading:
+  zh-CN: 下载中...
+  en: Downloading...
+  ja: ダウンロード中...
+settings.current_version:
+  zh-CN: "当前版本: %{version}"
+  en: "Current Version: %{version}"
+  ja: "現在の版: %{version}"
+settings.latest:
+  zh-CN: "最新: %{version}"
+  en: "Latest: %{version}"
+  ja: "最新: %{version}"
+settings.source:
+  zh-CN: "源: %{source}"
+  en: "Source: %{source}"
+  ja: "提供元: %{source}"
+settings.published:
+  zh-CN: "发布: %{date}"
+  en: "Published: %{date}"
+  ja: "公開: %{date}"
+
+lang.zh:
+  zh-CN: 简体中文
+  en: Simplified Chinese
+  ja: 簡体字中国語
+lang.en:
+  zh-CN: English
+  en: English
+  ja: 英語
+lang.ja:
+  zh-CN: 日本語
+  en: Japanese
+  ja: 日本語
+
+theme.0:
+  zh-CN: 浅色
+  en: Light
+  ja: ライト
+theme.1:
+  zh-CN: 深色
+  en: Dark
+  ja: ダーク
+theme.2:
+  zh-CN: 海洋
+  en: Ocean
+  ja: オーシャン
+theme.3:
+  zh-CN: 日落
+  en: Sunset
+  ja: 夕焼け
+theme.4:
+  zh-CN: 森林
+  en: Forest
+  ja: 森林
+theme.5:
+  zh-CN: 薰衣草
+  en: Lavender
+  ja: ラベンダー
+theme.6:
+  zh-CN: 玫瑰
+  en: Rose
+  ja: ローズ
+theme.7:
+  zh-CN: 午夜
+  en: Midnight
+  ja: 深夜
+theme.8:
+  zh-CN: 摩卡
+  en: Mocha
+  ja: モカ
+
+update.idle:
+  zh-CN: 点击“检查更新”获取最新版本信息
+  en: Click "Check for Updates" to get the latest version info
+  ja: 「更新を確認」をクリックして最新バージョン情報を取得
+update.checking:
+  zh-CN: 正在检查更新...
+  en: Checking for updates...
+  ja: 更新を確認中...
+update.available:
+  zh-CN: 发现新版本：%{version}
+  en: "New version available: %{version}"
+  ja: "新しいバージョンがあります: %{version}"
+update.up_to_date:
+  zh-CN: 当前已是最新版本
+  en: You are using the latest version
+  ja: 最新バージョンを使用しています
+update.request_failed:
+  zh-CN: "%{source} 版本信息请求失败"
+  en: "%{source} release request failed"
+  ja: "%{source} のリリース情報の取得に失敗しました"
+update.no_asset:
+  zh-CN: "%{source} 的发布信息中没有可用的安装包"
+  en: "%{source} release response did not contain a valid installer asset"
+  ja: "%{source} のリリースに有効なインストーラーがありません"
+update.downloading:
+  zh-CN: 正在下载安装程序...
+  en: Downloading installer...
+  ja: インストーラーをダウンロード中...
+update.download_failed:
+  zh-CN: 下载安装程序失败：%{error}
+  en: "Failed to download installer: %{error}"
+  ja: "インストーラーのダウンロードに失敗しました: %{error}"
+update.launching:
+  zh-CN: 安装程序已下载，正在启动...
+  en: Installer downloaded. Launching setup...
+  ja: インストーラーをダウンロードしました。セットアップを起動中...
+update.launch_failed:
+  zh-CN: 启动安装程序失败
+  en: Failed to launch installer
+  ja: インストーラーの起動に失敗しました
+
+db.idle:
+  zh-CN: 点击“检查更新”获取最新数据库版本信息
+  en: Click "Check Database Updates" to get the latest database version info
+  ja: 「データベース更新を確認」をクリックして最新のデータベース版情報を取得
+db.checking:
+  zh-CN: 正在检查数据库更新...
+  en: Checking database updates...
+  ja: データベース更新を確認中...
+db.available:
+  zh-CN: 发现新数据库版本：%{version}
+  en: "New database version available: %{version}"
+  ja: "新しいデータベース版があります: %{version}"
+db.up_to_date:
+  zh-CN: 当前已是最新数据库版本
+  en: You are using the latest database version
+  ja: 最新のデータベース版を使用しています
+db.request_failed:
+  zh-CN: "%{source} 数据库版本信息请求失败"
+  en: "%{source} database release request failed"
+  ja: "%{source} のデータベースリリース情報の取得に失敗しました"
+db.no_asset:
+  zh-CN: "%{source} 的发布信息中没有可用的数据库文件"
+  en: "%{source} database release response did not contain a valid database asset"
+  ja: "%{source} のリリースに有効なデータベースファイルがありません"
+db.downloading:
+  zh-CN: 正在下载数据库更新...
+  en: Downloading database update...
+  ja: データベース更新をダウンロード中...
+db.download_failed:
+  zh-CN: 下载数据库更新失败：%{error}
+  en: "Failed to download database update: %{error}"
+  ja: "データベース更新のダウンロードに失敗しました: %{error}"
+db.installed:
+  zh-CN: 数据库更新成功：%{version}
+  en: "Database updated successfully: %{version}"
+  ja: "データベースの更新が完了しました: %{version}"
+db.install_failed:
+  zh-CN: 应用数据库更新失败：%{error}
+  en: "Failed to activate database update: %{error}"
+  ja: "データベース更新の適用に失敗しました: %{error}"
+db.reload_failed:
+  zh-CN: 数据库已更新，但重新加载数据失败
+  en: Database updated, but failed to reload data
+  ja: データベースは更新されましたが、データの再読み込みに失敗しました

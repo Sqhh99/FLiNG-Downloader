@@ -1,0 +1,19 @@
+[package]
+name = "fling-core"
+description = "Domain types and pure helpers shared by every FLiNG Downloader crate"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+chrono.workspace = true
+regex.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true

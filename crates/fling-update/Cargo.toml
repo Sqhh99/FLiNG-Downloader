@@ -1,0 +1,23 @@
+[package]
+name = "fling-update"
+description = "GitHub/Gitee release checks for the app installer and the translation database"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+fling-core.workspace = true
+fling-net.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+fling-net = { workspace = true, features = ["test-util"] }
+tempfile.workspace = true
+tokio.workspace = true
+
+[lints]
+workspace = true

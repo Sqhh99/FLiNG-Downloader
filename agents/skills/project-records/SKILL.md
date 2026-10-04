@@ -37,8 +37,8 @@ both. Use repo-relative links (`../work-logs/...`) so they resolve on GitHub.
   say why in the surrounding prose. This is the rule most likely to be quietly broken;
   breaking it makes every other record untrustworthy.
 - **State the verification status explicitly**, including "not built, not tested". The
-  build is Windows-only (`build.cmd`, Visual Studio 2022, Qt); work done from WSL cannot
-  run it, and that is a fact for the record, not an excuse to omit.
+  build is Windows-only (cargo on the MSVC toolchain, run from WSL via `cmd.exe`); when it
+  could not be run, that is a fact for the record, not an excuse to omit.
 - `CONTRIBUTING.md` requires the **AI-assistance disclosure** to be filled in honestly:
   which parts were AI-generated, and whether they were verified.
 - Record what was **not** done or **not** covered as carefully as what was. Scope
@@ -127,14 +127,14 @@ The Issue this addresses, or the problem being solved.
 What users or developers will notice. Do not just paste a file list.
 
 ## 怎么验证
-- [ ] `build.cmd tests`
+- [ ] `cargo test --workspace`
 - [ ] 本地跑过相关界面 / 下载 / 搜索路径
 Leave a box unticked if the command was not run, and say why and who needs to run it,
 in which environment, before merge.
 
 ## 检查项
 - [ ] 已阅读 CONTRIBUTING.md
-- [ ] UI / QML 改动附了截图（不适用可删）
+- [ ] 界面改动附了截图（不适用可删）
 - [ ] 若改动了翻译库、i18n、模型或打包资源，已在上文写明
 - [ ] AI 使用披露：否 / 是（说明用在哪一部分）
 ```

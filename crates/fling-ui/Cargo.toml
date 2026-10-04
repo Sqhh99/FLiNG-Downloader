@@ -1,0 +1,33 @@
+[package]
+name = "fling-ui"
+description = "The FLiNG Downloader desktop frontend (GPUI + GPUI Kit)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+build = "build.rs"
+
+[[bin]]
+name = "fling-downloader"
+path = "src/main.rs"
+
+[dependencies]
+fling-app.workspace = true
+gpui-kit.workspace = true
+opener.workspace = true
+rfd.workspace = true
+rust-i18n.workspace = true
+rust-embed.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[features]
+default = ["onnx"]
+onnx = ["fling-app/onnx"]
+
+[build-dependencies]
+winresource.workspace = true
+
+[lints]
+workspace = true
