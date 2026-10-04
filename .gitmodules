@@ -1,0 +1,3 @@
+[submodule "tools/game-mappings-updater"]
+	path = tools/game-mappings-updater
+	url = https://github.com/Sqhh99/game-mappings-updater.git

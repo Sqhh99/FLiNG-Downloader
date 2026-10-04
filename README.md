@@ -13,6 +13,7 @@
 - 原生 GPU 渲染界面（Rust + GPUI），9 套主题（浅色、深色、海洋、日落、森林、薰衣草、玫瑰、午夜、摩卡）
 - 基于本地 SQLite 翻译库的中/英/日游戏名搜索与建议
 - 中文、日文游戏名可自动映射为官网标准英文标题进行检索
+- 修改器名称可显示为中文或日文（如「艾尔登法环 (Elden Ring)」），新下载的文件也按该名称命名
 - 一键下载与分类管理修改器文件
 - 下载任务实时进度、暂停/继续与下载列表管理
 - 内置多语言：中文、英文、日文（切换即时生效）
@@ -84,6 +85,7 @@ Cargo workspace，前后端分离：界面只通过命令 / 事件与后端通�
 - 程序运行时使用外置 SQLite 数据库：`fling_translations.db`
 - 发布包自带一份数据库，路径在程序目录下的 `resources/`
 - 数据库更新后会写入 `AppData` 覆盖层，程序会自动比较内置库与覆盖库版本，优先使用较新的有效版本
+- 数据库由 [game-mappings-updater](https://github.com/Sqhh99/game-mappings-updater) 生成并发布，以子模块形式位于 `tools/game-mappings-updater`（`git submodule update --init` 拉取）
 - 数据库文件必须包含：
   - `metadata.release_tag`
   - `metadata.schema_version`（可选；存在时必须为 `1`）

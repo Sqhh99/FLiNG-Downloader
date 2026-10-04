@@ -8,9 +8,9 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Duration;
 
 use fling_config::{AppPaths, Settings};
-use fling_core::ModifierInfo;
 use fling_core::text::cover_game_id;
 use fling_core::version::normalize_version;
+use fling_core::{Language, ModifierInfo};
 use fling_cover::{CoverCache, CoverExtractor, CoverResult};
 use fling_download::{DownloadQueue, Library, QueueEvent, RunTarget};
 use fling_mapping::{GameMappings, SuggestionIndex, TranslationDatabase};
@@ -21,6 +21,7 @@ use tokio::runtime::Handle;
 use tokio::sync::mpsc::{UnboundedReceiver, WeakUnboundedSender};
 
 use crate::api::*;
+use crate::names::{TrainerLabel, label};
 use crate::{BackendConfig, SharedLookup, StartupTimings};
 
 /// The installer gets a moment to start before the app quits.
@@ -100,7 +101,7 @@ fn send(tx: &WeakUnboundedSender<Msg>, msg: Msg) {
 fn sort_results(list: &mut [ModifierInfo], order: SortOrder) {
     match order {
         SortOrder::RecentlyUpdated => list.sort_by(|a, b| b.last_update.cmp(&a.last_update)),
-        SortOrder::Name => list.sort_by_cached_key(|m| m.name.to_lowercase()),
+        SortOrder::Name => list.sort_by_cached_key(|m| m.display_name.to_lowercase()),
         SortOrder::OptionsCount => list.sort_by_key(|m| std::cmp::Reverse(m.options_count)),
     }
 }
@@ -203,6 +204,7 @@ impl Backend {
         SettingsSnapshot {
             theme: self.settings.theme(),
             language: self.settings.language(),
+            trainer_name_language: self.settings.trainer_name_language(),
             update_source: self.settings.update_source(),
             auto_check_app_updates: self.settings.auto_check_app_updates(),
             auto_check_database_updates: self.settings.auto_check_database_updates(),
@@ -230,7 +232,7 @@ impl Backend {
 
     pub(crate) async fn run(mut self, mut rx: UnboundedReceiver<Msg>) {
         self.emit(Event::Settings(self.settings_snapshot()));
-        self.emit(Event::Library(self.library.items().to_vec()));
+        self.emit_library();
         self.emit(Event::Tasks(Vec::new()));
         self.emit(Event::AppUpdate(self.app_update.state.clone()));
         self.emit(Event::DatabaseUpdate(self.database_update.state.clone()));
@@ -271,7 +273,7 @@ impl Backend {
             Msg::Queue(QueueEvent::Tasks(tasks)) => self.emit(Event::Tasks(tasks)),
             Msg::Queue(QueueEvent::Completed(record)) => {
                 self.library.upsert(record);
-                self.emit(Event::Library(self.library.items().to_vec()));
+                self.emit_library();
             }
             Msg::CheckDone(kind, result) => self.check_done(kind, result),
             Msg::UpdateProgress(kind, progress) => {
@@ -309,7 +311,9 @@ impl Backend {
             Command::Download { version_index } => {
                 if let Some(selection) = &self.selection {
                     let dir = self.settings.download_directory();
-                    self.queue.enqueue(&selection.modifier, version_index, &dir);
+                    let modifier = &selection.modifier;
+                    let stem = self.trainer_label(&modifier.name).one_line();
+                    self.queue.enqueue(modifier, version_index, &dir, &stem);
                 }
             }
             Command::PauseTask(id) => self.queue.pause(&id),
@@ -318,18 +322,16 @@ impl Backend {
             Command::RemoveTask(id) => self.queue.remove(&id),
             Command::RunLibraryItem(index) => match self.library.run_target(index) {
                 Some(RunTarget::Open(path)) => self.emit(Event::Open(path)),
-                Some(RunTarget::Missing) => {
-                    self.emit(Event::Library(self.library.items().to_vec()))
-                }
+                Some(RunTarget::Missing) => self.emit_library(),
                 None => {}
             },
             Command::DeleteLibraryItem(index) => match self.library.delete(index) {
-                Ok(true) => self.emit(Event::Library(self.library.items().to_vec())),
+                Ok(true) => self.emit_library(),
                 Ok(false) => {}
                 Err(err) => {
                     tracing::warn!(file = err.file_path, "could not delete trainer file");
                     self.emit(Event::DeleteFailed {
-                        name: err.name,
+                        name: self.trainer_label(&err.name).one_line(),
                         file_path: err.file_path,
                     });
                 }
@@ -344,9 +346,21 @@ impl Backend {
                 self.emit_settings();
             }
             Command::SetLanguage(language) => {
+                let names_before = self.name_language();
                 self.settings.set_language(language);
                 *self.lookup.language.write() = language;
                 self.emit_settings();
+                if self.name_language() != names_before {
+                    self.relabel_all();
+                }
+            }
+            Command::SetTrainerNameLanguage(choice) => {
+                let names_before = self.name_language();
+                self.settings.set_trainer_name_language(choice);
+                self.emit_settings();
+                if self.name_language() != names_before {
+                    self.relabel_all();
+                }
             }
             Command::SetUpdateSource(source) => {
                 self.settings.set_update_source(source);
@@ -371,6 +385,59 @@ impl Backend {
 
     fn emit_settings(&self) {
         self.emit(Event::Settings(self.settings_snapshot()));
+    }
+
+    // ---- trainer names -----------------------------------------------------
+
+    /// The concrete language trainer names are shown in.
+    fn name_language(&self) -> Language {
+        self.settings
+            .trainer_name_language()
+            .resolve(self.settings.language())
+    }
+
+    fn trainer_label(&self, site_name: &str) -> TrainerLabel {
+        label(site_name, self.name_language(), &self.mappings)
+    }
+
+    fn label_modifier(&self, modifier: &mut ModifierInfo) {
+        let TrainerLabel { title, subtitle } = self.trainer_label(&modifier.name);
+        modifier.display_name = title;
+        modifier.display_subtitle = subtitle;
+    }
+
+    fn label(&self, list: &mut [ModifierInfo]) {
+        for modifier in list {
+            self.label_modifier(modifier);
+        }
+    }
+
+    fn emit_library(&self) {
+        let mut items = self.library.items().to_vec();
+        for item in &mut items {
+            let TrainerLabel { title, subtitle } = self.trainer_label(&item.name);
+            item.display_name = title;
+            item.display_subtitle = subtitle;
+        }
+        self.emit(Event::Library(items));
+    }
+
+    /// Recomputes every display name after the name language or the
+    /// database changed, and re-sends what shows them.
+    fn relabel_all(&mut self) {
+        let mut results = std::mem::take(&mut self.results);
+        self.label(&mut results);
+        self.results = results;
+        if self.sort == SortOrder::Name {
+            sort_results(&mut self.results, self.sort);
+        }
+        if let Some(mut selection) = self.selection.take() {
+            self.label_modifier(&mut selection.modifier);
+            self.selection = Some(selection);
+        }
+        self.emit(Event::Results(self.results.clone()));
+        self.emit_selection();
+        self.emit_library();
     }
 
     // ---- search -------------------------------------------------------------
@@ -415,6 +482,7 @@ impl Backend {
         if id != self.active_search_id {
             return;
         }
+        self.label(&mut results);
         sort_results(&mut results, self.sort);
         self.results = results;
         self.emit(Event::Results(self.results.clone()));
@@ -789,6 +857,9 @@ impl Backend {
                     }
                 }
                 self.emit_update(kind);
+                if reloaded {
+                    self.relabel_all();
+                }
             }
         }
     }

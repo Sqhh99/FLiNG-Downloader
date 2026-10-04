@@ -4,7 +4,7 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use fling_core::{Language, UpdateSource};
+use fling_core::{Language, TrainerNameLanguage, UpdateSource};
 
 use crate::AppPaths;
 use crate::qsettings::{GENERAL, IniDocument};
@@ -18,6 +18,7 @@ const KEY_AUTO_CHECK_DB: &str = "autoCheckDatabaseUpdates";
 const KEY_UPDATE_SOURCE: &str = "updateSource";
 const KEY_THEME: &str = "currentTheme";
 const KEY_LANGUAGE: &str = "currentLanguage";
+const KEY_TRAINER_NAMES: &str = "trainerNameLanguage";
 
 /// User settings backed by `settings.ini`. Every setter writes the file
 /// immediately, like the Qt build's `QSettings::sync()` calls.
@@ -146,6 +147,21 @@ impl Settings {
         self.doc.set_int(GENERAL, KEY_LANGUAGE, language.index());
         self.save_logged();
     }
+
+    /// The language trainer names are shown in; new in the Rust build, so a
+    /// Qt-era file reads as [`TrainerNameLanguage::FollowUi`].
+    pub fn trainer_name_language(&self) -> TrainerNameLanguage {
+        self.doc
+            .get_string(GENERAL, KEY_TRAINER_NAMES)
+            .map(|s| TrainerNameLanguage::from_key(&s))
+            .unwrap_or_default()
+    }
+
+    pub fn set_trainer_name_language(&mut self, language: TrainerNameLanguage) {
+        self.doc
+            .set_string(GENERAL, KEY_TRAINER_NAMES, language.key());
+        self.save_logged();
+    }
 }
 
 #[cfg(test)]
@@ -168,6 +184,35 @@ mod tests {
         assert_eq!(settings.update_source(), UpdateSource::GitHub);
         assert_eq!(settings.theme(), 0);
         assert_eq!(settings.language(), Language::Chinese);
+        assert_eq!(
+            settings.trainer_name_language(),
+            TrainerNameLanguage::FollowUi
+        );
+    }
+
+    #[test]
+    fn trainer_name_language_is_persisted_next_to_foreign_keys() {
+        let (_dir, paths) = paths();
+        fs::create_dir_all(paths.config_dir()).unwrap();
+        fs::write(
+            paths.settings_file(),
+            "[General]\ntrainerNameLanguage=klingon\nuserAgent=custom\n",
+        )
+        .unwrap();
+        let mut settings = Settings::load(&paths);
+        assert_eq!(
+            settings.trainer_name_language(),
+            TrainerNameLanguage::FollowUi
+        );
+
+        settings.set_trainer_name_language(TrainerNameLanguage::Japanese);
+        let text = fs::read_to_string(paths.settings_file()).unwrap();
+        assert!(text.contains("trainerNameLanguage=ja"));
+        assert!(text.contains("userAgent=custom"));
+        assert_eq!(
+            Settings::load(&paths).trainer_name_language(),
+            TrainerNameLanguage::Japanese
+        );
     }
 
     #[test]

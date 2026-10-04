@@ -13,6 +13,7 @@
 - Native GPU-rendered UI (Rust + GPUI) with 9 themes (Light, Dark, Ocean, Sunset, Forest, Lavender, Rose, Midnight, Mocha)
 - Search and suggestions backed by a local SQLite translation database
 - Chinese and Japanese game titles can be remapped to the canonical English title used by FLiNG
+- Trainer names can be shown in Chinese or Japanese (e.g. "艾尔登法环 (Elden Ring)"), and new downloads are named the same way
 - One-click download and categorized trainer management
 - Real-time download progress, pause/resume, and downloaded item management
 - Built-in languages: Chinese, English, Japanese (switch instantly)
@@ -84,6 +85,7 @@ A Cargo workspace with the frontend and backend separated: the UI talks to the b
 - The application uses an external SQLite database: `fling_translations.db`
 - Release packages include a bundled copy under the app's `resources/` directory
 - After a database update is downloaded, it is written to the AppData override location; the app compares the bundled and override versions and uses the newer valid copy
+- The database is built and released by [game-mappings-updater](https://github.com/Sqhh99/game-mappings-updater), included as a submodule at `tools/game-mappings-updater` (fetch it with `git submodule update --init`)
 - A valid database must include:
   - `metadata.release_tag`
   - `metadata.schema_version` (optional; must be `1` when present)

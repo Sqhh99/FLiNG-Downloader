@@ -18,7 +18,9 @@ use crate::state::AppModel;
 use crate::theme::palette;
 use crate::views::motion;
 use crate::views::smooth_scroll::SmoothScroll;
-use crate::views::widgets::{Column, empty_table, icon_button, table_header, table_row, text_cell};
+use crate::views::widgets::{
+    Column, empty_table, icon_button, table_header, table_row, text_cell, trainer_name_cell,
+};
 
 const MAX_SUGGESTIONS: usize = 8;
 const SUGGESTION_ROW: f32 = 32.;
@@ -273,7 +275,7 @@ impl SearchPage {
             .enumerate()
             .map(|(i, m)| {
                 let cells = vec![
-                    text_cell(m.name.clone()),
+                    trainer_name_cell(&m.display_name, &m.display_subtitle, &m.name, cx),
                     text_cell(m.last_update.clone()),
                     text_cell(m.game_version.clone()),
                     text_cell(m.options_count.to_string()),

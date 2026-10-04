@@ -17,7 +17,7 @@ FLiNG Downloader is a Windows desktop app written in Rust (edition 2024) with a 
 - `fling-app`: the UI-agnostic backend facade (`Command` / `Event`).
 - `fling-ui`: the GPUI views. Its strings live in `crates/fling-ui/locales/app.yml` (zh-CN / en / ja).
 
-`xtask/` holds packaging and repository tasks. `resources/` holds the bundled translation database, the ONNX model and the app icon. `tools/` holds the Inno Setup script.
+`xtask/` holds packaging and repository tasks. `resources/` holds the bundled translation database, the ONNX model and the app icon. `tools/` holds the Inno Setup script and the `game-mappings-updater` submodule, the Python tool that builds and releases the translation database.
 
 ## Build, Test, and Development Commands
 

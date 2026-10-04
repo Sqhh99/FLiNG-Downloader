@@ -24,5 +24,4 @@ agents/*
 # ...except the shared skills, which are part of the repo, not local scratch.
 !agents/skills/
 
-tools/game-mappings-updater
 tools/qt6-qml-module-migration.md

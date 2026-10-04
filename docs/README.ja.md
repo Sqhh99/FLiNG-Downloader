@@ -13,6 +13,7 @@
 - GPU 描画のネイティブ UI（Rust + GPUI）と 9 種類のテーマ（ライト、ダーク、オーシャン、夕焼け、森林、ラベンダー、ローズ、深夜、モカ）
 - ローカル SQLite 翻訳データベースによる中英日ゲーム名検索とサジェスト
 - 中国語・日本語のゲーム名を FLiNG 公式サイトで使われる標準英語タイトルに自動変換して検索
+- トレーナー名を日本語または中国語で表示可能（例：「エルデンリング (Elden Ring)」）。新しくダウンロードしたファイルも同じ名前で保存
 - ワンクリックダウンロードとトレーナーの分類管理
 - ダウンロード進捗のリアルタイム表示、一時停止 / 再開、ダウンロード済み一覧管理
 - 内蔵言語：中文・英語・日本語（即時切り替え）
@@ -84,6 +85,7 @@ cargo xtask notices                   :: THIRD_PARTY_NOTICES.md の依存一覧�
 - アプリは外部 SQLite データベース `fling_translations.db` を使用します
 - リリースパッケージにはアプリ配下の `resources/` に同梱版が含まれます
 - DB 更新後は AppData の上書き先に保存され、アプリは同梱版と上書き版のバージョンを比較して、新しい有効な方を使用します
+- DB は [game-mappings-updater](https://github.com/Sqhh99/game-mappings-updater) で生成・公開され、サブモジュールとして `tools/game-mappings-updater` に配置されています（`git submodule update --init` で取得）
 - 有効な DB には以下が必要です：
   - `metadata.release_tag`
   - `metadata.schema_version`（任意。存在する場合は `1` であること）

@@ -96,6 +96,38 @@ pub fn table_row(
         }))
 }
 
+/// The main line of a trainer name: the backend's localized `display_name`,
+/// or the site name before one is filled in.
+pub fn trainer_name(display_name: &str, name: &str) -> SharedString {
+    if display_name.is_empty() {
+        name.to_owned().into()
+    } else {
+        display_name.to_owned().into()
+    }
+}
+
+/// A trainer-name table cell. A translated name is two lines, the title over
+/// the smaller English title, both fitting the 40 px row; an untranslated one
+/// is a single line.
+pub fn trainer_name_cell(display_name: &str, subtitle: &str, name: &str, cx: &App) -> AnyElement {
+    let title = trainer_name(display_name, name);
+    if subtitle.is_empty() {
+        return text_cell(title);
+    }
+    v_flex()
+        .min_w_0()
+        .child(div().truncate().line_height(px(17.)).child(title))
+        .child(
+            div()
+                .truncate()
+                .text_xs()
+                .line_height(px(15.))
+                .text_color(palette(cx).text_muted)
+                .child(subtitle.to_owned()),
+        )
+        .into_any_element()
+}
+
 /// Single-line text cell that truncates.
 pub fn text_cell(text: impl Into<SharedString>) -> AnyElement {
     div().truncate().child(text.into()).into_any_element()

@@ -18,7 +18,16 @@ pub struct DownloadVersion {
 /// detail pages and search enrichment fill the rest.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ModifierInfo {
+    /// The site's title, e.g. "Elden Ring Trainer" (entities not decoded).
+    /// Canonical: cover ids, the library and relevance all key on it.
     pub name: String,
+    /// The name's main line in the configured trainer-name language, e.g.
+    /// "艾尔登法环", or the site name when there is no translation. Filled by
+    /// the backend; empty until then.
+    pub display_name: String,
+    /// The English game title under a translated name, e.g. "Elden Ring";
+    /// empty when `display_name` is not a translation.
+    pub display_subtitle: String,
     /// The game version the trainer supports, e.g. "v1.02-v1.05+", "Latest".
     pub game_version: String,
     /// `yyyy-MM-dd` on list pages, raw site text on detail pages.
@@ -51,6 +60,13 @@ pub struct DownloadedModifier {
     pub file_path: String,
     #[serde(default)]
     pub url: String,
+    /// Like [`ModifierInfo::display_name`]. Filled by the backend and never
+    /// persisted.
+    #[serde(skip)]
+    pub display_name: String,
+    /// Like [`ModifierInfo::display_subtitle`]; never persisted.
+    #[serde(skip)]
+    pub display_subtitle: String,
 }
 
 impl DownloadedModifier {
@@ -111,6 +127,56 @@ impl Language {
 
     pub fn index(self) -> i64 {
         self as i64
+    }
+}
+
+/// The language trainer names are shown (and new downloads are named) in.
+/// Persisted as `"auto"` / `"en"` / `"zh"` / `"ja"`.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
+pub enum TrainerNameLanguage {
+    /// Whatever the UI language is.
+    #[default]
+    FollowUi,
+    English,
+    Chinese,
+    Japanese,
+}
+
+impl TrainerNameLanguage {
+    pub const ALL: [TrainerNameLanguage; 4] = [
+        TrainerNameLanguage::FollowUi,
+        TrainerNameLanguage::English,
+        TrainerNameLanguage::Chinese,
+        TrainerNameLanguage::Japanese,
+    ];
+
+    /// Unknown keys mean [`FollowUi`](Self::FollowUi).
+    pub fn from_key(key: &str) -> Self {
+        match key {
+            "en" => Self::English,
+            "zh" => Self::Chinese,
+            "ja" => Self::Japanese,
+            _ => Self::FollowUi,
+        }
+    }
+
+    pub fn key(self) -> &'static str {
+        match self {
+            Self::FollowUi => "auto",
+            Self::English => "en",
+            Self::Chinese => "zh",
+            Self::Japanese => "ja",
+        }
+    }
+
+    /// The concrete language, given the current UI language.
+    pub fn resolve(self, ui: Language) -> Language {
+        match self {
+            Self::FollowUi => ui,
+            Self::English => Language::English,
+            Self::Chinese => Language::Chinese,
+            Self::Japanese => Language::Japanese,
+        }
     }
 }
 
@@ -207,6 +273,42 @@ mod tests {
         let back = serde_json::to_value(&item).unwrap();
         assert_eq!(back["downloadDate"], "2026-09-01T12:34:56");
         assert_eq!(back["gameVersion"], "v1.02+");
+    }
+
+    #[test]
+    fn display_name_is_not_persisted() {
+        let item: DownloadedModifier =
+            serde_json::from_str(r#"{"name":"A","displayName":"B","displaySubtitle":"C"}"#)
+                .unwrap();
+        assert!(item.display_name.is_empty());
+        assert!(item.display_subtitle.is_empty());
+        let item = DownloadedModifier {
+            display_name: "艾尔登法环".into(),
+            display_subtitle: "A".into(),
+            ..item
+        };
+        let back = serde_json::to_value(&item).unwrap();
+        assert!(back.get("displayName").is_none());
+        assert!(back.get("displaySubtitle").is_none());
+    }
+
+    #[test]
+    fn trainer_name_language_keys_round_trip_and_resolve() {
+        for language in TrainerNameLanguage::ALL {
+            assert_eq!(TrainerNameLanguage::from_key(language.key()), language);
+        }
+        assert_eq!(
+            TrainerNameLanguage::from_key("fr"),
+            TrainerNameLanguage::FollowUi
+        );
+        assert_eq!(
+            TrainerNameLanguage::FollowUi.resolve(Language::Japanese),
+            Language::Japanese
+        );
+        assert_eq!(
+            TrainerNameLanguage::English.resolve(Language::Chinese),
+            Language::English
+        );
     }
 
     #[test]
