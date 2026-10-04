@@ -411,6 +411,9 @@ impl Render for SearchPage {
                     )
                     .child(
                         Button::new("show-all")
+                            // Tinted like the other secondary actions instead of a white
+                            // default button next to the primary "Search".
+                            .secondary()
                             .label(tr!("search.show_all"))
                             .disabled(loading)
                             .on_click(cx.listener(|this, _, window, cx| this.show_all(window, cx))),
