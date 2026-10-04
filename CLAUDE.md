@@ -63,8 +63,12 @@ No crate below `fling-app` knows about the UI, and `fling-ui` contains no busine
   downloads a 30 s idle timeout, and resume uses Range with 200/206/416 handling.
 - `fling-site`: regex ports of the Qt parsers. `parser::re` keeps PCRE's ASCII `\s`/`\d`.
   Parsing quirks are preserved deliberately; see the work log before "fixing" one.
-- `fling-mapping`: `translate_for_search` only accepts exact and normalized-exact
-  matches, so broad Latin queries stay site searches instead of collapsing to one title.
+- `fling-mapping`: `search_terms` turns search input into English site searches. An
+  exact or normalized-exact match wins; a partial Chinese/Japanese query (生化危机) is
+  matched against the CJK titles and searched by the matches' shared leading English
+  words ("Resident Evil"), or by up to five titles merged in `SiteClient::search`. Latin
+  input without an exact match is searched as typed, so broad queries stay site
+  searches instead of collapsing to one title.
   `localized_title` is the reverse lookup behind the trainer-name language setting:
   `fling-app/src/names.rs` turns "Elden Ring Trainer" into `display_name` "艾尔登法环"
   over `display_subtitle` "Elden Ring" (two lines in the UI) and names new download
