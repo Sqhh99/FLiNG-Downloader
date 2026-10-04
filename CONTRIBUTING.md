@@ -11,11 +11,13 @@
 
 ## 开发环境
 
-Windows 10+，需要 Visual Studio 2022、CMake、Ninja、Qt 6、vcpkg。配置 `VCPKG_ROOT`，若 Qt 不在默认路径再设 `CMAKE_PREFIX_PATH`。
+Windows 10+，需要 Rust stable（`x86_64-pc-windows-msvc`）和 Visual Studio 2022 及以上的 C++ 生成工具。
 
 ```bat
-build.cmd debug
-build.cmd tests
+cargo run -p fling-ui
+cargo test --workspace
+cargo clippy --workspace --all-targets -- -D warnings
+cargo fmt --all
 ```
 
 常用命令见根目录 [README.md](README.md)。给 agent 用的仓库地图在 [AGENTS.md](AGENTS.md)。
@@ -25,8 +27,8 @@ build.cmd tests
 - Commit 使用 [Conventional Commits](https://www.conventionalcommits.org/)：`feat:`、`fix:`、`docs:`、`chore:` 等。
 - 一个 PR 只做一件事。
 - 用仓库里的 PR 模板：关联 Issue、说明用户可见变化、列出验证命令。
-- QML / 界面改动请附前后截图。
-- 改动了 `fling_translations.db`、翻译文件、ONNX 模型或打包布局时，在 PR 里单独点名。
+- 界面改动请附前后截图。
+- 改动了 `fling_translations.db`、界面文案（`crates/fling-ui/locales/app.yml`）、ONNX 模型或打包布局时，在 PR 里单独点名。
 
 ## AI 辅助
 

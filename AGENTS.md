@@ -4,27 +4,40 @@ Human-facing contribution rules live in [CONTRIBUTING.md](CONTRIBUTING.md). Keep
 
 ## Project Structure & Module Organization
 
-FLiNG Downloader is a Windows-focused C++17 and Qt 6 application. Core business logic and the QML bridge live in `src/`; public headers are under `src/include/`. The interface is organized in `qml/`, with reusable controls in `qml/components/`, page views in `qml/pages/`, and theme definitions in `qml/themes/`. Runtime icons, translations, the SQLite translation database, and the ONNX model belong in `resources/`. Tests are split into `tests/unit/`, `tests/integration/`, and `tests/performance/`, with shared helpers in `tests/fixtures/`. Treat `third_party/` as vendored or generated dependency content and avoid editing it unless updating that dependency intentionally.
+FLiNG Downloader is a Windows desktop app written in Rust (edition 2024) with a GPUI / GPUI Kit frontend. It is a Cargo workspace under `crates/`, with dependencies pointing one way: `fling-ui → fling-app → {fling-site, fling-download, fling-update, fling-cover, fling-mapping, fling-config} → {fling-net, fling-core}`.
+
+- `fling-core`: domain types and IO-free helpers.
+- `fling-net`: the `HttpClient` trait, the reqwest client, and a fake for tests.
+- `fling-config`: paths and `settings.ini`.
+- `fling-mapping`: the translation database and title lookup.
+- `fling-site`: flingtrainer.com parsers and search.
+- `fling-download`: the download queue and the library.
+- `fling-update`: release checks.
+- `fling-cover`: covers and the ONNX detector.
+- `fling-app`: the UI-agnostic backend facade (`Command` / `Event`).
+- `fling-ui`: the GPUI views. Its strings live in `crates/fling-ui/locales/app.yml` (zh-CN / en / ja).
+
+`xtask/` holds packaging and repository tasks. `resources/` holds the bundled translation database, the ONNX model and the app icon. `tools/` holds the Inno Setup script.
 
 ## Build, Test, and Development Commands
 
-Development requires Visual Studio 2022, CMake, Ninja, Qt 6, and vcpkg. Set `VCPKG_ROOT` and, when Qt is not at the default path, `CMAKE_PREFIX_PATH`.
+Development requires stable Rust (`x86_64-pc-windows-msvc`) and the Visual Studio 2022+ C++ build tools.
 
-- `build.cmd` or `build.cmd release`: configure and build Release into `build/ninja-release/`.
-- `build.cmd debug`: build Debug into `build/ninja-debug/`.
-- `build.cmd run debug`: build and launch the Debug application.
-- `build.cmd tests`: enable, build, and run all GoogleTest targets through CTest.
-- `build.cmd benchmark --filter CoverExtractor/.*`: run matching Google Benchmark cases.
-- `build.cmd i18n check`: verify generated Qt translation files are current.
+- `cargo run -p fling-ui`: build and run the app (debug).
+- `cargo test --workspace`: all unit and integration tests.
+- `cargo clippy --workspace --all-targets -- -D warnings` and `cargo fmt --all`: required to be clean.
+- `cargo bench -p fling-cover --bench detector`: cover-detection benchmark.
+- `cargo xtask dist [--version X.Y.Z]`: release folder in `dist/FLiNG Downloader/`.
+- `cargo xtask notices`: regenerate the crate list in `THIRD_PARTY_NOTICES.md` after dependency changes.
 
 ## Coding Style & Naming Conventions
 
-Match existing four-space indentation and C++17 idioms. Use `PascalCase` for classes and QML component filenames, `camelCase` for functions and local variables, and the `m_` prefix for private members. Keep headers in `src/include/` paired with implementations in `src/`. Follow the existing brace style, Qt signal/slot patterns, and `QStringLiteral` usage. No repository-wide formatter is configured, so keep formatting consistent with adjacent code and avoid unrelated cleanup.
+Follow `rustfmt.toml` (100 columns) and keep clippy clean. Each module starts with a `//!` comment saying what it owns. Ports of Qt-era behavior name the C++ function they replace. Business logic belongs in the backend crates, never in `fling-ui`; the UI only renders `AppModel` state and sends `Command`s. Do not add singletons; pass dependencies explicitly. User-visible strings go through `tr!` with keys in `locales/app.yml`, and every key needs all three locales (a test checks this). Icons are Lucide icons registered in `crates/fling-ui/src/assets.rs` (a test checks this too).
 
 ## Testing Guidelines
 
-Use GoogleTest fixtures and descriptive `TEST_F` names in `PascalCase`, for example `DownloadFileRenamesDetectedExecutableFormat`. Put isolated behavior in `tests/unit/` and network/database workflows in `tests/integration/`; use test hooks and fixtures instead of live services. There is no numeric coverage gate, but every bug fix or behavior change should include focused regression coverage. Run `build.cmd tests` before submitting.
+Tests never touch the live network or the user's AppData. Use `fling_net::fake::FakeHttpClient`, `fling_config::AppPaths::rooted(tempdir)` and `fling_mapping::test_util`. Use descriptive snake_case test names. Every bug fix or behavior change needs focused regression coverage. Saved site pages live in `crates/fling-site/tests/fixtures/`, and cover samples in `crates/fling-cover/tests/screenshots/`.
 
 ## Commit & Pull Request Guidelines
 
-Follow the established Conventional Commit style: `feat: add ...`, `fix(db): restore ...`, or `chore: ...`. Keep subjects concise and imperative. Pull requests should explain the user-visible change, identify affected modules, link relevant issues, and list verification performed. Include before/after screenshots for QML or visual changes and call out resource, database-schema, model, or translation updates explicitly.
+Follow the established Conventional Commit style: `feat: add ...`, `fix(ui): restore ...`, or `chore: ...`. Keep subjects concise and imperative. Pull requests should explain the user-visible change, identify affected crates, link relevant issues, and list verification performed. Include before/after screenshots for UI changes and call out resource, database-schema, model, or translation updates explicitly.

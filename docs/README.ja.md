@@ -10,12 +10,13 @@
 
 ## 機能
 
-- モダン UI と複数テーマ（ライト、Windows 11、クラシック、カラフル）
+- GPU 描画のネイティブ UI（Rust + GPUI）と 9 種類のテーマ（ライト、ダーク、オーシャン、夕焼け、森林、ラベンダー、ローズ、深夜、モカ）
 - ローカル SQLite 翻訳データベースによる中英日ゲーム名検索とサジェスト
 - 中国語・日本語のゲーム名を FLiNG 公式サイトで使われる標準英語タイトルに自動変換して検索
 - ワンクリックダウンロードとトレーナーの分類管理
 - ダウンロード進捗のリアルタイム表示、一時停止 / 再開、ダウンロード済み一覧管理
-- 内蔵言語：中文・英語・日本語
+- 内蔵言語：中文・英語・日本語（即時切り替え）
+- ローカル ONNX モデルによりトレーナーのスクリーンショットからゲームのカバーを自動切り出し
 - アプリ本体の更新チェックとインストーラーのダウンロード
 - 翻訳データベースの独立更新に対応し、同梱版と AppData 上書き版のうち新しい有効な方を自動選択
 
@@ -25,8 +26,8 @@
 
 ## 動作環境
 
-- Windows 10 以降
-- Qt などを別途インストールする必要はありません。ポータブル版とインストーラーには Qt、ONNX Runtime など実行に必要なファイルが含まれます。
+- Windows 10（1903）以降、64 ビット
+- ランタイムのインストールは不要です。ポータブル版とインストーラーに必要なファイルがすべて含まれます（ONNX Runtime は実行ファイルに組み込み済み）。
 
 ## FLiNG との関係
 
@@ -42,59 +43,41 @@
 
 ## 開発・ビルド（Windows）
 
-Visual Studio 2022、CMake、Qt 6、vcpkg が必要です。`VCPKG_ROOT` と `CMAKE_PREFIX_PATH` を設定した後、`build.cmd` を実行してください。
+Rust stable（`x86_64-pc-windows-msvc`）と Visual Studio 2022 以降の C++ ビルドツールが必要です。Qt・CMake・vcpkg は不要で、ONNX Runtime は初回ビルド時に自動ダウンロードされ静的リンクされます。
 
-現在の主な依存関係：
+```bat
+cargo run -p fling-ui                 :: ビルドして実行（Debug）
+cargo test --workspace                :: すべてのテスト
+cargo clippy --workspace --all-targets -- -D warnings
+cargo fmt --all
+cargo bench -p fling-cover            :: カバー検出のベンチマーク
+cargo xtask dist [--version 1.2.0]    :: dist\FLiNG Downloader\ にリリース用フォルダを作成
+cargo xtask notices                   :: THIRD_PARTY_NOTICES.md の依存一覧を再生成
+```
 
-- Qt 6（Core / Gui / Network / Qml / Quick / QuickControls2）
-- SQLiteCpp（`fling_translations.db` の読み込み）
-- OpenCV（カバー画像抽出）
-- GoogleTest（単体テスト / 結合テスト）
-- Google Benchmark（性能ベンチマーク）
+### プロジェクト構成
 
-### `build.cmd` の使い方
+フロントエンドとバックエンドを分離した Cargo workspace です。UI はコマンドとイベントだけでバックエンドとやり取りします。
 
-- **`build.cmd` または `build.cmd release`**: デフォルトで Ninja を使って Release ビルド（出力先: `build\ninja-release`）
-- **`build.cmd debug`**: Debug ビルド（出力先: `build\ninja-debug`）
-- **`build.cmd run` / `build.cmd run debug`**: ビルド後すぐに起動
-- **`build.cmd clean`**: `build` ディレクトリ全体を削除
-- **`build.cmd rebuild`**: 旧ビルドを削除して再構成・再ビルド
-- **`build.cmd i18n`**: 翻訳ソース（`.ts`）を更新し、翻訳ファイル（`.qm`）を生成
-- **`build.cmd tests`**: GoogleTest ターゲットを構成・ビルド・実行
-- **`build.cmd benchmark`**: Google Benchmark ターゲットを構成・ビルド・実行
-- **`build.cmd benchmark --filter CoverExtractor/all_images`**: 特定の benchmark ケースのみ実行
-
-ビルド後の実行ファイルは `build\ninja-release\` または `build\ninja-debug\` に生成されます。
+| Crate | 役割 |
+|---|---|
+| `fling-core` | ドメイン型と純粋関数（バージョン比較、タイトル正規化、ファイル種別判定） |
+| `fling-net` | HTTP 抽象と reqwest 実装（レジューム、Referer、タイムアウト）、テスト用のフェイク |
+| `fling-config` | AppData のパスと QSettings 互換の `settings.ini` |
+| `fling-mapping` | 翻訳データベース、中日→英語タイトル変換、検索サジェスト |
+| `fling-site` | flingtrainer.com の解析、検索、最近の更新一覧 |
+| `fling-download` | ダウンロードキュー（一時停止 / 再開 / 同時 3 件）とダウンロード済み一覧 |
+| `fling-update` | GitHub / Gitee からのアプリ・データベース更新 |
+| `fling-cover` | カバーキャッシュと ONNX カバー検出 |
+| `fling-app` | バックエンドの窓口：全サービスを保持し `Command` / `Event` を公開 |
+| `fling-ui` | GPUI フロントエンド（`FLiNG Downloader.exe`） |
+| `xtask` | パッケージングとリポジトリ作業 |
 
 ### テスト
 
-- 単体テストと結合テストは `tests/` 配下にあります
-- 基本コマンド：
-
-```bat
-build.cmd tests
-```
-
-- 現在の主な対象：
-  - 検索サジェストと canonical 検索語変換
-  - ダウンロード状態とファイル処理
-  - アプリ更新、DB 更新、SQLite 検証
-
-### Benchmark
-
-- 性能ベンチマークは `tests/performance/` にあります
-- 現在は `CoverExtractor` の benchmark を用意しており、サンプル画像は `tests/resources/fling_trainer_screenshot/` にあります
-- 基本コマンド：
-
-```bat
-build.cmd benchmark
-```
-
-- 特定ケースの実行：
-
-```bat
-build.cmd benchmark --filter CoverExtractor/.*
-```
+- 各 crate に単体テスト、`fling-app/tests`・`fling-site/tests`・`fling-mapping/tests` に結合テスト
+- テストは外部ネットワークや実際の AppData に触れません（フェイク HTTP クライアントと一時ディレクトリを使用）
+- `fling-site/tests/fixtures/` にサイトのページ、`fling-cover/tests/screenshots/` にカバー検出用サンプル
 
 ## 翻訳データベース
 
@@ -103,7 +86,7 @@ build.cmd benchmark --filter CoverExtractor/.*
 - DB 更新後は AppData の上書き先に保存され、アプリは同梱版と上書き版のバージョンを比較して、新しい有効な方を使用します
 - 有効な DB には以下が必要です：
   - `metadata.release_tag`
-  - `metadata.schema_version`
+  - `metadata.schema_version`（任意。存在する場合は `1` であること）
   - `games.english`
   - `games.normalized_english`
   - `games.chinese_simplified`
@@ -111,9 +94,9 @@ build.cmd benchmark --filter CoverExtractor/.*
 
 ## CI / リリース
 
-- `build.yml` はビルドとテストを実行します
+- `build.yml` はフォーマット確認、clippy、テスト、パッケージングを実行します
 - `make-release.yml` はインストーラーとポータブル版を生成し、`fling_translations.db` と `SHA256SUMS.txt` を同梱します
-- インストーラー版とポータブル版の両方に、ランチャー、本体、外部リソースディレクトリが含まれます
+- どちらのパッケージにも、本体、カバーモデル（`models/`）、同梱データベース（`resources/`）、MSVC ランタイムが含まれます
 
 ### バージョン公開
 

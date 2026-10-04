@@ -10,12 +10,13 @@
 
 ## Features
 
-- Modern UI with multiple themes (Light, Windows 11, Classic, Colorful)
+- Native GPU-rendered UI (Rust + GPUI) with 9 themes (Light, Dark, Ocean, Sunset, Forest, Lavender, Rose, Midnight, Mocha)
 - Search and suggestions backed by a local SQLite translation database
 - Chinese and Japanese game titles can be remapped to the canonical English title used by FLiNG
 - One-click download and categorized trainer management
 - Real-time download progress, pause/resume, and downloaded item management
-- Built-in languages: Chinese, English, Japanese
+- Built-in languages: Chinese, English, Japanese (switch instantly)
+- Game covers cropped automatically from trainer screenshots by a local ONNX model
 - Application update detection and installer download
 - Independent translation database updates, with automatic selection between the bundled copy and the newer AppData override
 
@@ -25,8 +26,8 @@
 
 ## Requirements
 
-- Windows 10 or later
-- You do not need to install Qt or other runtimes yourself. The portable zip and the installer already ship Qt, ONNX Runtime, and the other files the app needs.
+- Windows 10 (1903) or later, 64-bit
+- No runtimes to install: the portable zip and the installer ship everything the app needs (ONNX Runtime is built into the executable).
 
 ## Relationship to FLiNG
 
@@ -42,59 +43,41 @@ This is an independent open-source downloader. It is **not affiliated with** the
 
 ## Development & Build (Windows)
 
-Visual Studio 2022, CMake, Qt 6, and vcpkg are required. After configuring `VCPKG_ROOT` and `CMAKE_PREFIX_PATH`, run `build.cmd`.
+You need stable Rust (`x86_64-pc-windows-msvc`) and the Visual Studio 2022+ C++ build tools. No Qt, CMake or vcpkg; ONNX Runtime is downloaded and statically linked on the first build.
 
-Current main dependencies:
+```bat
+cargo run -p fling-ui                 :: build and run (debug)
+cargo test --workspace                :: all tests
+cargo clippy --workspace --all-targets -- -D warnings
+cargo fmt --all
+cargo bench -p fling-cover            :: cover detection benchmark
+cargo xtask dist [--version 1.2.0]    :: release folder in dist\FLiNG Downloader\
+cargo xtask notices                   :: regenerate the crate list in THIRD_PARTY_NOTICES.md
+```
 
-- Qt 6 (Core / Gui / Network / Qml / Quick / QuickControls2)
-- SQLiteCpp (for reading `fling_translations.db`)
-- OpenCV (for cover extraction)
-- GoogleTest (unit / integration tests)
-- Google Benchmark (performance benchmarks)
+### Project Structure
 
-### `build.cmd` Usage
+A Cargo workspace with the frontend and backend separated: the UI talks to the backend only through commands and events.
 
-- **`build.cmd` or `build.cmd release`**: Build the Release version with Ninja by default (output: `build\ninja-release`)
-- **`build.cmd debug`**: Build the Debug version (output: `build\ninja-debug`)
-- **`build.cmd run` / `build.cmd run debug`**: Build and launch immediately
-- **`build.cmd clean`**: Delete the entire `build` directory
-- **`build.cmd rebuild`**: Remove the old build directory, reconfigure, and rebuild
-- **`build.cmd i18n`**: Update translation source files (`.ts`) and generate translation files (`.qm`)
-- **`build.cmd tests`**: Configure, build, and run GoogleTest targets
-- **`build.cmd benchmark`**: Configure, build, and run Google Benchmark targets
-- **`build.cmd benchmark --filter CoverExtractor/all_images`**: Run a specific benchmark case only
-
-After building, the executables are generated in `build\ninja-release\` or `build\ninja-debug\`.
+| Crate | Responsibility |
+|---|---|
+| `fling-core` | Domain types and pure helpers (version compare, title normalization, file-type sniffing) |
+| `fling-net` | HTTP abstraction and the reqwest client (resume, Referer, timeouts), plus a fake for tests |
+| `fling-config` | AppData paths and the QSettings-compatible `settings.ini` |
+| `fling-mapping` | Translation database, CN/JA → English title mapping, search suggestions |
+| `fling-site` | flingtrainer.com parsing, search, recently updated list |
+| `fling-download` | Download queue (pause / resume / 3 concurrent) and the downloaded list |
+| `fling-update` | GitHub / Gitee app and database updates |
+| `fling-cover` | Cover cache and ONNX cover detection |
+| `fling-app` | Backend facade: owns every service, exposes `Command` / `Event` |
+| `fling-ui` | The GPUI frontend (`FLiNG Downloader.exe`) |
+| `xtask` | Packaging and repository tasks |
 
 ### Testing
 
-- Unit and integration tests are located in `tests/`
-- Default command:
-
-```bat
-build.cmd tests
-```
-
-- Current focus areas:
-  - Search suggestions and canonical query remapping
-  - Core download state and file handling
-  - Application update, database update, and SQLite validation paths
-
-### Benchmark
-
-- Performance benchmarks are located in `tests/performance/`
-- The repository currently includes `CoverExtractor` benchmarks, using samples from `tests/resources/fling_trainer_screenshot/`
-- Default command:
-
-```bat
-build.cmd benchmark
-```
-
-- Run specific cases:
-
-```bat
-build.cmd benchmark --filter CoverExtractor/.*
-```
+- Every crate has unit tests; `fling-app/tests`, `fling-site/tests` and `fling-mapping/tests` hold integration tests
+- Tests never hit the live network or the real AppData (fake HTTP client, temporary directories)
+- `fling-site/tests/fixtures/` holds saved site pages; `fling-cover/tests/screenshots/` holds cover-detection samples
 
 ## Translation Database
 
@@ -103,7 +86,7 @@ build.cmd benchmark --filter CoverExtractor/.*
 - After a database update is downloaded, it is written to the AppData override location; the app compares the bundled and override versions and uses the newer valid copy
 - A valid database must include:
   - `metadata.release_tag`
-  - `metadata.schema_version`
+  - `metadata.schema_version` (optional; must be `1` when present)
   - `games.english`
   - `games.normalized_english`
   - `games.chinese_simplified`
@@ -111,9 +94,9 @@ build.cmd benchmark --filter CoverExtractor/.*
 
 ## CI / Release
 
-- `build.yml` runs build and test jobs
+- `build.yml` runs format, clippy, test and packaging steps
 - `make-release.yml` produces installer and portable packages and includes `fling_translations.db` plus `SHA256SUMS.txt`
-- Both installer and portable packages contain the launcher, main app, and external resource directory
+- Both packages contain the app, the cover model (`models/`), the bundled database (`resources/`) and the MSVC runtime
 
 ### Version Release
 

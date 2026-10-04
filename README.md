@@ -10,12 +10,13 @@
 
 ## 功能
 
-- 现代化界面与多主题（浅色、Windows 11、经典、彩色）
+- 原生 GPU 渲染界面（Rust + GPUI），9 套主题（浅色、深色、海洋、日落、森林、薰衣草、玫瑰、午夜、摩卡）
 - 基于本地 SQLite 翻译库的中/英/日游戏名搜索与建议
 - 中文、日文游戏名可自动映射为官网标准英文标题进行检索
 - 一键下载与分类管理修改器文件
 - 下载任务实时进度、暂停/继续与下载列表管理
-- 内置多语言：中文、英文、日文
+- 内置多语言：中文、英文、日文（切换即时生效）
+- 基于本地 ONNX 模型自动从修改器截图中裁剪游戏封面
 - 软件更新检测与安装包下载
 - 翻译数据库独立更新，支持内置数据库与 AppData 覆盖层版本择优
 
@@ -25,8 +26,8 @@
 
 ## 系统要求
 
-- Windows 10 及以上
-- 无需自行安装 Qt 或其他运行库：便携包与安装包已附带 Qt、ONNX Runtime 等运行时文件
+- Windows 10（1903）及以上，64 位
+- 无需安装任何运行库：便携包与安装包已附带所需文件（ONNX Runtime 已内置于程序中）
 
 ## 与 FLiNG 的关系
 
@@ -42,59 +43,41 @@
 
 ## 开发与构建（Windows）
 
-需要安装 Visual Studio 2022、CMake、Qt 6 和 vcpkg。配置好 `VCPKG_ROOT` 与 `CMAKE_PREFIX_PATH` 后，直接运行 `build.cmd`。
+需要 Rust stable（`x86_64-pc-windows-msvc`）和 Visual Studio 2022 及以上的 C++ 生成工具。不需要 Qt、CMake 或 vcpkg；ONNX Runtime 会在首次构建时自动下载并静态链接。
 
-项目当前主要依赖：
+```bat
+cargo run -p fling-ui                 :: 构建并运行（Debug）
+cargo test --workspace                :: 全部测试
+cargo clippy --workspace --all-targets -- -D warnings
+cargo fmt --all
+cargo bench -p fling-cover            :: 封面识别基准测试
+cargo xtask dist [--version 1.2.0]    :: 生成发布目录 dist\FLiNG Downloader\
+cargo xtask notices                   :: 重新生成 THIRD_PARTY_NOTICES.md 中的依赖列表
+```
 
-- Qt 6（Core / Gui / Network / Qml / Quick / QuickControls2）
-- SQLiteCpp（读取 `fling_translations.db`）
-- OpenCV（封面提取）
-- GoogleTest（单元测试 / 集成测试）
-- Google Benchmark（性能基准测试）
+### 项目结构
 
-### build.cmd 用法
+Cargo workspace，前后端分离：界面只通过命令 / 事件与后端通信。
 
-- **`build.cmd` 或 `build.cmd release`**: 默认使用 Ninja 构建 Release 版本（输出到 `build\ninja-release`）
-- **`build.cmd debug`**: 构建 Debug 版本（输出到 `build\ninja-debug`）
-- **`build.cmd run` / `build.cmd run debug`**: 构建并立即运行程序
-- **`build.cmd clean`**: 删除整个 `build` 构建目录
-- **`build.cmd rebuild`**: 清除旧目录并重新配置、构建
-- **`build.cmd i18n`**: 更新所有翻译源码文件（`.ts`）并生成翻译所需文件（`.qm`）
-- **`build.cmd tests`**: 配置、构建并运行 GoogleTest 测试
-- **`build.cmd benchmark`**: 配置、构建并运行 Google Benchmark
-- **`build.cmd benchmark --filter CoverExtractor/all_images`**: 仅运行指定 benchmark 用例
-
-构建完成后，可执行文件位于对应的 `build\ninja-release\` 或 `build\ninja-debug\` 目录下。
+| Crate | 职责 |
+|---|---|
+| `fling-core` | 领域类型与纯函数（版本比较、标题归一化、文件类型识别） |
+| `fling-net` | HTTP 抽象与 reqwest 实现（续传、Referer、超时），测试用的假实现 |
+| `fling-config` | AppData 路径与兼容 QSettings 的 `settings.ini` |
+| `fling-mapping` | 翻译数据库、中日→英文标题映射、搜索建议 |
+| `fling-site` | flingtrainer.com 页面解析、搜索、最近更新列表 |
+| `fling-download` | 下载队列（暂停 / 继续 / 并发 3）与已下载列表 |
+| `fling-update` | GitHub / Gitee 软件与数据库更新 |
+| `fling-cover` | 封面缓存与 ONNX 封面识别 |
+| `fling-app` | 后端门面：持有全部服务，对外暴露 `Command` / `Event` |
+| `fling-ui` | GPUI 界面（`FLiNG Downloader.exe`） |
+| `xtask` | 打包与仓库任务 |
 
 ### 测试
 
-- 单元测试与集成测试位于 `tests/`
-- 默认命令：
-
-```bat
-build.cmd tests
-```
-
-- 当前优先覆盖：
-  - 搜索建议与搜索词 canonical 映射
-  - 下载链路核心状态与文件处理
-  - 软件更新 / 数据库更新 / SQLite 数据校验
-
-### Benchmark
-
-- 性能基准测试位于 `tests/performance/`
-- 当前内置 `CoverExtractor` 基准测试，测试样本位于 `tests/resources/fling_trainer_screenshot/`
-- 默认命令：
-
-```bat
-build.cmd benchmark
-```
-
-- 运行指定用例：
-
-```bat
-build.cmd benchmark --filter CoverExtractor/.*
-```
+- 每个 crate 自带单元测试；`fling-app/tests`、`fling-site/tests`、`fling-mapping/tests` 为集成测试
+- 测试不访问外网、不读写真实 AppData（使用假 HTTP 客户端与临时目录）
+- `fling-site/tests/fixtures/` 保存了官网页面快照，`fling-cover/tests/screenshots/` 为封面识别样本
 
 ## 翻译数据库
 
@@ -103,7 +86,7 @@ build.cmd benchmark --filter CoverExtractor/.*
 - 数据库更新后会写入 `AppData` 覆盖层，程序会自动比较内置库与覆盖库版本，优先使用较新的有效版本
 - 数据库文件必须包含：
   - `metadata.release_tag`
-  - `metadata.schema_version`
+  - `metadata.schema_version`（可选；存在时必须为 `1`）
   - `games.english`
   - `games.normalized_english`
   - `games.chinese_simplified`
@@ -111,9 +94,9 @@ build.cmd benchmark --filter CoverExtractor/.*
 
 ## CI / 发布
 
-- `build.yml` 会执行构建与测试
+- `build.yml` 会执行格式检查、clippy、测试与打包
 - `make-release.yml` 会生成安装包与便携包，并携带 `fling_translations.db` 与 `SHA256SUMS.txt`
-- 便携包与安装包都包含启动器、主程序以及外置资源目录
+- 便携包与安装包包含主程序、封面模型 `models/`、内置数据库 `resources/` 与 MSVC 运行库
 
 ### 版本发布
 
