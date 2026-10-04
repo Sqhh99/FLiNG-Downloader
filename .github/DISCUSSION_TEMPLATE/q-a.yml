@@ -25,4 +25,4 @@ body:
     attributes:
       label: App version
       description: Shown under Settings → About.
-      placeholder: v1.1.10
+      placeholder: v1.2.0

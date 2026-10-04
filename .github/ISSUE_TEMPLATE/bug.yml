@@ -31,7 +31,7 @@ body:
     attributes:
       label: App version
       description: Shown under Settings → About, or in the installer's file name.
-      placeholder: v1.1.10
+      placeholder: v1.2.0
     validations:
       required: true
 

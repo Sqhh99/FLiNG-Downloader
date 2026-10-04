@@ -1,19 +1,19 @@
 name: Game title not found
-description: A Chinese or Japanese game title that doesn't find its trainer, or finds the wrong one
+description: A Chinese or Japanese game title that doesn't find its trainer, or a trainer name translated wrongly
 title: "Title: "
 body:
   - type: markdown
     attributes:
       value: |
-        The app turns Chinese and Japanese game titles into the English titles flingtrainer.com uses, with a bundled title database. Use this form when that lookup is missing a game or gets one wrong.
+        The app turns Chinese and Japanese game titles into the English titles flingtrainer.com uses, and shows trainer names in Chinese or Japanese (Settings → Language → Trainer Names), with a bundled title database. Use this form when that database is missing a game or gets one wrong.
 
-        Before you file, update the title database: Settings → Translation Database Updates → Check for Updates. The fix may already be there.
+        Before you file, update the title database: Settings → About → Translation Database Updates → Check Database Updates. The fix may already be there.
 
   - type: input
     id: searched
     attributes:
-      label: What you searched for
-      description: Exactly as you typed it.
+      label: What you searched for, or the name shown
+      description: Exactly as you typed it, or as the app shows the trainer name.
       placeholder: 只狼：影逝二度
     validations:
       required: true
@@ -38,6 +38,8 @@ body:
         - No results
         - Wrong game
         - Right game, but other unrelated results too
+        - Trainer name shown in English although the game has a Chinese or Japanese title
+        - Trainer name translated wrongly
     validations:
       required: true
 
@@ -54,12 +56,12 @@ body:
     id: database-version
     attributes:
       label: Title database version
-      description: Shown as "Current Version" under Settings → Translation Database Updates.
-      placeholder: v0.0.4
+      description: Shown as "Current Version" under Settings → About → Translation Database Updates.
+      placeholder: v0.0.5
 
   - type: input
     id: app-version
     attributes:
       label: App version
       description: Shown under Settings → About.
-      placeholder: v1.1.10
+      placeholder: v1.2.0
