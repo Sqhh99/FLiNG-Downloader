@@ -2,7 +2,7 @@
 
 use std::time::{Duration, Instant};
 
-use fling_app::Command;
+use fling_app::{Command, ModifierInfo};
 use gpui_kit::assets::IconName;
 use gpui_kit::component::{TitleBar, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
@@ -36,6 +36,11 @@ pub struct Root {
     tab: Tab,
     /// Result row whose details are showing, if the drawer is open.
     drawer_row: Option<usize>,
+    /// URL of that row's trainer. A new result list (search, Show All,
+    /// re-sort) renumbers the rows; the drawer follows the trainer by this.
+    drawer_url: Option<String>,
+    /// `results_generation` that `drawer_row` refers to.
+    seen_generation: u64,
     downloads_open: bool,
     /// When a click outside last closed the download list; a click on the
     /// title-bar button right after must not reopen it.
@@ -60,6 +65,18 @@ impl Root {
 
         let subscriptions = vec![
             cx.observe(&model, |this, model, cx| {
+                let generation = model.read(cx).results_generation;
+                if generation != this.seen_generation {
+                    this.seen_generation = generation;
+                    let row = this
+                        .drawer_url
+                        .as_deref()
+                        .and_then(|url| row_of(url, &model.read(cx).results));
+                    this.drawer_row = row;
+                    if row.is_none() {
+                        this.drawer_url = None;
+                    }
+                }
                 // Debug builds: FLING_DEBUG_OPEN=drawer[:row] opens that result's
                 // details once results arrive, for screenshot checks.
                 let debug_row = debug_open().and_then(|v| {
@@ -72,8 +89,7 @@ impl Root {
                     && model.read(cx).results.len() > row
                 {
                     this.debug_drawer_done = true;
-                    this.drawer_row = Some(row);
-                    model.read(cx).send(Command::Select(row));
+                    this.open_drawer(row, cx);
                 }
                 cx.notify();
             }),
@@ -82,10 +98,9 @@ impl Root {
                 |this, _, event: &SearchPageEvent, cx| match event {
                     SearchPageEvent::ToggleDetails(row) => {
                         if this.drawer_row == Some(*row) {
-                            this.drawer_row = None;
+                            this.close_drawer();
                         } else {
-                            this.drawer_row = Some(*row);
-                            this.model.read(cx).send(Command::Select(*row));
+                            this.open_drawer(*row, cx);
                         }
                         cx.notify();
                     }
@@ -93,7 +108,7 @@ impl Root {
             ),
             cx.subscribe(&drawer, |this, _, event: &DrawerEvent, cx| {
                 match event {
-                    DrawerEvent::Close => this.drawer_row = None,
+                    DrawerEvent::Close => this.close_drawer(),
                     DrawerEvent::DownloadStarted => this.downloads_open = true,
                 }
                 cx.notify();
@@ -114,8 +129,15 @@ impl Root {
             drawer,
             downloads,
             settings,
-            tab: Tab::Search,
+            tab: if cfg!(debug_assertions) && debug_open().is_some_and(|v| v.starts_with("library"))
+            {
+                Tab::Library
+            } else {
+                Tab::Search
+            },
             drawer_row: None,
+            drawer_url: None,
+            seen_generation: 0,
             downloads_open: cfg!(debug_assertions) && debug_open().as_deref() == Some("downloads"),
             downloads_closed_at: None,
             settings_open: cfg!(debug_assertions)
@@ -123,6 +145,19 @@ impl Root {
             debug_drawer_done: false,
             _subscriptions: subscriptions,
         }
+    }
+
+    fn open_drawer(&mut self, row: usize, cx: &mut Context<Self>) {
+        let model = self.model.read(cx);
+        self.drawer_row = Some(row);
+        self.drawer_url = model.results.get(row).map(|m| m.url.clone());
+        self.seen_generation = model.results_generation;
+        model.send(Command::Select(row));
+    }
+
+    fn close_drawer(&mut self) {
+        self.drawer_row = None;
+        self.drawer_url = None;
     }
 
     fn toggle_downloads(&mut self, cx: &mut Context<Self>) {
@@ -142,7 +177,7 @@ impl Root {
         } else if self.downloads_open {
             self.downloads_open = false;
         } else if self.drawer_row.is_some() {
-            self.drawer_row = None;
+            self.close_drawer();
         } else {
             return;
         }
@@ -253,6 +288,15 @@ impl Root {
     }
 }
 
+/// Where the trainer at `url` sits in a new result list. An empty URL (a
+/// placeholder entry) matches nothing.
+fn row_of(url: &str, results: &[ModifierInfo]) -> Option<usize> {
+    if url.is_empty() {
+        return None;
+    }
+    results.iter().position(|m| m.url == url)
+}
+
 impl Render for Root {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let c = palette(cx);
@@ -359,5 +403,30 @@ impl Render for Root {
                         ),
                 )
             })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    // Not `super::*`: that brings in GPUI's `test` macro, which shadows `#[test]`.
+    use super::row_of;
+    use fling_app::ModifierInfo;
+
+    fn results(urls: &[&str]) -> Vec<ModifierInfo> {
+        urls.iter()
+            .map(|url| ModifierInfo {
+                url: (*url).to_owned(),
+                ..ModifierInfo::default()
+            })
+            .collect()
+    }
+
+    #[test]
+    fn drawer_follows_its_trainer_into_a_new_list() {
+        let resorted = results(&["https://x/b/", "https://x/a/"]);
+        assert_eq!(row_of("https://x/a/", &resorted), Some(1));
+        assert_eq!(row_of("https://x/c/", &resorted), None);
+        // Placeholder rows have no URL; they never match each other.
+        assert_eq!(row_of("", &results(&["", "https://x/a/"])), None);
     }
 }

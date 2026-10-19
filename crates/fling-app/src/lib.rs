@@ -10,6 +10,7 @@ mod api;
 mod backend;
 mod names;
 
+use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -43,6 +44,9 @@ impl Default for StartupTimings {
     }
 }
 
+/// Starts the app installer at a path. Tests pass one that only records it.
+pub type InstallerLauncher = Arc<dyn Fn(&Path) -> std::io::Result<()> + Send + Sync>;
+
 pub struct BackendConfig {
     pub paths: AppPaths,
     /// The running app's version (`FLING_APP_VERSION`).
@@ -52,6 +56,8 @@ pub struct BackendConfig {
     pub site_base_url: String,
     /// Loads the cover model on first use.
     pub cover_detector: DetectorLoader,
+    /// Starts a downloaded app installer.
+    pub launch_installer: InstallerLauncher,
     /// `None` skips the startup fetch, warm-up and automatic update checks.
     pub startup: Option<StartupTimings>,
 }
@@ -68,6 +74,7 @@ impl BackendConfig {
             app_version,
             http: Arc::new(http),
             site_base_url: fling_site::DEFAULT_BASE_URL.to_owned(),
+            launch_installer: Arc::new(fling_update::launch_installer),
             startup: Some(StartupTimings::default()),
         })
     }

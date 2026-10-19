@@ -94,6 +94,7 @@ pub fn update_status(state: &UpdateState, database: bool) -> SharedString {
         UpdateStatus::DownloadFailed(error) => rust_i18n::t!(key("download_failed"), error = error)
             .into_owned()
             .into(),
+        UpdateStatus::WaitingForDownloads => tr!("update.waiting_for_downloads"),
         UpdateStatus::LaunchingInstaller => tr!("update.launching"),
         UpdateStatus::LaunchFailed => tr!("update.launch_failed"),
         UpdateStatus::Installed => tr!("db.installed", version = state.current_version.as_str()),

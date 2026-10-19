@@ -35,6 +35,10 @@ common.close:
   zh-CN: 关闭
   en: Close
   ja: 閉じる
+common.cancel:
+  zh-CN: 取消
+  en: Cancel
+  ja: キャンセル
 common.retry:
   zh-CN: 重试
   en: Retry
@@ -163,6 +167,10 @@ library.delete:
   zh-CN: 删除
   en: Delete
   ja: 削除
+library.confirm_delete:
+  zh-CN: 删除「%{name}」？修改器文件将从磁盘删除，无法恢复。
+  en: "Delete \"%{name}\"? The trainer file is removed from disk and can't be restored."
+  ja: 「%{name}」を削除しますか？トレーナーのファイルはディスクから削除され、元に戻せません。
 library.delete_failed:
   zh-CN: 无法删除「%{name}」，文件可能正在使用中：%{path}
   en: "Couldn't delete \"%{name}\"; the file may be in use: %{path}"
@@ -460,6 +468,10 @@ update.launching:
   zh-CN: 安装程序已下载，正在启动...
   en: Installer downloaded. Launching setup...
   ja: インストーラーをダウンロードしました。セットアップを起動中...
+update.waiting_for_downloads:
+  zh-CN: 安装程序已下载，将在当前下载完成后启动
+  en: Installer downloaded. Setup starts when your downloads finish.
+  ja: インストーラーをダウンロードしました。現在のダウンロードが終わるとセットアップを起動します。
 update.launch_failed:
   zh-CN: 启动安装程序失败
   en: Failed to launch installer

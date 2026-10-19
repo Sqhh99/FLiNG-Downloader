@@ -117,6 +117,9 @@ pub enum UpdateStatus {
     CheckFailed(UpdateError),
     Downloading,
     DownloadFailed(String),
+    /// App only: the installer is downloaded and starts, quitting the app,
+    /// once no trainer download is running or queued.
+    WaitingForDownloads,
     /// App only: the installer is starting and the app is about to quit.
     LaunchingInstaller,
     LaunchFailed,

@@ -10,19 +10,19 @@ use std::time::Duration;
 use fling_config::{AppPaths, Settings};
 use fling_core::text::cover_game_id;
 use fling_core::version::normalize_version;
-use fling_core::{Language, ModifierInfo};
+use fling_core::{DownloadTask, Language, ModifierInfo, TaskStatus};
 use fling_cover::{CoverCache, CoverExtractor, CoverResult};
 use fling_download::{DownloadQueue, Library, QueueEvent, RunTarget};
 use fling_mapping::{GameMappings, SuggestionIndex, TranslationDatabase};
 use fling_net::GetError;
 use fling_site::SiteClient;
-use fling_update::{CheckResult, ReleaseInfo, ReleaseKind, UpdateError, Updater, launch_installer};
+use fling_update::{CheckResult, ReleaseInfo, ReleaseKind, UpdateError, Updater};
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::{UnboundedReceiver, WeakUnboundedSender};
 
 use crate::api::*;
 use crate::names::{TrainerLabel, label};
-use crate::{BackendConfig, SharedLookup, StartupTimings};
+use crate::{BackendConfig, InstallerLauncher, SharedLookup, StartupTimings};
 
 /// The installer gets a moment to start before the app quits.
 const QUIT_AFTER_INSTALLER: Duration = Duration::from_millis(300);
@@ -90,6 +90,17 @@ pub(crate) struct Backend {
 
     app_update: UpdateFlow,
     database_update: UpdateFlow,
+    launch_installer: InstallerLauncher,
+    /// A downloaded installer held back while trainer downloads run.
+    pending_installer: Option<PathBuf>,
+}
+
+/// Whether a trainer download is running or waiting for a slot. Quitting
+/// for the installer would end it; paused ones are left for the user.
+fn transfers_running(tasks: &[DownloadTask]) -> bool {
+    tasks
+        .iter()
+        .any(|t| matches!(t.status, TaskStatus::Downloading | TaskStatus::Queued))
 }
 
 fn send(tx: &WeakUnboundedSender<Msg>, msg: Msg) {
@@ -131,6 +142,7 @@ impl Backend {
             http,
             site_base_url,
             cover_detector,
+            launch_installer,
             startup,
         } = config;
         if let Err(err) = paths.ensure_dirs() {
@@ -192,6 +204,8 @@ impl Backend {
                 state: UpdateState::default(),
                 release: None,
             },
+            launch_installer,
+            pending_installer: None,
         };
         if !backend.reload_mappings() {
             tracing::warn!("no game mappings loaded from the translation database");
@@ -270,7 +284,13 @@ impl Backend {
                 url,
                 result,
             } => self.cover_done(&game_id, &url, result),
-            Msg::Queue(QueueEvent::Tasks(tasks)) => self.emit(Event::Tasks(tasks)),
+            Msg::Queue(QueueEvent::Tasks(tasks)) => {
+                let busy = transfers_running(&tasks);
+                self.emit(Event::Tasks(tasks));
+                if !busy && let Some(path) = self.pending_installer.take() {
+                    self.start_installer(path);
+                }
+            }
             Msg::Queue(QueueEvent::Completed(record)) => {
                 self.library.upsert(record);
                 self.emit_library();
@@ -775,6 +795,10 @@ impl Backend {
     }
 
     fn download_update(&mut self, kind: ReleaseKind) {
+        // The installer is already here, waiting for trainer downloads.
+        if kind == ReleaseKind::App && self.pending_installer.is_some() {
+            return;
+        }
         let flow = self.flow_mut(kind);
         let Some(release) = flow.release.clone().filter(|r| r.is_valid()) else {
             return;
@@ -805,6 +829,20 @@ impl Backend {
         });
     }
 
+    /// Starts the app installer; the app quits shortly after.
+    fn start_installer(&mut self, path: PathBuf) {
+        self.app_update.state.status = UpdateStatus::LaunchingInstaller;
+        self.emit_update(ReleaseKind::App);
+        match (self.launch_installer)(&path) {
+            Ok(()) => self.after(QUIT_AFTER_INSTALLER, Msg::QuitAfterInstaller),
+            Err(err) => {
+                tracing::warn!(?path, %err, "failed to launch installer");
+                self.app_update.state.status = UpdateStatus::LaunchFailed;
+                self.emit_update(ReleaseKind::App);
+            }
+        }
+    }
+
     fn download_done(&mut self, kind: ReleaseKind, result: Result<PathBuf, UpdateError>) {
         let path = match result {
             Ok(path) => path,
@@ -822,15 +860,14 @@ impl Backend {
                 let flow = self.flow_mut(kind);
                 flow.state.downloading = false;
                 flow.state.progress = 1.0;
-                flow.state.status = UpdateStatus::LaunchingInstaller;
-                self.emit_update(kind);
-                match launch_installer(&path) {
-                    Ok(()) => self.after(QUIT_AFTER_INSTALLER, Msg::QuitAfterInstaller),
-                    Err(err) => {
-                        tracing::warn!(?path, %err, "failed to launch installer");
-                        self.app_update.state.status = UpdateStatus::LaunchFailed;
-                        self.emit_update(kind);
-                    }
+                if transfers_running(&self.queue.tasks()) {
+                    // Quitting now would end those downloads. The queue's
+                    // first snapshot without one starts the installer.
+                    self.app_update.state.status = UpdateStatus::WaitingForDownloads;
+                    self.pending_installer = Some(path);
+                    self.emit_update(kind);
+                } else {
+                    self.start_installer(path);
                 }
             }
             ReleaseKind::Database => {

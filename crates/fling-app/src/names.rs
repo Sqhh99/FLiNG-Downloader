@@ -9,7 +9,7 @@ use fling_site::parser::decode_html_entities;
 /// How the UI shows one trainer name.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TrainerLabel {
-    /// The translated game title, or the site name unchanged.
+    /// The translated game title, or the site name with entities decoded.
     pub title: String,
     /// The English game title under a translation; empty otherwise.
     pub subtitle: String,
@@ -43,11 +43,11 @@ fn game_title(site_name: &str) -> String {
 }
 
 /// `site_name` as the UI shows it in `language`: the translated title over
-/// the English title, or `site_name` unchanged (no subtitle) for English and
-/// for games the database has no distinct title for.
+/// the English title, or `site_name` with its entities decoded (no subtitle)
+/// for English and for games the database has no distinct title for.
 pub(crate) fn label(site_name: &str, language: Language, mappings: &GameMappings) -> TrainerLabel {
     let untranslated = || TrainerLabel {
-        title: site_name.to_owned(),
+        title: decode_html_entities(site_name),
         subtitle: String::new(),
     };
     if language == Language::English {
@@ -128,9 +128,18 @@ mod tests {
     fn english_and_misses_keep_the_site_name_without_subtitle() {
         let m = mappings();
         let untranslated = |name: &str| (name.to_owned(), String::new());
+        // Shown decoded; `ModifierInfo::name` keeps the raw site title.
         assert_eq!(
             pair(label("Tom &amp; Jerry Trainer", Language::English, &m)),
-            untranslated("Tom &amp; Jerry Trainer")
+            untranslated("Tom & Jerry Trainer")
+        );
+        assert_eq!(
+            pair(label(
+                "R.I.P. &#8211; Reincarnation Insurance Program Trainer",
+                Language::Chinese,
+                &m
+            )),
+            untranslated("R.I.P. - Reincarnation Insurance Program Trainer")
         );
         assert_eq!(
             pair(label("Unknown Game Trainer", Language::Chinese, &m)),
