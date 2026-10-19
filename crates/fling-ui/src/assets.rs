@@ -11,8 +11,8 @@ use gpui_kit::{AssetSource, Result, SharedString};
 gpui_kit::assets::icon_assets!(
     AppIcons,
     [
-        Check, Download, FolderOpen, Github, ImageOff, Info, Languages, Palette, Pause, Play,
-        RotateCw, Settings, Trash, X,
+        Check, Download, FolderOpen, Github, ImageOff, Info, Languages, ListX, Palette, Pause,
+        Play, RotateCw, Settings, Trash, X,
     ]
 );
 

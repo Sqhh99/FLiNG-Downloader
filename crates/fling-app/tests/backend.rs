@@ -116,6 +116,8 @@ impl Harness {
                 record.lock().push(path.to_owned());
                 Ok(())
             }),
+            // Never the real Recycle Bin.
+            delete_file: fling_download::delete_permanently,
             startup: startup.then(|| StartupTimings {
                 cover_warm_up: Duration::from_millis(0),
                 app_update_check: Duration::from_secs(3600),
@@ -615,4 +617,86 @@ async fn app_installer_waits_for_running_trainer_downloads() {
         .filter(|r| r.url.ends_with("setup.exe"))
         .count();
     assert_eq!(setup_downloads, 1);
+}
+
+#[tokio::test]
+async fn opening_a_trainer_whose_file_is_gone_reports_it() {
+    let fake = FakeHttpClient::new();
+    fake.page(BASE, homepage(&[("alpha", "1")]));
+    fake.page(
+        &format!("{BASE}alpha/"),
+        detail_page("https://fling.test/downloads/abc"),
+    );
+    fake.file(
+        "https://fling.test/downloads/abc",
+        b"MZ\x90\x00exe".to_vec(),
+    );
+    let h = Harness::start(Arc::new(fake), true);
+    h.next(|e| match e {
+        Event::Results(r) if !r.is_empty() => Some(()),
+        _ => None,
+    })
+    .await;
+    h.handle.send(Command::Select(0));
+    h.selection_where(|s| s.detail == DetailState::Ready).await;
+    h.handle.send(Command::Download { version_index: 0 });
+    let library = h
+        .next(|e| match e {
+            Event::Library(l) if !l.is_empty() => Some(l),
+            _ => None,
+        })
+        .await;
+    std::fs::remove_file(&library[0].file_path).unwrap();
+
+    h.handle.send(Command::RunLibraryItem(0));
+    let (name, file_path) = h
+        .next(|e| match e {
+            Event::LibraryFileMissing { name, file_path } => Some((name, file_path)),
+            _ => None,
+        })
+        .await;
+    assert_eq!(name, "Alpha Trainer");
+    assert_eq!(file_path, library[0].file_path);
+    let json = std::fs::read_to_string(h.paths.library_file()).unwrap();
+    assert!(!json.contains("Alpha Trainer"), "{json}");
+}
+
+#[tokio::test]
+async fn failed_searches_are_told_apart_from_empty_ones() {
+    let fake = FakeHttpClient::new();
+    fake.page(BASE, homepage(&[("alpha", "1")]));
+    fake.page(
+        &format!("{BASE}?s=nothing"),
+        "<html><body>No results</body></html>",
+    );
+    let h = Harness::start(Arc::new(fake), false);
+
+    // No search page for this term: the request fails.
+    h.handle.send(Command::Search("offline".into()));
+    assert!(
+        h.next(|e| match e {
+            Event::SearchFailed(failed) => Some(failed),
+            _ => None,
+        })
+        .await
+    );
+    h.handle.send(Command::FetchRecent);
+    assert!(
+        !h.next(|e| match e {
+            Event::SearchFailed(failed) => Some(failed),
+            _ => None,
+        })
+        .await
+    );
+    // The site answered, but nothing matched: still not a failure.
+    h.handle.send(Command::Search("nothing".into()));
+    let results = h
+        .next(|e| match e {
+            // Skips the recent list's results, which may still be queued.
+            Event::Results(r) if r.is_empty() => Some(r),
+            Event::SearchFailed(true) => panic!("an empty answer is not a failure"),
+            _ => None,
+        })
+        .await;
+    assert!(results.is_empty());
 }

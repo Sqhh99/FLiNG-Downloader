@@ -16,7 +16,7 @@ use crate::state::AppModel;
 use crate::theme::palette;
 use crate::views::motion;
 use crate::views::smooth_scroll::SmoothScroll;
-use crate::views::widgets::{icon_button, trainer_name};
+use crate::views::widgets::{icon_button, text_tooltip, trainer_full_name, trainer_name};
 
 pub enum DrawerEvent {
     Close,
@@ -29,7 +29,10 @@ impl EventEmitter<DrawerEvent> for DetailDrawer {}
 pub struct DetailDrawer {
     model: Entity<AppModel>,
     versions: Entity<SelectState<Vec<SharedString>>>,
+    /// Full version labels; the picker shows [`short_version_labels`].
     version_labels: Vec<String>,
+    /// Display size of the last cover, so repaints don't reread the file.
+    cover_size: Option<(std::path::PathBuf, (f32, f32))>,
     options_scroll: SmoothScroll,
     _subscriptions: Vec<Subscription>,
 }
@@ -51,8 +54,10 @@ impl DetailDrawer {
                 })
                 .unwrap_or_default();
             if labels != this.version_labels {
-                let items: Vec<SharedString> =
-                    labels.iter().cloned().map(SharedString::from).collect();
+                let items: Vec<SharedString> = short_version_labels(&labels)
+                    .into_iter()
+                    .map(SharedString::from)
+                    .collect();
                 let selected = (!items.is_empty()).then(IndexPath::default);
                 this.versions.update(cx, |state, cx| {
                     state.set_items(items, window, cx);
@@ -66,6 +71,7 @@ impl DetailDrawer {
             model,
             versions,
             version_labels: Vec::new(),
+            cover_size: None,
             options_scroll: SmoothScroll::new(),
             _subscriptions: subscriptions,
         }
@@ -106,7 +112,11 @@ impl DetailDrawer {
             CoverState::Ready(path) => {
                 // Size the element to the picture itself so the row around it
                 // follows the cover's real shape.
-                let (w, h) = cover_size(path);
+                let (w, h) = self
+                    .cover_size
+                    .as_ref()
+                    .filter(|(cached, _)| cached == path)
+                    .map_or(COVER_MAX, |(_, size)| *size);
                 img(path.clone())
                     .w(px(w))
                     .h(px(h))
@@ -197,6 +207,44 @@ fn cover_size(path: &std::path::Path) -> (f32, f32) {
     (w * scale, h * scale)
 }
 
+/// The part of a version label that tells versions apart:
+/// "Elden.Ring.Nightreign.v1.01-v1.03.Plus.26.Trainer-FLiNG" becomes
+/// "v1.01-v1.03 Plus 26". A label without a `v<digit>` word stays whole.
+fn short_version_label(label: &str) -> String {
+    let bytes = label.as_bytes();
+    let start = (0..bytes.len()).find(|&i| {
+        matches!(bytes[i], b'v' | b'V')
+            && bytes.get(i + 1).is_some_and(u8::is_ascii_digit)
+            && (i == 0 || matches!(bytes[i - 1], b'.' | b' ' | b'_' | b'-'))
+    });
+    let Some(start) = start else {
+        return label.to_owned();
+    };
+    let mut short = &label[start..];
+    for suffix in ["-FLiNG", ".Trainer", " Trainer"] {
+        let cut = short.len().saturating_sub(suffix.len());
+        if short
+            .get(cut..)
+            .is_some_and(|tail| tail.eq_ignore_ascii_case(suffix))
+        {
+            short = &short[..cut];
+        }
+    }
+    short.replace(".Plus.", " Plus ")
+}
+
+/// Short labels for the version picker, or the full ones when shortening
+/// would make two versions look the same.
+fn short_version_labels(labels: &[String]) -> Vec<String> {
+    let short: Vec<String> = labels.iter().map(|l| short_version_label(l)).collect();
+    let mut seen = std::collections::HashSet::new();
+    if short.iter().all(|s| seen.insert(s.as_str())) {
+        short
+    } else {
+        labels.to_vec()
+    }
+}
+
 /// Text sizes of the Qt drawer: 18 px title, 13 px everything else.
 const TITLE_TEXT: Pixels = px(18.);
 const BODY_TEXT: Pixels = px(13.);
@@ -207,6 +255,21 @@ impl Render for DetailDrawer {
         let c = palette(cx);
         let selection = self.model.read(cx).selection.clone().unwrap_or_default();
         let m = &selection.modifier;
+        if let CoverState::Ready(path) = &selection.cover
+            && self
+                .cover_size
+                .as_ref()
+                .is_none_or(|(cached, _)| cached != path)
+        {
+            self.cover_size = Some((path.clone(), cover_size(path)));
+        }
+        // The full file name of the chosen version, on hover over the picker.
+        let selected_label = self
+            .versions
+            .read(cx)
+            .selected_index(cx)
+            .and_then(|ix| self.version_labels.get(ix.row).cloned())
+            .unwrap_or_default();
         let close = icon_button("drawer-close", IconName::X, tr!("common.close"))
             .on_click(cx.listener(|_, _, _, cx| cx.emit(DrawerEvent::Close)));
 
@@ -228,12 +291,23 @@ impl Render for DetailDrawer {
                     Self::framed(cx).p_2().child(
                         h_flex()
                             .gap_2()
-                            .child(div().flex_1().min_w_0().child(Select::new(&self.versions)))
+                            .child(
+                                div()
+                                    .id("version-picker")
+                                    .flex_1()
+                                    .min_w_0()
+                                    .tooltip(text_tooltip(selected_label))
+                                    .child(
+                                        Select::new(&self.versions)
+                                            .accessibility_label(tr!("detail.select_version")),
+                                    ),
+                            )
+                            // The drawer's main action: labelled and primary.
                             .child(
                                 Button::new("download")
-                                    .ghost()
+                                    .primary()
                                     .icon(gpui_kit::component::Icon::new(IconName::Download))
-                                    .tooltip(tr!("detail.download"))
+                                    .label(tr!("detail.download"))
                                     .disabled(self.version_labels.is_empty())
                                     .on_click(cx.listener(|this, _, _, cx| this.download(cx))),
                             ),
@@ -320,17 +394,21 @@ impl Render for DetailDrawer {
             .shadow_lg()
             .occlude()
             .child(
-                // The drawer covers the title bar, so its header moves the window.
                 h_flex()
                     .min_h(px(48.))
                     .py_2()
                     .flex_shrink_0()
                     .gap_2()
-                    .window_control_area(WindowControlArea::Drag)
                     .child(
                         v_flex()
+                            .id("drawer-title")
                             .flex_1()
                             .min_w_0()
+                            .tooltip(text_tooltip(trainer_full_name(
+                                &m.display_name,
+                                &m.display_subtitle,
+                                &m.name,
+                            )))
                             .child(
                                 div()
                                     .truncate()
@@ -350,8 +428,7 @@ impl Render for DetailDrawer {
                                 )
                             }),
                     )
-                    // Keeps the caption drag area from swallowing the click.
-                    .child(div().id("drawer-close-wrap").occlude().child(close)),
+                    .child(close),
             )
             .child(div().h(px(1.)).flex_shrink_0().bg(c.border))
             .map(|drawer| {
@@ -396,7 +473,33 @@ impl Render for DetailDrawer {
 #[cfg(test)]
 mod tests {
     // Not `super::*`: that brings in GPUI's `test` macro, which shadows `#[test]`.
-    use super::{COVER_MAX, cover_size};
+    use super::{COVER_MAX, cover_size, short_version_label, short_version_labels};
+
+    #[test]
+    fn version_labels_keep_the_part_that_differs() {
+        assert_eq!(
+            short_version_label("Elden.Ring.Nightreign.v1.01-v1.03.1.Plus.26.Trainer-FLiNG"),
+            "v1.01-v1.03.1 Plus 26"
+        );
+        assert_eq!(
+            short_version_label("Elden Ring v1.02 Plus 30 Trainer"),
+            "v1.02 Plus 30"
+        );
+        // "V" starting a word of the game name is not a version.
+        assert_eq!(
+            short_version_label("V.Rising.v1.0.Plus.20.Trainer"),
+            "v1.0 Plus 20"
+        );
+        assert_eq!(
+            short_version_label("Early Access Trainer"),
+            "Early Access Trainer"
+        );
+        let labels = [
+            "Game.v1.0.Trainer".to_owned(),
+            "Game.v1.0.Trainer-FLiNG".to_owned(),
+        ];
+        assert_eq!(short_version_labels(&labels), labels, "would look the same");
+    }
 
     fn png(dir: &std::path::Path, w: u32, h: u32) -> std::path::PathBuf {
         let mut bytes = b"\x89PNG\r\n\x1a\n\0\0\0\x0dIHDR".to_vec();

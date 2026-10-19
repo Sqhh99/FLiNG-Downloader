@@ -79,7 +79,8 @@ No crate below `fling-app` knows about the UI, and `fling-ui` contains no busine
   on it.
 - `fling-download`: at most 3 transfers at once; tasks sharing a temp file never run
   together. Data goes to `.crdownload`, then the file is renamed and its extension
-  corrected by magic bytes. The library is `downloaded_modifiers.json`.
+  corrected by magic bytes. The library is `downloaded_modifiers.json`; deleting an entry
+  moves its file to the Recycle Bin (`trash`).
 - `fling-update`: GitHub or Gitee is used **strictly**, with no cross-fallback. App
   asset: `FLiNG-Downloader-v{ver}-win-x64-setup.exe`; DB asset: `fling_translations.db`.
 - `fling-cover`: cache in `<LocalAppData>/FLiNG Downloader/cache/covers` (`<id>.png`,
@@ -120,6 +121,8 @@ Never hit the live network or the user's real settings from a test. The seams:
 - `fling_mapping::test_util::create_database(...)`: throwaway SQLite fixtures, including a
   deliberately malformed variant.
 - `crates/fling-app/tests/backend.rs` drives the whole backend through `Command`/`Event`.
+  `BackendConfig::launch_installer` and `delete_file` keep it from starting installers or
+  touching the real Recycle Bin; pass a recorder and `fling_download::delete_permanently`.
 
 UI checks: debug builds read `FLING_DEBUG_OPEN` (`drawer[:row]`, `settings`,
 `settings-about`, `settings-download`, `settings-language`, `suggest:<text>`, `downloads`, `library`, `library-delete[:row]`) to open a screen at startup, so

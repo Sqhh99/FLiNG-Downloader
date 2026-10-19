@@ -12,7 +12,7 @@ use crate::state::AppModel;
 use crate::theme::{Colors, palette};
 use crate::views::motion;
 use crate::views::smooth_scroll::SmoothScroll;
-use crate::views::widgets::icon_button;
+use crate::views::widgets::{icon_button, text_tooltip};
 
 pub struct DownloadsPanel {
     model: Entity<AppModel>,
@@ -118,8 +118,10 @@ impl DownloadsPanel {
             );
         }
         if status.is_terminal() {
+            // Only clears the entry; the file stays. Not the library's trash
+            // icon, which does delete the file.
             buttons = buttons.child(
-                icon_button(("remove", index), IconName::Trash, tr!("downloads.remove"))
+                icon_button(("remove", index), IconName::ListX, tr!("downloads.remove"))
                     .on_click(send(Command::RemoveTask)),
             );
         }
@@ -140,11 +142,13 @@ impl DownloadsPanel {
                     .gap_2()
                     .child(
                         div()
+                            .id(("task-name", index))
                             .flex_1()
                             .min_w_0()
                             .truncate()
                             .text_sm()
                             .text_color(c.text)
+                            .tooltip(text_tooltip(name.clone()))
                             .child(name),
                     )
                     .child(

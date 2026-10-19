@@ -461,6 +461,7 @@ text ships in its source package on crates.io.
 | tracing-core | 0.1.36 | MIT |
 | tracing-log | 0.2.0 | MIT |
 | tracing-subscriber | 0.3.23 | MIT |
+| trash | 5.2.9 | MIT |
 | triomphe | 0.1.16 | MIT OR Apache-2.0 |
 | try-lock | 0.2.5 | MIT |
 | ttf-parser | 0.25.1 | MIT OR Apache-2.0 |
@@ -567,6 +568,6 @@ text ships in its source package on crates.io.
 | zune-jpeg | 0.4.21 | MIT OR Apache-2.0 OR Zlib |
 | zune-jpeg | 0.5.15 | MIT OR Apache-2.0 OR Zlib |
 
-537 crates.
+538 crates.
 
 <!-- crates:end -->

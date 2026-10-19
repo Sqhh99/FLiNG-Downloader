@@ -32,6 +32,8 @@ pub(crate) enum Msg {
     SearchDone {
         id: u64,
         results: Vec<ModifierInfo>,
+        /// The site could not be reached (or answered nothing usable).
+        failed: bool,
     },
     DetailDone {
         id: u64,
@@ -79,6 +81,7 @@ pub(crate) struct Backend {
     next_search_id: u64,
     active_search_id: u64,
     search_loading: bool,
+    search_failed: bool,
 
     selection: Option<Selection>,
     next_detail_id: u64,
@@ -143,6 +146,7 @@ impl Backend {
             site_base_url,
             cover_detector,
             launch_installer,
+            delete_file,
             startup,
         } = config;
         if let Err(err) = paths.ensure_dirs() {
@@ -171,7 +175,7 @@ impl Backend {
 
         let mut backend = Self {
             site: SiteClient::with_base_url(http.clone(), &site_base_url),
-            library: Library::load(paths.library_file()),
+            library: Library::load(paths.library_file(), delete_file),
             updater: Arc::new(Updater::new(
                 http.clone(),
                 paths.app_update_dir(),
@@ -194,6 +198,7 @@ impl Backend {
             next_search_id: 0,
             active_search_id: 0,
             search_loading: false,
+            search_failed: false,
             selection: None,
             next_detail_id: 0,
             active_detail_id: 0,
@@ -277,7 +282,11 @@ impl Backend {
     fn handle(&mut self, msg: Msg) {
         match msg {
             Msg::Command(command) => self.command(command),
-            Msg::SearchDone { id, results } => self.search_done(id, results),
+            Msg::SearchDone {
+                id,
+                results,
+                failed,
+            } => self.search_done(id, results, failed),
             Msg::DetailDone { id, url, result } => self.detail_done(id, &url, result),
             Msg::CoverDone {
                 game_id,
@@ -342,7 +351,13 @@ impl Backend {
             Command::RemoveTask(id) => self.queue.remove(&id),
             Command::RunLibraryItem(index) => match self.library.run_target(index) {
                 Some(RunTarget::Open(path)) => self.emit(Event::Open(path)),
-                Some(RunTarget::Missing) => self.emit_library(),
+                Some(RunTarget::Missing(item)) => {
+                    self.emit_library();
+                    self.emit(Event::LibraryFileMissing {
+                        name: self.trainer_label(&item.name).one_line(),
+                        file_path: item.file_path,
+                    });
+                }
                 None => {}
             },
             Command::DeleteLibraryItem(index) => match self.library.delete(index) {
@@ -477,11 +492,18 @@ impl Backend {
         let site = self.site.clone();
         let mappings = self.mappings.clone();
         self.spawn(async move {
-            let results = site.search(&term, &mappings).await.unwrap_or_else(|err| {
-                tracing::warn!(%err, "search failed");
-                Vec::new()
-            });
-            Msg::SearchDone { id, results }
+            let (results, failed) = match site.search(&term, &mappings).await {
+                Ok(results) => (results, false),
+                Err(err) => {
+                    tracing::warn!(%err, "search failed");
+                    (Vec::new(), true)
+                }
+            };
+            Msg::SearchDone {
+                id,
+                results,
+                failed,
+            }
         });
     }
 
@@ -492,15 +514,30 @@ impl Backend {
         let tx = self.tx.clone();
         // May deliver twice: the cached list at once, then a changed network list.
         self.runtime.spawn(async move {
-            site.fetch_recent(&cache, |results| send(&tx, Msg::SearchDone { id, results }))
-                .await;
+            // Only a failed fetch with nothing cached delivers an empty list.
+            site.fetch_recent(&cache, |results| {
+                let failed = results.is_empty();
+                send(
+                    &tx,
+                    Msg::SearchDone {
+                        id,
+                        results,
+                        failed,
+                    },
+                )
+            })
+            .await;
         });
     }
 
-    fn search_done(&mut self, id: u64, mut results: Vec<ModifierInfo>) {
+    fn search_done(&mut self, id: u64, mut results: Vec<ModifierInfo>, failed: bool) {
         // A newer request is in flight; this one's answer is stale.
         if id != self.active_search_id {
             return;
+        }
+        if failed != self.search_failed {
+            self.search_failed = failed;
+            self.emit(Event::SearchFailed(failed));
         }
         self.label(&mut results);
         sort_results(&mut results, self.sort);

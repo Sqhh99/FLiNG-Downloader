@@ -162,12 +162,21 @@ pub struct SettingsSnapshot {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Event {
     SearchLoading(bool),
+    /// The last search or recent-list fetch could not reach the site, so
+    /// empty results mean "no connection" rather than "no matches".
+    SearchFailed(bool),
     Results(Vec<ModifierInfo>),
     Selection(Selection),
     Tasks(Vec<DownloadTask>),
     Library(Vec<DownloadedModifier>),
     /// A library file exists but could not be deleted.
     DeleteFailed {
+        name: String,
+        file_path: String,
+    },
+    /// A library entry was opened but its file is gone; the entry has been
+    /// removed from the library.
+    LibraryFileMissing {
         name: String,
         file_path: String,
     },
