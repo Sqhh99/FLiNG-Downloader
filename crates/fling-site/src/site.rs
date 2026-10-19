@@ -50,9 +50,11 @@ impl SiteClient {
         &self.base_url
     }
 
-    /// `{base}?s=term`, with only spaces encoded (as `+`), as in the Qt build.
+    /// `{base}?s=term`, with the term form-encoded (spaces as `+`). The Qt
+    /// build encoded only spaces, so `&`, `+` and `#` in a title ("Mount &
+    /// Blade II") cut or changed the query.
     pub fn search_url(&self, term: &str) -> String {
-        format!("{}?s={}", self.base_url, term.replace(' ', "+"))
+        format!("{}?s={}", self.base_url, form_encode(term))
     }
 
     /// Searches the site. CN/JA input is searched by the English titles from
@@ -232,6 +234,27 @@ pub fn sort_by_relevance(list: &mut [ModifierInfo], term: &str) {
     list.sort_by_key(|m| std::cmp::Reverse(score(m)));
 }
 
+/// `application/x-www-form-urlencoded` encoding of a query value, as a
+/// browser submits the site's search form: spaces become `+`, and every byte
+/// but `A-Z a-z 0-9 * - . _` becomes `%XX`.
+fn form_encode(text: &str) -> String {
+    use std::fmt::Write;
+
+    let mut out = String::with_capacity(text.len());
+    for &byte in text.as_bytes() {
+        match byte {
+            b' ' => out.push('+'),
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'*' | b'-' | b'.' | b'_' => {
+                out.push(byte as char)
+            }
+            _ => {
+                let _ = write!(out, "%{byte:02X}");
+            }
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use fling_mapping::GameRecord;
@@ -276,7 +299,28 @@ mod tests {
             .unwrap();
         assert_eq!(
             fake.requested_gets(),
-            [format!("{BASE}?s=Ace+Combat+7:+Skies+Unknown")]
+            [format!("{BASE}?s=Ace+Combat+7%3A+Skies+Unknown")]
+        );
+    }
+
+    #[test]
+    fn search_url_encodes_query_syntax_in_titles() {
+        let site = SiteClient::with_base_url(Arc::new(FakeHttpClient::new()), BASE);
+        assert_eq!(
+            site.search_url("Mount & Blade II: Bannerlord"),
+            format!("{BASE}?s=Mount+%26+Blade+II%3A+Bannerlord")
+        );
+        assert_eq!(
+            site.search_url("Rune Factory 4 Special + DLC #2 = 100%"),
+            format!("{BASE}?s=Rune+Factory+4+Special+%2B+DLC+%232+%3D+100%25")
+        );
+        assert_eq!(
+            site.search_url("elden ring"),
+            format!("{BASE}?s=elden+ring")
+        );
+        assert_eq!(
+            site.search_url("艾尔登"),
+            format!("{BASE}?s=%E8%89%BE%E5%B0%94%E7%99%BB")
         );
     }
 

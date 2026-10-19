@@ -7,6 +7,6 @@ mod files;
 mod library;
 mod queue;
 
-pub use files::{clean_url, correct_file_extension};
+pub use files::{clean_url, correct_file_extension, corrected_path};
 pub use library::{DeleteError, Library, RunTarget};
 pub use queue::{DownloadQueue, EventSink, MAX_CONCURRENT_DOWNLOADS, QueueEvent};
