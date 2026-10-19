@@ -50,6 +50,15 @@ fn main() {
         res.set_icon("../../resources/icons/app_icon.ico")
             .set("ProductName", "FLiNG Downloader")
             .set("FileDescription", "FLiNG Downloader")
+            // Shown in the exe's Properties > Details.
+            .set("CompanyName", "Sqhh99")
+            .set(
+                "LegalCopyright",
+                "Copyright (C) Sqhh99. Licensed under the GNU AGPL v3.",
+            )
+            // `cargo xtask dist` ships the binary under this name.
+            .set("OriginalFilename", "FLiNG Downloader.exe")
+            .set("InternalName", "fling-downloader")
             .set("ProductVersion", &version)
             .set("FileVersion", &version)
             .set_version_info(winresource::VersionInfo::PRODUCTVERSION, packed)

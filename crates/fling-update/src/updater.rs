@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use fling_core::UpdateSource;
-use fling_core::version::{compare_versions, normalize_version};
+use fling_core::version::{is_update, normalize_version};
 use fling_net::{CancellationToken, DownloadError, DownloadRequest, HttpClient, ProgressFn};
 
 use crate::ReleaseKind;
@@ -92,7 +92,7 @@ impl Updater {
         if !release.is_valid() {
             return Err(UpdateError::NoValidAsset(kind, source));
         }
-        let update_available = compare_versions(current_version, &release.version).is_lt();
+        let update_available = is_update(current_version, &release.version);
         Ok(CheckResult {
             release,
             update_available,

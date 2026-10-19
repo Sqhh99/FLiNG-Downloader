@@ -12,7 +12,8 @@ use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
 use crate::i18n::{
-    language_name, source_name, theme_name, tr, trainer_name_language_name, update_status,
+    format_published, language_name, source_name, theme_name, tr, trainer_name_language_name,
+    update_status,
 };
 use crate::state::AppModel;
 use crate::theme::{self, THEME_COUNT, palette};
@@ -220,10 +221,17 @@ impl SettingsPanel {
         let active = self.section == section;
         h_flex()
             .id(label.clone())
+            .role(Role::Tab)
+            .aria_label(label.clone())
+            .aria_selected(active)
+            .tab_index(0)
             .gap_2()
             .px_3()
             .h(px(36.))
             .rounded(px(6.))
+            .border_1()
+            .border_color(transparent_black())
+            .focus_visible(|d| d.border_color(c.primary))
             .text_sm()
             .when(active, |d| {
                 d.bg(c.selected)
@@ -273,6 +281,15 @@ impl SettingsPanel {
                 let selected = i == current;
                 div()
                     .id(("theme", i))
+                    .role(Role::RadioButton)
+                    .aria_label(theme_name(i))
+                    .aria_toggled(if selected {
+                        Toggled::True
+                    } else {
+                        Toggled::False
+                    })
+                    .tab_index(0)
+                    .focus_visible(|d| d.border_2().border_color(c.text))
                     .relative()
                     .w(px(90.))
                     .h(px(60.))
@@ -417,7 +434,7 @@ impl SettingsPanel {
         if !state.published_at.is_empty() {
             details.push(tr!(
                 "settings.published",
-                date = state.published_at.as_str()
+                date = format_published(&state.published_at)
             ));
         }
         let current = (database && !state.current_version.is_empty()).then(|| {
@@ -568,6 +585,8 @@ impl SettingsPanel {
                     .child(
                         div()
                             .id("github")
+                            .role(Role::Link)
+                            .tab_index(0)
                             .text_sm()
                             .text_color(c.primary_text)
                             .underline()
@@ -577,20 +596,27 @@ impl SettingsPanel {
                     ),
             )
             .child(
-                h_flex()
-                    .gap_3()
+                // The hint wraps under the selector rather than being cut off.
+                v_flex()
+                    .gap_1()
                     .child(
-                        div()
-                            .text_sm()
-                            .text_color(c.text)
-                            .child(tr!("settings.update_source")),
+                        h_flex()
+                            .gap_3()
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .text_color(c.text)
+                                    .child(tr!("settings.update_source")),
+                            )
+                            .child(
+                                div().w(px(160.)).child(
+                                    Select::new(&self.source_select)
+                                        .accessibility_label(tr!("settings.update_source")),
+                                ),
+                            ),
                     )
-                    .child(div().w(px(160.)).child(Select::new(&self.source_select)))
                     .child(
                         div()
-                            .flex_1()
-                            .min_w_0()
-                            .truncate()
                             .text_xs()
                             .text_color(c.text_muted)
                             .child(tr!("settings.update_source_hint")),
@@ -655,6 +681,8 @@ impl Render for SettingsPanel {
                     .items_start()
                     .child(
                         v_flex()
+                            .id("settings-sections")
+                            .role(Role::TabList)
                             .w(px(160.))
                             .h_full()
                             .m_3()

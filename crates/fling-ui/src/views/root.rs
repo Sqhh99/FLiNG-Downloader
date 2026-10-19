@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 
 use fling_app::{Command, ModifierInfo};
 use gpui_kit::assets::IconName;
-use gpui_kit::component::{TitleBar, h_flex, v_flex};
+use gpui_kit::component::{TITLE_BAR_HEIGHT, TitleBar, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
@@ -168,8 +168,16 @@ impl Root {
         cx.notify();
     }
 
-    fn on_key(&mut self, event: &KeyDownEvent, _: &mut Window, cx: &mut Context<Self>) {
-        if event.keystroke.key != "escape" {
+    fn on_key(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
+        let keystroke = &event.keystroke;
+        if keystroke.key == "f" && keystroke.modifiers.control && !self.settings_open {
+            self.tab = Tab::Search;
+            self.search
+                .update(cx, |search, cx| search.focus_input(window, cx));
+            cx.notify();
+            return;
+        }
+        if keystroke.key != "escape" {
             return;
         }
         if self.settings_open {
@@ -186,8 +194,17 @@ impl Root {
 
     fn render_title_bar(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let c = palette(cx);
-        let active = self.model.read(cx).active_downloads();
-        let badge = (active > 0).then(|| {
+        let model = self.model.read(cx);
+        // Running and queued downloads; failing that, "!" for failures, so
+        // one that fails while the list is closed is not missed.
+        let pending = model.pending_downloads();
+        let badge_text = match (pending, model.failed_downloads()) {
+            (0, 0) => None,
+            (0, _) => Some("!".to_owned()),
+            (n, _) if n > 9 => Some("9+".to_owned()),
+            (n, _) => Some(n.to_string()),
+        };
+        let badge = badge_text.map(|text| {
             div()
                 .absolute()
                 .top(px(-2.))
@@ -202,11 +219,7 @@ impl Root {
                 .justify_center()
                 .text_size(px(10.))
                 .text_color(white())
-                .child(if active > 9 {
-                    "9+".to_owned()
-                } else {
-                    active.to_string()
-                })
+                .child(text)
         });
         TitleBar::new()
             .child(
@@ -262,6 +275,11 @@ impl Root {
         let active = self.tab == tab;
         div()
             .id(label.clone())
+            .role(Role::Tab)
+            .aria_label(label.clone())
+            .aria_selected(active)
+            .tab_index(0)
+            .focus_visible(|d| d.bg(c.hover))
             .h_full()
             .px_4()
             .flex()
@@ -347,6 +365,8 @@ impl Render for Root {
             .child(self.render_title_bar(cx))
             .child(
                 h_flex()
+                    .id("tabs")
+                    .role(Role::TabList)
                     .h(px(40.))
                     .flex_shrink_0()
                     .bg(c.surface)
@@ -355,14 +375,22 @@ impl Render for Root {
                     .child(self.render_tab(Tab::Search, tr!("tab.search"), cx))
                     .child(self.render_tab(Tab::Library, tr!("tab.library"), cx)),
             )
-            .child(div().flex_1().min_h_0().child(page))
-            // The drawer spans the whole window height, like the Qt build, and
-            // slides in from the right edge.
+            // The open drawer pushes the search page aside instead of covering
+            // its toolbar and the table's right-hand columns.
+            .child(
+                div()
+                    .flex_1()
+                    .min_h_0()
+                    .when_some(drawer, |page, shown| page.pr(drawer_width * shown))
+                    .child(page),
+            )
+            // The drawer slides in from the right edge, below the title bar so
+            // the window buttons and the download list stay in reach.
             .when_some(drawer, |root, shown| {
                 root.child(
                     div()
                         .absolute()
-                        .top_0()
+                        .top(TITLE_BAR_HEIGHT)
                         .bottom_0()
                         .right(drawer_width * (shown - 1.0))
                         .w(drawer_width)
