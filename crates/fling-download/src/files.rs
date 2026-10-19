@@ -1,5 +1,6 @@
 //! File-level helpers. Ports of `DownloadManager::cleanUrl` and
-//! `DownloadManager::correctFileExtension`.
+//! `DownloadManager::correctFileExtension`, plus [`corrected_path`], which
+//! names a finished download before it is moved into place.
 
 use std::fs::File;
 use std::io::Read;
@@ -23,12 +24,11 @@ fn sniff(path: &Path) -> Option<&'static str> {
     file_kind::detect(&header)
 }
 
-/// Renames `path` so its extension matches its content (a `.zip` that is
-/// really an `MZ` executable becomes `.exe`). Returns the path the file ends
-/// up at; on an unknown format, or if the target name is taken, the file
-/// stays where it is.
-pub fn correct_file_extension(path: &Path) -> PathBuf {
-    let Some(detected) = sniff(path) else {
+/// `path` with its extension replaced by the one `content`'s magic bytes call
+/// for (a `.zip` that is really an `MZ` executable becomes `.exe`). `path`
+/// itself on an unknown format or when the extension already matches.
+pub fn corrected_path(path: &Path, content: &Path) -> PathBuf {
+    let Some(detected) = sniff(content) else {
         return path.to_path_buf();
     };
     if file_kind::extension_of(&path.to_string_lossy()) == detected {
@@ -40,7 +40,17 @@ pub fn correct_file_extension(path: &Path) -> PathBuf {
     let mut name = stem.to_os_string();
     name.push(".");
     name.push(detected);
-    let target = path.with_file_name(name);
+    path.with_file_name(name)
+}
+
+/// Renames `path` so its extension matches its content (see
+/// [`corrected_path`]). Returns the path the file ends up at; on an unknown
+/// format, or if the target name is taken, the file stays where it is.
+pub fn correct_file_extension(path: &Path) -> PathBuf {
+    let target = corrected_path(path, path);
+    if target == path {
+        return target;
+    }
     // QFile::rename never overwrote; std::fs::rename would on Windows.
     if target.exists() || std::fs::rename(path, &target).is_err() {
         return path.to_path_buf();
@@ -88,6 +98,21 @@ mod tests {
         std::fs::write(&blocked, b"MZ").unwrap();
         std::fs::write(dir.path().join("c.exe"), b"other").unwrap();
         assert_eq!(correct_file_extension(&blocked), blocked);
+    }
+
+    #[test]
+    fn corrected_path_names_by_content_without_touching_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let temp = dir.path().join("A_v1.zip.crdownload");
+        let save = dir.path().join("A_v1.zip");
+
+        std::fs::write(&temp, b"MZ\x90\x00").unwrap();
+        assert_eq!(corrected_path(&save, &temp), dir.path().join("A_v1.exe"));
+        std::fs::write(&temp, b"PK\x03\x04").unwrap();
+        assert_eq!(corrected_path(&save, &temp), save);
+        std::fs::write(&temp, b"<html>").unwrap();
+        assert_eq!(corrected_path(&save, &temp), save);
+        assert!(temp.exists() && !save.exists());
     }
 
     #[test]

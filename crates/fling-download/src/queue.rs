@@ -5,8 +5,9 @@
 //! - at most [`MAX_CONCURRENT_DOWNLOADS`] run at once, and two tasks that
 //!   would write the same temp file never run together;
 //! - data goes to `<save path>.crdownload`, which a pause keeps for resuming;
-//! - on success the temp file is renamed over any older copy and its
-//!   extension corrected; a task whose rename fails is failed, not completed;
+//! - on success the temp file is renamed, under the extension its content
+//!   calls for, over any older copy; a task whose rename fails is failed, not
+//!   completed;
 //! - a task has at most one transfer: one resumed before its paused transfer
 //!   has stopped waits for it.
 //!
@@ -27,7 +28,7 @@ use fling_net::{CancellationToken, DownloadError, DownloadOutcome, DownloadReque
 use parking_lot::Mutex;
 use tokio::runtime::Handle;
 
-use crate::files::{clean_url, correct_file_extension};
+use crate::files::{clean_url, corrected_path};
 
 pub const MAX_CONCURRENT_DOWNLOADS: usize = 3;
 const FLUSH_INTERVAL: Duration = Duration::from_millis(200);
@@ -462,19 +463,21 @@ impl DownloadQueue {
         self.process_next();
     }
 
-    /// Renames the temp file into place (replacing an older copy), fixes its
-    /// extension and builds the library record. When the rename fails the
-    /// task is not complete: the temp file and any older copy stay as they are.
+    /// Renames the temp file into place under the extension its content calls
+    /// for, replacing an older copy of that name, and builds the library
+    /// record. When the rename fails the task is not complete: the temp file
+    /// and any older copy stay as they are.
     fn complete(entry: &mut Entry) -> Result<DownloadedModifier, String> {
-        let save_path = PathBuf::from(&entry.task.save_path);
         if !entry.temp_path.is_file() {
             return Err("Downloaded file is missing".to_owned());
         }
-        if let Err(err) = std::fs::rename(&entry.temp_path, &save_path) {
-            tracing::warn!(?save_path, %err, "failed to move finished download into place");
+        // One rename straight to the corrected name: renaming to the `.zip`
+        // first and correcting afterwards would stop at an earlier `.exe`.
+        let final_path = corrected_path(Path::new(&entry.task.save_path), &entry.temp_path);
+        if let Err(err) = std::fs::rename(&entry.temp_path, &final_path) {
+            tracing::warn!(?final_path, %err, "failed to move finished download into place");
             return Err(format!("Cannot move the downloaded file into place: {err}"));
         }
-        let final_path = correct_file_extension(&save_path);
         let size = std::fs::metadata(&final_path).map(|m| m.len()).unwrap_or(0);
 
         let task = &mut entry.task;
@@ -838,6 +841,27 @@ mod tests {
         wait_for(|| status_of(&h.queue, &id) == TaskStatus::Completed).await;
         assert_eq!(std::fs::read(&existing).unwrap(), b"PK\x03\x04new");
         assert!(!h.dir.join("A_v1.zip.crdownload").exists());
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn redownloaded_executable_replaces_the_earlier_exe() {
+        let h = harness();
+        let earlier = h.dir.join("A_v1.exe");
+        std::fs::write(&earlier, b"MZ old").unwrap();
+        h.fake.file("https://x/1", b"MZ new".to_vec());
+        let id = h
+            .queue
+            .enqueue(&modifier("A", &[("v1", "https://x/1")]), 0, &h.dir, "")
+            .unwrap();
+        wait_for(|| status_of(&h.queue, &id) == TaskStatus::Completed).await;
+
+        assert_eq!(PathBuf::from(&h.queue.tasks()[0].save_path), earlier);
+        assert_eq!(std::fs::read(&earlier).unwrap(), b"MZ new");
+        assert!(
+            !h.dir.join("A_v1.zip").exists(),
+            "no executable left as .zip"
+        );
+        assert_eq!(PathBuf::from(&completed_records(&h)[0].file_path), earlier);
     }
 
     #[tokio::test(flavor = "multi_thread")]
