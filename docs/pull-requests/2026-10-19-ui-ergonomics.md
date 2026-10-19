@@ -3,7 +3,7 @@
 - **Date:** 2026-10-19 / **Branch:** `fix/ui-ergonomics` → `main` / **Base commit:** `449c544` / **Related records:** [code review](../code-reviews/2026-10-19-ui-ergonomics-and-defects.md) · [work log](../work-logs/2026-10-19-ui-ergonomics.md)
 
 ## Related
-There is no issue for this. A UI and defect review on 2026-10-19 (the code review linked above) found 6 defects and 12 ergonomics problems. This PR fixes the four the maintainer chose to fix first: findings 7, 1, 2 and 4. The review record is included, with its Implemented column updated.
+There is no issue for this. A [UI and defect review](../code-reviews/2026-10-19-ui-ergonomics-and-defects.md) on 2026-10-19 found 6 defects and 12 ergonomics problems. This PR fixes the four the maintainer chose to fix first: findings 7, 1, 2 and 4. The review record is included, with its Implemented column updated.
 
 ## What changed
 - **Deleting from the library asks first (finding 7).**
