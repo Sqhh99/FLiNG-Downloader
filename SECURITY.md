@@ -1,29 +1,31 @@
-# 安全策略
+# Security Policy
 
-## 支持范围
+**English** · [简体中文](docs/SECURITY.zh-CN.md)
 
-目前只为 **最新正式版 Release** 提供安全修复。预发布 tag（名称中带 `-`）与自行构建的二进制不在支持范围内。
+## Supported versions
 
-## 如何报告漏洞
+Security fixes are made only for the **latest stable release**. Pre-release tags (names containing `-`) and binaries you build yourself are not supported.
 
-请通过 GitHub Security Advisory 提交私密报告：
+## Reporting a vulnerability
+
+Report it privately through a GitHub Security Advisory:
 
 https://github.com/Sqhh99/FLiNG-Downloader/security/advisories/new
 
-**不要**开公开 Issue，也不要在 Discussions、PR 或评论里贴利用细节、样本或完整复现脚本。
+Do **not** open a public issue. Do not post exploit details, samples or full reproduction scripts in Discussions, pull requests or comments either.
 
-报告请尽量包含：
+Please include, as far as you can:
 
-- 受影响版本（Release 标签或 `关于` 页版本）
-- 复现步骤与影响范围
-- 已尝试的缓解办法
+- the affected version (the release tag, or the version shown in **Settings → About**);
+- the steps to reproduce it, and what an attacker could do with it;
+- any mitigations you have tried.
 
-收到报告后，会在 7 日内确认是否受理；修复发布后再协商公开时机。
+You will hear within 7 days whether the report is accepted. Once a fix is released, we will agree with you on when to disclose the details.
 
-## 隐私
+## Privacy
 
-- 不收集个人身份信息。
-- 网络请求仅用于搜索修改器、下载文件、检查软件或翻译库更新。
-- 配置、缓存、日志和翻译库覆盖文件只存在本机。
+- The app collects no personally identifiable information.
+- It uses the network only to search for trainers, download files, and check for app and translation-database updates.
+- Settings, caches, logs and the downloaded translation database are stored only on your computer.
 
-一般使用问题请走 [Issues](https://github.com/Sqhh99/FLiNG-Downloader/issues) 或 [Discussions](https://github.com/Sqhh99/FLiNG-Downloader/discussions)。
+For general questions, use [Issues](https://github.com/Sqhh99/FLiNG-Downloader/issues) or [Discussions](https://github.com/Sqhh99/FLiNG-Downloader/discussions).

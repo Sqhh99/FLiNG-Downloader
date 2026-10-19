@@ -1,136 +1,177 @@
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/e8aceb6b-2534-4aaf-a757-020b654aa285" alt="Logo" width="120">
+  <img src="https://github.com/user-attachments/assets/e8aceb6b-2534-4aaf-a757-020b654aa285" alt="FLiNG Downloader logo" width="120">
+
+  <h1>FLiNG Downloader</h1>
+
+  <p>
+    Find, download and manage <a href="https://flingtrainer.com/">FLiNG</a> game trainers on Windows,<br>
+    searching by game title in English, Chinese or Japanese.
+  </p>
+
+  <p>
+    <a href="https://github.com/Sqhh99/FLiNG-Downloader/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/Sqhh99/FLiNG-Downloader"></a>
+    <a href="https://github.com/Sqhh99/FLiNG-Downloader/releases"><img alt="Total downloads" src="https://img.shields.io/github/downloads/Sqhh99/FLiNG-Downloader/total"></a>
+    <a href="LICENSE"><img alt="License: AGPL-3.0" src="https://img.shields.io/badge/license-AGPL--3.0-blue"></a>
+    <img alt="Platform: Windows 10+ x64" src="https://img.shields.io/badge/platform-Windows%2010%2B%20x64-0078D6">
+  </p>
+
+  <p><b>English</b> · <a href="docs/README.zh-CN.md">简体中文</a> · <a href="docs/README.ja.md">日本語</a></p>
 </div>
 
-# FLiNG Downloader
+FLiNG Downloader is an open-source desktop client for flingtrainer.com. Search for a game, review its trainer's options and supported versions, and download it in one click. The app keeps track of everything you have downloaded. It is a native Rust app with a GPU-rendered interface, and it needs no runtime to be installed.
 
-[简体中文](./README.md) | [English](./docs/README.en.md) | [日本語](./docs/README.ja.md)
+> [!NOTE]
+> This is an independent project, **not affiliated with** FLiNG or flingtrainer.com. It does not host or redistribute trainers: it searches the public site and downloads only what you ask for. Trainers may break a game's terms of service, so use them at your own risk.
 
----
+![FLiNG Downloader showing search results and a trainer's details](resources/interface.png)
 
-## 功能
+## Contents
 
-- 原生 GPU 渲染界面（Rust + GPUI），9 套主题（浅色、深色、海洋、日落、森林、薰衣草、玫瑰、午夜、摩卡）
-- 基于本地 SQLite 翻译库的中/英/日游戏名搜索与建议
-- 中文、日文游戏名可自动映射为官网标准英文标题进行检索
-- 修改器名称可显示为中文或日文（如「艾尔登法环 (Elden Ring)」），新下载的文件也按该名称命名
-- 一键下载与分类管理修改器文件
-- 下载任务实时进度、暂停/继续与下载列表管理
-- 内置多语言：中文、英文、日文（切换即时生效）
-- 基于本地 ONNX 模型自动从修改器截图中裁剪游戏封面
-- 软件更新检测与安装包下载
-- 翻译数据库独立更新，支持内置数据库与 AppData 覆盖层版本择优
+- [Features](#features)
+- [Download and install](#download-and-install)
+- [Using the app](#using-the-app)
+- [Privacy and security](#privacy-and-security)
+- [Building from source](#building-from-source)
+- [Getting help and contributing](#getting-help-and-contributing)
+- [License](#license)
 
-## 界面截图
+## Features
 
-![Interface](./resources/interface.png)
+- **Search in your language.** Type a game title in English, Chinese or Japanese. A bundled title database maps Chinese and Japanese titles to the English titles flingtrainer.com uses. Partial titles work too: 生化危机 or バイオハザード finds the Resident Evil trainers. Suggestions appear as you type.
+- **Trainer details at a glance.** See every option with its hotkey, the supported game versions, the last update date and all downloadable versions. A local ONNX model crops the game's cover from the trainer screenshot.
+- **Download manager.** Run up to three downloads at once, then pause, resume, retry or cancel them. Interrupted downloads continue where they stopped. Each file gets the right extension (`.zip`, `.exe`, `.rar`, …) based on its contents.
+- **Library.** The *Downloaded Mods* tab lists every trainer you have downloaded. Open one, show it in its folder or delete it from there.
+- **Localized trainer names.** Show trainer names in Chinese or Japanese, for example "艾尔登法环 (Elden Ring)". New downloads are saved under the same name.
+- **Your interface, your way.** Switch the interface between English, Simplified Chinese and Japanese instantly. Pick from nine themes: Light, Dark, Ocean, Sunset, Forest, Lavender, Rose, Midnight and Mocha.
+- **Updates built in.** Check for new app versions and title-database updates from GitHub or Gitee, then install them from Settings.
 
-## 系统要求
+## Download and install
 
-- Windows 10（1903）及以上，64 位
-- 无需安装任何运行库：便携包与安装包已附带所需文件（ONNX Runtime 已内置于程序中）
+Download the latest version from the [Releases page](https://github.com/Sqhh99/FLiNG-Downloader/releases/latest):
 
-## 与 FLiNG 的关系
+| File | What it is |
+|------|------------|
+| `FLiNG-Downloader-v<version>-win-x64-setup.exe` | **Installer.** Installs over an older version and keeps your settings, downloaded trainers and covers. |
+| `FLiNG-Downloader-v<version>-win-x64-portable.zip` | **Portable.** Unzip it anywhere and run `FLiNG Downloader.exe`. |
+| `SHA256SUMS.txt` | SHA-256 checksums of both files. |
 
-本项目是独立的开源下载工具，**不隶属于**风灵月影 / FLiNG Trainer 官方。软件不托管、不二次分发修改器本体，只按你的操作从公开来源检索并下载。游戏修改器可能违反部分游戏的用户协议，请自行判断使用风险。
+**Requirements:** Windows 10 version 1903 or later, 64-bit. Nothing else needs to be installed: ONNX Runtime is built into the executable, and the packages include the MSVC runtime.
 
-## 快速开始
+**Verify your download** against `SHA256SUMS.txt`, for example in PowerShell:
 
-- 从 [Releases](../../releases) 下载最新版本
-- 便携包：解压后运行 `FLiNG Downloader.exe`
-- 安装包：运行 `setup.exe`
-- 校验文件：对照同版本的 `SHA256SUMS.txt`（新版本起提供）
-- Windows Defender 误报见 [杀毒 FAQ](./docs/ANTIVIRUS_FAQ.md)
+```powershell
+Get-FileHash .\FLiNG-Downloader-v<version>-win-x64-setup.exe -Algorithm SHA256
+```
 
-## 开发与构建（Windows）
+> [!TIP]
+> Windows Defender or another antivirus may flag the app by mistake (for example as `Win32/Wacapew.C!ml`). The [antivirus FAQ](docs/ANTIVIRUS_FAQ.md) explains why and what to do. Download the app only from this repository's Releases page.
 
-需要 Rust stable（`x86_64-pc-windows-msvc`）和 Visual Studio 2022 及以上的 C++ 生成工具。不需要 Qt、CMake 或 vcpkg；ONNX Runtime 会在首次构建时自动下载并静态链接。
+**Upgrading from 1.1.x or earlier** (the Qt version): the app reads the same files, so your settings, library, cover cache and title database carry over.
+
+## Using the app
+
+1. **Search.** Type a game title and press Enter, or pick a suggestion. To see recently updated trainers, click **Show All**, or press Enter with the box empty.
+2. **Choose a trainer.** Click a result to open its details: options, supported versions and cover.
+3. **Download.** Choose a version and click **Download**. Progress appears in the **Download List** in the title bar.
+4. **Run it.** Open the trainer from the **Downloaded Mods** tab.
+
+Settings lets you set the download directory (your Downloads folder by default), the interface and trainer-name languages, the theme and the update source.
+
+**A game can't be found, or its name is translated wrongly?** First update the title database: **Settings → About → Translation Database Updates → Check Database Updates**. If the problem remains, report it with the [*Game title not found* form](https://github.com/Sqhh99/FLiNG-Downloader/issues/new?template=game-title.yml).
+
+## Privacy and security
+
+- The app collects no personal data and has no telemetry. It connects to the network only to search flingtrainer.com, download trainers and covers, and check GitHub or Gitee for updates.
+- Everything is stored on your computer:
+  - settings: `%APPDATA%\FLiNG Downloader\config`;
+  - library and downloaded title database: `%APPDATA%\FLiNG Downloader\data`;
+  - cover cache: `%LOCALAPPDATA%\FLiNG Downloader\cache`.
+- To report a vulnerability, see [SECURITY.md](SECURITY.md). Please don't open a public issue for it.
+
+## Building from source
+
+You need stable Rust (`x86_64-pc-windows-msvc`) and the Visual Studio 2022 (or later) C++ build tools. Qt, CMake and vcpkg are not needed. ONNX Runtime is downloaded and linked statically on the first build.
 
 ```bat
-cargo run -p fling-ui                 :: 构建并运行（Debug）
-cargo test --workspace                :: 全部测试
+git clone --recurse-submodules https://github.com/Sqhh99/FLiNG-Downloader.git
+cd FLiNG-Downloader
+
+cargo run -p fling-ui                   :: build and run (debug)
+cargo test --workspace                  :: all tests
 cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt --all
-cargo bench -p fling-cover            :: 封面识别基准测试
-cargo xtask dist [--version 1.2.0]    :: 生成发布目录 dist\FLiNG Downloader\
-cargo xtask notices                   :: 重新生成 THIRD_PARTY_NOTICES.md 中的依赖列表
+cargo bench -p fling-cover --bench detector   :: cover-detection benchmark
+cargo xtask dist [--version 1.2.3]      :: release folder in dist\FLiNG Downloader\
+cargo xtask notices                     :: regenerate the crate list in THIRD_PARTY_NOTICES.md
 ```
 
-### 项目结构
+The first build of `fling-ui` takes several minutes.
 
-Cargo workspace，前后端分离：界面只通过命令 / 事件与后端通信。
+<details>
+<summary><b>Project structure</b></summary>
 
-| Crate | 职责 |
-|---|---|
-| `fling-core` | 领域类型与纯函数（版本比较、标题归一化、文件类型识别） |
-| `fling-net` | HTTP 抽象与 reqwest 实现（续传、Referer、超时），测试用的假实现 |
-| `fling-config` | AppData 路径与兼容 QSettings 的 `settings.ini` |
-| `fling-mapping` | 翻译数据库、中日→英文标题映射、搜索建议 |
-| `fling-site` | flingtrainer.com 页面解析、搜索、最近更新列表 |
-| `fling-download` | 下载队列（暂停 / 继续 / 并发 3）与已下载列表 |
-| `fling-update` | GitHub / Gitee 软件与数据库更新 |
-| `fling-cover` | 封面缓存与 ONNX 封面识别 |
-| `fling-app` | 后端门面：持有全部服务，对外暴露 `Command` / `Event` |
-| `fling-ui` | GPUI 界面（`FLiNG Downloader.exe`） |
-| `xtask` | 打包与仓库任务 |
+The project is a Cargo workspace with the interface and the backend kept apart. The UI talks to the backend only through `Command`s and `Event`s.
 
-### 测试
+| Crate | Responsibility |
+|-------|----------------|
+| `fling-core` | Domain types and pure helpers: version comparison, title normalization, file-type detection |
+| `fling-net` | The HTTP abstraction and the reqwest client (resume, Referer, timeouts), plus a fake for tests |
+| `fling-config` | AppData paths and the QSettings-compatible `settings.ini` |
+| `fling-mapping` | The translation database, Chinese/Japanese → English title mapping, search suggestions |
+| `fling-site` | flingtrainer.com page parsing, search and the recently updated list |
+| `fling-download` | The download queue (pause, resume, three at once) and the library |
+| `fling-update` | App and database updates from GitHub or Gitee |
+| `fling-cover` | The cover cache and ONNX cover detection |
+| `fling-app` | The backend facade: owns every service and exposes `Command` / `Event` |
+| `fling-ui` | The GPUI interface (`FLiNG Downloader.exe`) |
+| `xtask` | Packaging and repository tasks |
 
-- 每个 crate 自带单元测试；`fling-app/tests`、`fling-site/tests`、`fling-mapping/tests` 为集成测试
-- 测试不访问外网、不读写真实 AppData（使用假 HTTP 客户端与临时目录）
-- `fling-site/tests/fixtures/` 保存了官网页面快照，`fling-cover/tests/screenshots/` 为封面识别样本
+</details>
 
-## 翻译数据库
+<details>
+<summary><b>Tests</b></summary>
 
-- 程序运行时使用外置 SQLite 数据库：`fling_translations.db`
-- 发布包自带一份数据库，路径在程序目录下的 `resources/`
-- 数据库更新后会写入 `AppData` 覆盖层，程序会自动比较内置库与覆盖库版本，优先使用较新的有效版本
-- 数据库由 [game-mappings-updater](https://github.com/Sqhh99/game-mappings-updater) 生成并发布，以子模块形式位于 `tools/game-mappings-updater`（`git submodule update --init` 拉取）
-- 数据库文件必须包含：
+- Every crate has unit tests. Integration tests live in `crates/fling-app/tests`, `crates/fling-site/tests`, `crates/fling-mapping/tests` and `crates/fling-cover/tests`.
+- Tests never touch the live network or your real AppData: they use a fake HTTP client and temporary directories.
+- `crates/fling-site/tests/fixtures/` holds saved site pages, and `crates/fling-cover/tests/screenshots/` holds cover-detection samples.
+
+</details>
+
+<details>
+<summary><b>Translation database</b></summary>
+
+- The app reads game titles from a SQLite database, `fling_translations.db`. A copy ships in the app's `resources/` folder.
+- Database updates are saved to `%APPDATA%\FLiNG Downloader\data`. The app compares that copy with the bundled one and uses the newer valid one.
+- The database is built and released by [game-mappings-updater](https://github.com/Sqhh99/game-mappings-updater), included as a submodule at `tools/game-mappings-updater` (fetch it with `git submodule update --init`).
+- A valid database has these columns:
   - `metadata.release_tag`
-  - `metadata.schema_version`（可选；存在时必须为 `1`）
-  - `games.english`
-  - `games.normalized_english`
-  - `games.chinese_simplified`
-  - `games.japanese`
+  - `metadata.schema_version` (optional; must be `1` when present)
+  - `games.english`, `games.normalized_english`, `games.chinese_simplified`, `games.japanese`
 
-## CI / 发布
+</details>
 
-- `build.yml` 会执行格式检查、clippy、测试与打包
-- `make-release.yml` 会生成安装包与便携包，并携带 `fling_translations.db` 与 `SHA256SUMS.txt`
-- 便携包与安装包包含主程序、封面模型 `models/`、内置数据库 `resources/` 与 MSVC 运行库
+<details>
+<summary><b>CI and releases</b></summary>
 
-### 版本发布
+- `build.yml` checks formatting, runs clippy and the tests, and builds the packages.
+- `make-release.yml` builds the installer and the portable zip. It attaches them to the GitHub Release with `fling_translations.db` and `SHA256SUMS.txt`.
+- Both packages contain the app, the cover model (`models/`), the bundled database (`resources/`) and the MSVC runtime.
+- Pushing a tag that starts with `v` triggers `make-release.yml`. A tag without `-` makes a stable release; a tag with `-` makes a GitHub pre-release:
 
-- 推送以 `v` 开头的 tag 会自动触发 `make-release.yml` 并创建 GitHub Release
-- 正式版 tag 示例：
+  ```bash
+  git tag v1.2.3 && git push origin v1.2.3                 # stable
+  git tag v1.2.3-beta.1 && git push origin v1.2.3-beta.1   # pre-release
+  ```
 
-```bash
-git tag v1.2.0
-git push origin v1.2.0
-```
+</details>
 
-- 预发布版 tag 示例：
+## Getting help and contributing
 
-```bash
-git tag v1.2.0-beta.1
-git push origin v1.2.0-beta.1
-```
+- **Questions and ideas:** [Discussions](https://github.com/Sqhh99/FLiNG-Downloader/discussions)
+- **Bugs and agreed features:** [Issues](https://github.com/Sqhh99/FLiNG-Downloader/issues). For a new feature, start a discussion first.
+- **Contributing code:** read [CONTRIBUTING.md](CONTRIBUTING.md) first.
+- **Security vulnerabilities:** report privately through a [Security Advisory](https://github.com/Sqhh99/FLiNG-Downloader/security/advisories/new); see [SECURITY.md](SECURITY.md).
 
-- 规则固定为：
-  - 不含 `-` 的 tag：正式版
-  - 含 `-` 的 tag：GitHub Pre-release
+## License
 
-## 安全与隐私
-
-- 可能被 Windows Defender 误报（如 `Win32/Wacapew.C!ml`），属误报，程序安全。
-- 不收集个人信息；网络请求仅用于搜索、下载、更新检查；配置与数据库覆盖文件仅本地存储。
-
-## 许可与反馈
-
-- 许可：GNU AGPL v3，详见 [LICENSE](LICENSE)
-- 第三方组件许可：[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
-- 缺陷与已讨论过的功能：[Issues](../../issues)
-- 使用疑问与想法：[Discussions](../../discussions)
-- 参与开发：[CONTRIBUTING.md](CONTRIBUTING.md)
-- 安全漏洞：[SECURITY.md](SECURITY.md)
+FLiNG Downloader is licensed under the [GNU AGPL v3](LICENSE). Third-party components and their licenses are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
