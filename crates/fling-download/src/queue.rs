@@ -5,7 +5,10 @@
 //! - at most [`MAX_CONCURRENT_DOWNLOADS`] run at once, and two tasks that
 //!   would write the same temp file never run together;
 //! - data goes to `<save path>.crdownload`, which a pause keeps for resuming;
-//! - on success the temp file is renamed and its extension corrected.
+//! - on success the temp file is renamed over any older copy and its
+//!   extension corrected; a task whose rename fails is failed, not completed;
+//! - a task has at most one transfer: one resumed before its paused transfer
+//!   has stopped waits for it.
 //!
 //! Progress is coalesced: status changes are reported at once, byte counts at
 //! most every 200 ms, and speeds are sampled once a second.
@@ -310,6 +313,11 @@ impl DownloadQueue {
                 if state.active.len() >= MAX_CONCURRENT_DOWNLOADS {
                     break;
                 }
+                // Paused and resumed before its transfer wound down: the old
+                // worker still writes the temp file. Its `finish` restarts it.
+                if state.active.contains(&id) {
+                    continue;
+                }
                 // The same trainer version queued twice writes one temp file;
                 // the second copy waits until the first is done with it.
                 if state.temp_path_in_use(&id) {
@@ -338,11 +346,12 @@ impl DownloadQueue {
     /// no usable URL.
     fn prepare_start(state: &mut State, id: &TaskId) -> Option<Job> {
         let entry = state.entry_mut(id)?;
+        // A file already at the save path stays until the new one replaces it
+        // in `complete`, so a failed re-download does not cost the old copy.
         let resume_from = match std::fs::metadata(&entry.temp_path) {
             Ok(meta) if entry.resume_requested => meta.len(),
             _ => {
                 let _ = std::fs::remove_file(&entry.temp_path);
-                let _ = std::fs::remove_file(&entry.task.save_path);
                 0
             }
         };
@@ -426,16 +435,21 @@ impl DownloadQueue {
             entry.cancel = None;
             entry.task.speed = 0;
             match entry.task.status {
-                TaskStatus::Paused => None,
+                // Queued: paused and resumed while this transfer wound down;
+                // `process_next` below starts it again from the temp file.
+                TaskStatus::Paused | TaskStatus::Queued => None,
                 TaskStatus::Canceled => {
                     let _ = std::fs::remove_file(&entry.temp_path);
                     None
                 }
-                _ => match result {
-                    Ok(_) => Some(Self::complete(entry)),
-                    Err(err) => {
+                _ => match result
+                    .map_err(|err| err.to_string())
+                    .and_then(|_| Self::complete(entry))
+                {
+                    Ok(record) => Some(record),
+                    Err(message) => {
                         entry.task.status = TaskStatus::Failed;
-                        entry.task.error_message = err.to_string();
+                        entry.task.error_message = message;
                         None
                     }
                 },
@@ -448,15 +462,17 @@ impl DownloadQueue {
         self.process_next();
     }
 
-    /// Renames the temp file into place, fixes its extension and builds the
-    /// library record.
-    fn complete(entry: &mut Entry) -> DownloadedModifier {
+    /// Renames the temp file into place (replacing an older copy), fixes its
+    /// extension and builds the library record. When the rename fails the
+    /// task is not complete: the temp file and any older copy stay as they are.
+    fn complete(entry: &mut Entry) -> Result<DownloadedModifier, String> {
         let save_path = PathBuf::from(&entry.task.save_path);
-        if entry.temp_path.exists() {
-            let _ = std::fs::remove_file(&save_path);
-            if let Err(err) = std::fs::rename(&entry.temp_path, &save_path) {
-                tracing::warn!(?save_path, %err, "failed to move finished download into place");
-            }
+        if !entry.temp_path.is_file() {
+            return Err("Downloaded file is missing".to_owned());
+        }
+        if let Err(err) = std::fs::rename(&entry.temp_path, &save_path) {
+            tracing::warn!(?save_path, %err, "failed to move finished download into place");
+            return Err(format!("Cannot move the downloaded file into place: {err}"));
         }
         let final_path = correct_file_extension(&save_path);
         let size = std::fs::metadata(&final_path).map(|m| m.len()).unwrap_or(0);
@@ -469,7 +485,7 @@ impl DownloadQueue {
         }
         task.save_path = final_path.to_string_lossy().into_owned();
 
-        DownloadedModifier {
+        Ok(DownloadedModifier {
             name: entry.name.clone(),
             version: task.version.clone(),
             game_version: entry.game_version.clone(),
@@ -478,7 +494,7 @@ impl DownloadQueue {
             url: entry.page_url.clone(),
             display_name: String::new(),
             display_subtitle: String::new(),
-        }
+        })
     }
 
     /// Flushes coalesced progress every 200 ms and samples speeds every
@@ -747,6 +763,115 @@ mod tests {
         wait_for(|| h.fake.requested_downloads().len() == 2).await;
         assert_eq!(h.fake.requested_downloads()[1].resume_from, 4);
         wait_for(|| std::fs::read(&temp).unwrap() == b"halfhalf").await;
+    }
+
+    fn completed_records(h: &Harness) -> Vec<DownloadedModifier> {
+        h.events
+            .lock()
+            .iter()
+            .filter_map(|e| match e {
+                QueueEvent::Completed(record) => Some(record.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn quick_pause_and_resume_waits_for_the_old_transfer() {
+        let h = harness();
+        // The transfer takes a moment to stop after being canceled.
+        h.fake.on_download(|request| {
+            async move {
+                let mut data = std::fs::read(&request.dest).unwrap_or_default();
+                data.truncate(request.resume_from as usize);
+                data.extend_from_slice(b"half");
+                std::fs::write(&request.dest, &data).unwrap();
+                request.cancel.cancelled().await;
+                tokio::time::sleep(Duration::from_millis(100)).await;
+                Err(DownloadError::Canceled)
+            }
+            .boxed()
+        });
+        let id = h
+            .queue
+            .enqueue(&modifier("A", &[("v1", "https://x/1")]), 0, &h.dir, "")
+            .unwrap();
+        let temp = h.dir.join("A_v1.zip.crdownload");
+        wait_for(|| temp.exists()).await;
+
+        h.queue.pause(&id);
+        h.queue.resume(&id);
+        tokio::time::sleep(Duration::from_millis(30)).await;
+        assert_eq!(
+            h.fake.requested_downloads().len(),
+            1,
+            "no second transfer while the first still writes the temp file"
+        );
+        assert_eq!(status_of(&h.queue, &id), TaskStatus::Queued);
+
+        wait_for(|| h.fake.requested_downloads().len() == 2).await;
+        assert_eq!(h.fake.requested_downloads()[1].resume_from, 4);
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        assert_eq!(
+            status_of(&h.queue, &id),
+            TaskStatus::Downloading,
+            "the old transfer's cancellation does not fail the new one"
+        );
+        wait_for(|| std::fs::read(&temp).unwrap() == b"halfhalf").await;
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn failed_redownload_keeps_the_existing_file() {
+        let h = harness();
+        let existing = h.dir.join("A_v1.zip");
+        std::fs::write(&existing, b"PK\x03\x04old").unwrap();
+        let id = h
+            .queue
+            .enqueue(&modifier("A", &[("v1", "https://x/gone")]), 0, &h.dir, "")
+            .unwrap();
+        wait_for(|| status_of(&h.queue, &id) == TaskStatus::Failed).await;
+        assert_eq!(std::fs::read(&existing).unwrap(), b"PK\x03\x04old");
+
+        // A successful one replaces it.
+        h.fake.file("https://x/gone", b"PK\x03\x04new".to_vec());
+        h.queue.resume(&id);
+        wait_for(|| status_of(&h.queue, &id) == TaskStatus::Completed).await;
+        assert_eq!(std::fs::read(&existing).unwrap(), b"PK\x03\x04new");
+        assert!(!h.dir.join("A_v1.zip.crdownload").exists());
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn failed_rename_fails_the_task_instead_of_completing_it() {
+        let h = harness();
+        // A directory where the file should go: the rename cannot succeed.
+        let blocker = h.dir.join("A_v1.zip");
+        std::fs::create_dir(&blocker).unwrap();
+        std::fs::write(blocker.join("keep"), b"x").unwrap();
+        h.fake.file("https://x/1", b"PK\x03\x04data".to_vec());
+        let id = h
+            .queue
+            .enqueue(&modifier("A", &[("v1", "https://x/1")]), 0, &h.dir, "")
+            .unwrap();
+        wait_for(|| status_of(&h.queue, &id) == TaskStatus::Failed).await;
+
+        let task = h.queue.tasks().remove(0);
+        assert!(
+            task.error_message
+                .starts_with("Cannot move the downloaded file into place"),
+            "{}",
+            task.error_message
+        );
+        assert_eq!(PathBuf::from(&task.save_path), blocker);
+        assert!(
+            completed_records(&h).is_empty(),
+            "nothing goes to the library"
+        );
+        assert_eq!(
+            std::fs::read(h.dir.join("A_v1.zip.crdownload")).unwrap(),
+            b"PK\x03\x04data",
+            "the finished data is kept for a retry"
+        );
+        assert!(blocker.join("keep").exists());
     }
 
     #[tokio::test(flavor = "multi_thread")]

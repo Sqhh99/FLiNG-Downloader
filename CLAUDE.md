@@ -60,7 +60,9 @@ No crate below `fling-app` knows about the UI, and `fling-ui` contains no busine
 - `fling-net`: all HTTP goes through `Arc<dyn HttpClient>`. `ReqwestClient` uses a Chrome
   UA, HTTP/1.1, refuses https→http redirects, and sends an origin-only Referer on
   downloads (flingtrainer answers 403 without it). GETs have a 30 s total timeout,
-  downloads a 30 s idle timeout, and resume uses Range with 200/206/416 handling.
+  downloads a 30 s idle timeout, and resume uses Range with 200/206/416 handling (a 416
+  counts as complete only when `Content-Range: bytes */N` equals the partial file's size;
+  otherwise the download restarts). A `text/html` reply is never saved as a download.
 - `fling-site`: regex ports of the Qt parsers. `parser::re` keeps PCRE's ASCII `\s`/`\d`.
   Parsing quirks are preserved deliberately; see the work log before "fixing" one.
 - `fling-mapping`: `search_terms` turns search input into English site searches. An

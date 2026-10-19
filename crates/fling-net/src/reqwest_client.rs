@@ -9,7 +9,7 @@ use std::time::Duration;
 
 use futures::StreamExt;
 use futures::future::BoxFuture;
-use reqwest::header::{CONTENT_TYPE, RANGE, REFERER};
+use reqwest::header::{CONTENT_RANGE, CONTENT_TYPE, RANGE, REFERER};
 use reqwest::redirect::Policy;
 use tokio::fs::{self, OpenOptions};
 use tokio::io::{AsyncSeekExt, AsyncWriteExt};
@@ -169,25 +169,20 @@ async fn download(
             .map_err(|e| DownloadError::CreateFile(e.to_string()))?;
     }
 
-    let mut builder = client.get(&request.url);
-    if let Some(referer) = origin_referer(&request.url) {
-        builder = builder.header(REFERER, referer);
+    let mut outcome = transfer(&mut file, client, idle, request, request.resume_from).await;
+    if matches!(outcome, Ok(Transfer::RangeRejected)) {
+        // The server's file is not the one the partial file came from: start over.
+        outcome = match truncate(&mut file).await {
+            Ok(()) => transfer(&mut file, client, idle, request, 0).await,
+            Err(err) => Err(Interrupt::Failed(DownloadError::Write(err.to_string()))),
+        };
     }
-    if request.resume_from > 0 {
-        builder = builder.header(RANGE, format!("bytes={}-", request.resume_from));
-    }
-
-    let outcome = transfer(&mut file, builder, idle, request).await;
     // Close before any removal; Windows cannot delete an open file.
     let flushed = file.flush().await;
     drop(file);
 
     match outcome {
-        Ok(Transfer::Done {
-            status,
-            written,
-            content_type,
-        }) => {
+        Ok(Transfer::Done { status, written }) => {
             if let Err(err) = flushed {
                 if !request.keep_partial {
                     remove_quietly(dest).await;
@@ -196,16 +191,16 @@ async fn download(
             }
             if written == 0 || file_len(dest).await == 0 {
                 remove_quietly(dest).await;
-                let is_html = content_type.to_ascii_lowercase().contains("text/html");
-                return Err(if is_html {
-                    DownloadError::HtmlPage
-                } else {
-                    DownloadError::Empty
-                });
+                return Err(DownloadError::Empty);
             }
             Ok(DownloadOutcome { status })
         }
         Ok(Transfer::AlreadyComplete) => Ok(DownloadOutcome { status: 416 }),
+        // Only after the restart, which sends no Range; a server that still answers 416 is broken.
+        Ok(Transfer::RangeRejected) => {
+            remove_quietly(dest).await;
+            Err(DownloadError::Status(416))
+        }
         Err(Interrupt::Canceled) if request.keep_partial => Err(DownloadError::Canceled),
         Err(Interrupt::TimedOut) if request.keep_partial => Err(DownloadError::TimedOut),
         Err(Interrupt::Failed(DownloadError::Write(msg))) => {
@@ -229,49 +224,83 @@ enum Transfer {
     Done {
         status: u16,
         written: u64,
-        content_type: String,
     },
-    /// 416 on a resume of a file that already has content.
+    /// 416 on a resume, and `Content-Range: bytes */<size>` says the partial
+    /// file already has the whole of it.
     AlreadyComplete,
+    /// 416 on a resume of a partial file that does not fit the server's file
+    /// (it is longer, or the server did not say how long its file is).
+    RangeRejected,
 }
 
+/// Empties `file` and rewinds it, to download again from the start.
+async fn truncate(file: &mut fs::File) -> std::io::Result<()> {
+    file.set_len(0).await?;
+    file.seek(SeekFrom::Start(0)).await.map(|_| ())
+}
+
+/// The size in an unsatisfied-range `Content-Range: bytes */<size>`.
+fn unsatisfied_range_size(response: &reqwest::Response) -> Option<u64> {
+    let value = response.headers().get(CONTENT_RANGE)?.to_str().ok()?;
+    let (unit, range) = value.trim().split_once(' ')?;
+    if !unit.eq_ignore_ascii_case("bytes") {
+        return None;
+    }
+    range.trim().strip_prefix("*/")?.parse().ok()
+}
+
+/// Streams the response into `file`, which already holds `resume_from`
+/// bytes; a non-zero `resume_from` sends a `Range` request.
 async fn transfer(
     file: &mut fs::File,
-    builder: reqwest::RequestBuilder,
+    client: &reqwest::Client,
     idle: Duration,
     request: &DownloadRequest,
+    resume_from: u64,
 ) -> Result<Transfer, Interrupt> {
+    let mut builder = client.get(&request.url);
+    if let Some(referer) = origin_referer(&request.url) {
+        builder = builder.header(REFERER, referer);
+    }
+    if resume_from > 0 {
+        builder = builder.header(RANGE, format!("bytes={resume_from}-"));
+    }
     let response = guarded(request, idle, builder.send())
         .await?
         .map_err(|e| Interrupt::Failed(DownloadError::Transport(e.to_string())))?;
     let status = response.status().as_u16();
 
     if !response.status().is_success() {
-        if status == 416 && file_len(&request.dest).await > 0 {
-            return Ok(Transfer::AlreadyComplete);
+        if status == 416 && resume_from > 0 {
+            return Ok(if unsatisfied_range_size(&response) == Some(resume_from) {
+                Transfer::AlreadyComplete
+            } else {
+                Transfer::RangeRejected
+            });
         }
         return Err(Interrupt::Failed(DownloadError::Status(status)));
     }
 
+    // A trainer is never served as a web page; an HTML reply is an error or
+    // login page, whatever its status, and must not be saved as the file.
+    let content_type = response
+        .headers()
+        .get(CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default();
+    if content_type.to_ascii_lowercase().contains("text/html") {
+        return Err(Interrupt::Failed(DownloadError::HtmlPage));
+    }
+
     // A 200 to a Range request means the server ignored it: start over.
-    let mut offset = request.resume_from;
-    if request.resume_from > 0 && status == 200 {
-        let restart = async {
-            file.set_len(0).await?;
-            file.seek(SeekFrom::Start(0)).await.map(|_| ())
-        };
-        restart
+    let mut offset = resume_from;
+    if resume_from > 0 && status == 200 {
+        truncate(file)
             .await
             .map_err(|e| Interrupt::Failed(DownloadError::Write(e.to_string())))?;
         offset = 0;
     }
 
-    let content_type = response
-        .headers()
-        .get(CONTENT_TYPE)
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or_default()
-        .to_owned();
     let total = response
         .content_length()
         .filter(|&n| n > 0)
@@ -294,11 +323,7 @@ async fn transfer(
         written += chunk.len() as u64;
         report(written);
     }
-    Ok(Transfer::Done {
-        status,
-        written,
-        content_type,
-    })
+    Ok(Transfer::Done { status, written })
 }
 
 #[cfg(test)]
@@ -428,7 +453,12 @@ mod tests {
 
     #[tokio::test]
     async fn status_416_on_complete_file_is_success() {
-        let (base, _) = serve(vec![http("416 Range Not Satisfiable", "", b"")]).await;
+        let (base, _) = serve(vec![http(
+            "416 Range Not Satisfiable",
+            "Content-Range: bytes */4\r\n",
+            b"",
+        )])
+        .await;
         let dir = tempfile::tempdir().unwrap();
         let dest = dir.path().join("f.bin");
         std::fs::write(&dest, b"done").unwrap();
@@ -438,6 +468,79 @@ mod tests {
             .await;
         assert_eq!(outcome, Ok(DownloadOutcome { status: 416 }));
         assert_eq!(std::fs::read(&dest).unwrap(), b"done");
+    }
+
+    #[tokio::test]
+    async fn status_416_on_mismatched_partial_restarts_from_scratch() {
+        // The server's file is 3 bytes, the partial one 5: it is not a prefix
+        // of the server's file, so the download starts over without a Range.
+        let (base, seen) = serve(vec![
+            http(
+                "416 Range Not Satisfiable",
+                "Content-Range: bytes */3\r\n",
+                b"",
+            ),
+            http("200 OK", "", b"abc"),
+            // No size given: the partial file cannot be trusted either.
+            http("416 Range Not Satisfiable", "", b""),
+            http("200 OK", "", b"xyz"),
+        ])
+        .await;
+        let dir = tempfile::tempdir().unwrap();
+        let dest = dir.path().join("f.bin");
+        let client = ReqwestClient::new().unwrap();
+
+        std::fs::write(&dest, b"stale").unwrap();
+        let outcome = client
+            .download(request(format!("{base}/a"), dest.clone(), 5))
+            .await;
+        assert_eq!(outcome, Ok(DownloadOutcome { status: 200 }));
+        assert_eq!(std::fs::read(&dest).unwrap(), b"abc");
+
+        std::fs::write(&dest, b"stale").unwrap();
+        let outcome = client
+            .download(request(format!("{base}/a"), dest.clone(), 5))
+            .await;
+        assert_eq!(outcome, Ok(DownloadOutcome { status: 200 }));
+        assert_eq!(std::fs::read(&dest).unwrap(), b"xyz");
+
+        let seen = seen.lock();
+        assert!(seen[0].to_lowercase().contains("range: bytes=5-"));
+        assert!(!seen[1].to_lowercase().contains("range:"), "{}", seen[1]);
+        assert!(!seen[3].to_lowercase().contains("range:"), "{}", seen[3]);
+    }
+
+    #[tokio::test]
+    async fn html_pages_are_rejected_even_with_a_body() {
+        let (base, _) = serve(vec![
+            http(
+                "200 OK",
+                "Content-Type: text/html; charset=UTF-8\r\n",
+                b"<!DOCTYPE html><html><body>Download expired</body></html>",
+            ),
+            http(
+                "206 Partial Content",
+                "Content-Type: Text/HTML\r\n",
+                b"<html>login</html>",
+            ),
+        ])
+        .await;
+        let dir = tempfile::tempdir().unwrap();
+        let dest = dir.path().join("f.bin");
+        let client = ReqwestClient::new().unwrap();
+
+        let result = client
+            .download(request(format!("{base}/a"), dest.clone(), 0))
+            .await;
+        assert_eq!(result, Err(DownloadError::HtmlPage));
+        assert!(!dest.exists());
+
+        std::fs::write(&dest, b"PK\x03\x04").unwrap();
+        let result = client
+            .download(request(format!("{base}/a"), dest.clone(), 4))
+            .await;
+        assert_eq!(result, Err(DownloadError::HtmlPage));
+        assert!(!dest.exists());
     }
 
     #[tokio::test]
