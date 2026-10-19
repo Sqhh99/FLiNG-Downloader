@@ -1,6 +1,6 @@
 //! The settings dialog: appearance, download folder, language and about/updates.
 
-use fling_app::{Command, Language, TrainerNameLanguage, UpdateSource, UpdateState};
+use fling_app::{Command, Language, TrainerNameLanguage, UpdateSource, UpdateState, UpdateStatus};
 use gpui_kit::assets::IconName;
 use gpui_kit::component::Disableable as _;
 use gpui_kit::component::button::{Button, ButtonVariants as _};
@@ -518,7 +518,10 @@ impl SettingsPanel {
                             Button::new((id, 3usize))
                                 .primary()
                                 .label(install_label)
-                                .disabled(state.downloading)
+                                .disabled(
+                                    state.downloading
+                                        || state.status == UpdateStatus::WaitingForDownloads,
+                                )
                                 .on_click(cx.listener(move |this, _, _, cx| {
                                     let command = if database {
                                         Command::DownloadDatabaseUpdate

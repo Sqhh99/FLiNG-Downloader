@@ -35,8 +35,10 @@ pub(crate) use lazy_re;
 
 /// Port of `decodeHtmlEntities`: only the handful of entities the site uses.
 pub fn decode_html_entities(text: &str) -> String {
-    const ENTITIES: [(&str, &str); 12] = [
+    const ENTITIES: [(&str, &str); 13] = [
         ("&amp;", "&"),
+        // WordPress writes the ampersand in titles this way ("Mount &#038; Blade").
+        ("&#038;", "&"),
         ("&lt;", "<"),
         ("&gt;", ">"),
         ("&quot;", "\""),
@@ -89,6 +91,10 @@ mod tests {
         assert_eq!(
             decode_html_entities("Tom &amp; Jerry&#8217;s &#8211; &copy;"),
             "Tom & Jerry's - &copy;"
+        );
+        assert_eq!(
+            decode_html_entities("Mount &#038; Blade II: Bannerlord"),
+            "Mount & Blade II: Bannerlord"
         );
     }
 }

@@ -2,7 +2,7 @@
 //! network and throwaway directories.
 
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -19,6 +19,8 @@ use tokio::sync::Notify;
 const BASE: &str = "https://fling.test/";
 const DB_RELEASE_API: &str =
     "https://api.github.com/repos/Sqhh99/game-mappings-updater/releases/latest";
+const APP_RELEASE_API: &str =
+    "https://api.github.com/repos/Sqhh99/FLiNG-Downloader/releases/latest";
 
 fn homepage(entries: &[(&str, &str)]) -> String {
     entries
@@ -41,7 +43,8 @@ fn detail_page(download: &str) -> String {
     )
 }
 
-/// Wraps the fake client; GETs to a gated URL wait until it is released.
+/// Wraps the fake client; GETs and downloads of a gated URL wait until it is
+/// released.
 #[derive(Clone, Default)]
 struct GatedClient {
     inner: FakeHttpClient,
@@ -70,7 +73,14 @@ impl HttpClient for GatedClient {
         &self,
         request: DownloadRequest,
     ) -> BoxFuture<'static, Result<DownloadOutcome, DownloadError>> {
-        self.inner.download(request)
+        let gate = self.gates.lock().get(&request.url).cloned();
+        let inner = self.inner.download(request);
+        Box::pin(async move {
+            if let Some(gate) = gate {
+                gate.notified().await;
+            }
+            inner.await
+        })
     }
 }
 
@@ -79,6 +89,8 @@ struct Harness {
     paths: AppPaths,
     handle: BackendHandle,
     events: async_channel::Receiver<Event>,
+    /// Installers the backend asked to start; nothing is run.
+    launched: Arc<Mutex<Vec<PathBuf>>>,
 }
 
 impl Harness {
@@ -92,12 +104,18 @@ impl Harness {
             &[("Elden Ring", "elden ring", "艾尔登法环", "エルデンリング")],
         );
         let no_model: DetectorLoader = Arc::new(|| None);
+        let launched = Arc::new(Mutex::new(Vec::new()));
+        let record = launched.clone();
         let config = BackendConfig {
             paths: paths.clone(),
             app_version: "1.1.10".into(),
             http,
             site_base_url: BASE.into(),
             cover_detector: no_model,
+            launch_installer: Arc::new(move |path: &Path| {
+                record.lock().push(path.to_owned());
+                Ok(())
+            }),
             startup: startup.then(|| StartupTimings {
                 cover_warm_up: Duration::from_millis(0),
                 app_update_check: Duration::from_secs(3600),
@@ -110,6 +128,7 @@ impl Harness {
             paths,
             handle,
             events,
+            launched,
         }
     }
 
@@ -520,4 +539,80 @@ async fn app_update_check_failure_and_settings_persist() {
         ini.contains("currentTheme=4") && ini.contains("currentLanguage=2"),
         "{ini}"
     );
+}
+
+#[tokio::test]
+async fn app_installer_waits_for_running_trainer_downloads() {
+    let client = GatedClient::default();
+    let fake = client.inner.clone();
+    fake.page(BASE, homepage(&[("alpha", "1")]));
+    fake.page(
+        &format!("{BASE}alpha/"),
+        detail_page("https://fling.test/downloads/alpha"),
+    );
+    fake.file(
+        "https://fling.test/downloads/alpha",
+        b"MZ\x90\x00exe".to_vec(),
+    );
+    fake.page(
+        APP_RELEASE_API,
+        r#"{"tag_name":"v9.9.9","assets":[{"name":"FLiNG-Downloader-v9.9.9-win-x64-setup.exe",
+            "browser_download_url":"https://fling.test/setup.exe"}]}"#,
+    );
+    fake.file("https://fling.test/setup.exe", b"MZ setup".to_vec());
+    let trainer = client.gate("https://fling.test/downloads/alpha");
+    let h = Harness::start(Arc::new(client), true);
+    h.next(|e| match e {
+        Event::Results(r) if !r.is_empty() => Some(()),
+        _ => None,
+    })
+    .await;
+
+    h.handle.send(Command::Select(0));
+    h.selection_where(|s| s.detail == DetailState::Ready).await;
+    h.handle.send(Command::Download { version_index: 0 });
+    h.next(|e| match e {
+        Event::Tasks(t) if t.iter().any(|t| t.status == TaskStatus::Downloading) => Some(()),
+        _ => None,
+    })
+    .await;
+
+    h.handle.send(Command::CheckAppUpdate);
+    h.next(|e| match e {
+        Event::AppUpdate(s) if s.available => Some(()),
+        _ => None,
+    })
+    .await;
+    h.handle.send(Command::DownloadAppUpdate);
+    h.next(|e| match e {
+        Event::AppUpdate(s) if s.status == UpdateStatus::WaitingForDownloads => Some(()),
+        _ => None,
+    })
+    .await;
+    assert!(h.launched.lock().is_empty());
+    // Asking again while the installer waits downloads nothing new.
+    h.handle.send(Command::DownloadAppUpdate);
+
+    trainer.notify_one();
+    let mut finished_first = false;
+    h.next(|e| match e {
+        Event::Tasks(t) => {
+            finished_first |= t.iter().all(|t| t.status == TaskStatus::Completed);
+            None
+        }
+        Event::AppUpdate(s) if s.status == UpdateStatus::LaunchingInstaller => Some(()),
+        _ => None,
+    })
+    .await;
+    assert!(finished_first);
+    h.next(|e| matches!(e, Event::Quit).then_some(())).await;
+    let launched = h.launched.lock().clone();
+    assert_eq!(launched.len(), 1);
+    assert!(launched[0].ends_with("FLiNG-Downloader-v9.9.9-win-x64-setup.exe"));
+    let setup_downloads = fake
+        .requested_downloads()
+        .iter()
+        .filter(|r| r.url.ends_with("setup.exe"))
+        .count();
+    assert_eq!(setup_downloads, 1);
 }

@@ -122,7 +122,7 @@ Never hit the live network or the user's real settings from a test. The seams:
 - `crates/fling-app/tests/backend.rs` drives the whole backend through `Command`/`Event`.
 
 UI checks: debug builds read `FLING_DEBUG_OPEN` (`drawer[:row]`, `settings`,
-`settings-about`, `settings-download`, `settings-language`, `suggest:<text>`, `downloads`) to open a screen at startup, so
+`settings-about`, `settings-download`, `settings-language`, `suggest:<text>`, `downloads`, `library`, `library-delete[:row]`) to open a screen at startup, so
 layouts can be verified by screenshot without injecting input. Interactive checks are the
 user's.
 
