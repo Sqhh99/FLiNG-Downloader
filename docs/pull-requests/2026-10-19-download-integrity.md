@@ -13,6 +13,7 @@ There is no issue for this. The maintainer analyzed the download queue and the s
 | Medium | HTTP 416 treated as complete | With a 3-byte server file and a 5-byte partial file, the download reports success. |
 | Medium | Race on rapid pause/resume | Two workers run for one task, and the old one's cancellation fails the new one. |
 | — | Search terms not encoded | `&` or `+` in a title changes the query ("Mount & Blade II"). |
+| — | Re-downloaded executable named `.zip` (follow-up) | An earlier `X_v1.exe` blocks the extension fix, so the new trainer stays `X_v1.zip` next to the stale `.exe`. |
 
 ## What changed
 **For users**
@@ -22,6 +23,7 @@ There is no issue for this. The maintainer analyzed the download queue and the s
 - **Resuming checks the server's 416 reply.** The download counts as complete only when the server says its file is exactly as long as the partial file (`Content-Range: bytes */N`). Otherwise it starts again from the beginning.
 - **Pausing and immediately resuming works.** The resumed download waits for the paused transfer to stop, then continues from its data. It no longer runs twice or ends as "failed".
 - **Titles with `&`, `+`, `#`, `:` and similar characters are searched correctly.** For example "Mount & Blade II: Bannerlord".
+- **Re-downloading a trainer that is an executable replaces the earlier `.exe`.** Before, the new file was left as `.zip` next to it.
 
 **For developers**
 - `fling-download` (`queue.rs`):
@@ -29,6 +31,7 @@ There is no issue for this. The maintainer analyzed the download queue and the s
   - `complete` returns `Result`. It renames over the old file, and fails on a rename error or a missing temp file.
   - `process_next` does not start a task that still has a running worker.
   - `finish` treats `Queued` as "re-queued while winding down".
+  - `complete` names the file from the temp file's content (new `files::corrected_path`). It then renames once, straight to that name, so an earlier `X_v1.exe` is replaced instead of blocking the extension fix. A locked one fails the task through the rename-failure path. `correct_file_extension` keeps its no-overwrite rule but is no longer used by the queue.
 - `fling-net` (`reqwest_client.rs`):
   - `transfer` takes the resume offset and builds its own request.
   - It rejects `text/html` before writing anything.
@@ -50,21 +53,23 @@ There is no issue for this. The maintainer analyzed the download queue and the s
 The three commands ran on the Windows toolchain, chained into one invocation that exited 0.
 
 **New and changed tests**
-- `fling-download`, three new:
+- `fling-download`, five new:
   - `quick_pause_and_resume_waits_for_the_old_transfer`
   - `failed_redownload_keeps_the_existing_file`
   - `failed_rename_fails_the_task_instead_of_completing_it`
+  - `redownloaded_executable_replaces_the_earlier_exe`
+  - `corrected_path_names_by_content_without_touching_files`
 - `fling-net`:
   - New: `status_416_on_mismatched_partial_restarts_from_scratch`, which covers a 3-byte server file against a 5-byte partial, and a 416 with no size.
   - New: `html_pages_are_rejected_even_with_a_body`.
   - Changed: `status_416_on_complete_file_is_success` now sends a matching `Content-Range`.
 - `fling-site`: new `search_url_encodes_query_syntax_in_titles`. The Ace Combat expectation changed from `:` to `%3A`.
-- **Mutation check:** without the race fix and the rename check, the race and rename tests fail. With them, they pass.
+- **Mutation check:** without the race fix and the rename check, the race and rename tests fail. With the old rename-then-correct order, the `.exe` re-download test fails. With the fixes, all of them pass.
 
 **Live search.** The headless example (`cargo run -p fling-app --example headless -- search Mount & Blade II`) ran against flingtrainer.com in a throwaway data directory. It found the Bannerlord trainer and its 18 versions.
 
 **Third box unticked.** The GUI was not rebuilt. Download, pause/resume and re-download were not tried in the app or against the live site. The maintainer should try them in a built app before merge:
-- re-download an installed trainer while offline;
+- re-download an installed trainer while offline, and once online (an `.exe` trainer should be replaced in place);
 - pause and resume quickly;
 - search "Mount & Blade".
 
@@ -82,6 +87,6 @@ The three commands ran on the Windows toolchain, chained into one invocation tha
 - **AI disclosure:** yes. The code, tests and docs were written with Claude Code from the maintainer's defect list. They are verified by the automated tests, the mutation check and one live headless search. They were not verified interactively in the GUI.
 
 **Open items** (pre-existing, not changed here)
-- A re-downloaded `.exe` whose corrected name `X_v1.exe` already exists stays as `X_v1.zip`, because `correct_file_extension` never overwrites.
+- If a trainer's content type changes between downloads (an old `X_v1.zip` zip, a new `.exe`), the old copy under the other name stays on disk, unreferenced.
 - Removing a paused task leaves its `.crdownload` file.
 - A 206 reply whose `Content-Range` start differs from the resume offset is appended as-is.

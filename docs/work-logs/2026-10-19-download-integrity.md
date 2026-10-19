@@ -82,8 +82,45 @@ All commands ran on the Windows toolchain, from WSL through `cmd.exe`.
   - The download fixes were not exercised against the live site.
 
 ## 5. Open items
-- **Pre-existing, not changed:** when a re-download's content is an `.exe` and the old corrected `X_v1.exe` exists, `correct_file_extension` does not overwrite it. The new file stays as `X_v1.zip`. This was the behavior before this change too.
+- ~~**Pre-existing, not changed:** when a re-download's content is an `.exe` and the old corrected `X_v1.exe` exists, `correct_file_extension` does not overwrite it. The new file stays as `X_v1.zip`. This was the behavior before this change too.~~ Fixed in the follow-up below.
 - **Pre-existing, not changed:** removing a paused task leaves its `.crdownload` file behind.
 - **Pre-existing, not changed:** the headless output shows the title as "Mount &#038; Blade II". The list parser leaves that entity undecoded. CLAUDE.md says parser quirks are kept on purpose, so it was left alone.
 - A 206 reply whose `Content-Range` start differs from the resume offset is still appended as-is. That case was not in the request.
 - An HTML reply on a resume now deletes the partial file, as other non-cancel failures already did. The next attempt therefore starts from zero.
+
+---
+
+# Follow-up: a re-downloaded executable stays named `.zip`
+
+## 1. Request
+> Fix the .exe re-download naming issue too
+
+This is the first open item above. A trainer whose content is an executable is first saved as `X_v1.exe`. When it was downloaded again, the new file was left as `X_v1.zip`, next to the stale `X_v1.exe`.
+
+## 2. Plan
+### Root cause
+`complete` renamed the temp file to the planned `X_v1.zip`, then called `correct_file_extension`. That function never overwrites, a rule ported from `QFile::rename`. Because `X_v1.exe` from the earlier download existed, it left the new executable as `.zip`. The library record then pointed at the `.zip`.
+
+### Fix
+- Work out the final name from the temp file's magic bytes **before** moving it.
+- Then rename once, straight to that name, replacing an older copy, as the main fix already does for the `.zip` name.
+- A locked old `.exe` (for example, a running trainer) makes the rename fail. The task then fails through the rename-failure path added above: the old file is untouched and the temp file is kept. No executable is left as `.zip`, and no `.zip` is created on the way.
+- `correct_file_extension` keeps its no-overwrite rule and its public signature. It is now built on the new helper and no longer used by the queue.
+
+## 3. Files changed
+| File | Change | Addresses |
+|------|--------|-----------|
+| `crates/fling-download/src/files.rs` | New `corrected_path(path, content)`. It returns `path` with the extension `content`'s magic bytes call for, without touching any file. `correct_file_extension` now uses it. Added test `corrected_path_names_by_content_without_touching_files`. | Naming before the move |
+| `crates/fling-download/src/queue.rs` | `complete` renames the temp file directly to `corrected_path(save_path, temp)`. Module doc updated. Added test `redownloaded_executable_replaces_the_earlier_exe`: the old `X_v1.exe` is replaced, no `X_v1.zip` appears, and the record points at the `.exe`. | The re-download naming issue |
+| `crates/fling-download/src/lib.rs` | Re-exports `corrected_path` next to `correct_file_extension`. | Public helper |
+| `docs/work-logs/2026-10-19-download-integrity.md`, `docs/pull-requests/2026-10-19-download-integrity.md` | This follow-up. The open item is marked fixed. | Mandatory records |
+
+## 4. Verification
+- While I was writing the fix, WSL interop stopped working (`cmd.exe: Exec format error`; the `WSLInterop` binfmt entry was gone). The user re-registered it with `sudo tee /proc/sys/fs/binfmt_misc/register`.
+- `cargo test -p fling-download`: 22 passed.
+- **Mutation check:** I put back the old order in `complete`, renaming to the save path and then calling `correct_file_extension`. `redownloaded_executable_replaces_the_earlier_exe` then failed. I restored the file from a copy afterwards.
+- `cargo test --workspace`, then `cargo clippy --workspace --all-targets -- -D warnings`, then `cargo fmt --all --check`, chained in one invocation: exited 0.
+- **Not run:** the GUI was not rebuilt, and no re-download was tried in the app.
+
+## 5. Open items
+- **Pre-existing, not changed:** if the content type changes between downloads, the old copy under the other name stays on disk, unreferenced by the library. For example, an earlier `X_v1.zip` that was a real zip, and now an `.exe`. Deleting it would mean removing a file this download never wrote, so it was left alone.
