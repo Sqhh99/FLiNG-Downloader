@@ -10,16 +10,16 @@ use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
 use crate::i18n::tr;
-use crate::state::AppModel;
+use crate::state::{AppModel, LibraryNotice};
 use crate::theme::palette;
 use crate::views::motion;
 use crate::views::smooth_scroll::SmoothScroll;
 use crate::views::widgets::{
-    Column, empty_table, icon_button, table_header, table_row, text_cell, trainer_name,
-    trainer_name_cell,
+    Column, empty_table, icon_button, table_header, table_row, text_cell, tooltip_cell,
+    trainer_full_name, trainer_name, trainer_name_cell,
 };
 
-/// How long the delete-failure banner stays up.
+/// How long a library notice stays up.
 const BANNER_TIME: Duration = Duration::from_secs(6);
 
 pub struct LibraryPage {
@@ -52,15 +52,15 @@ impl LibraryPage {
                 this.selected_row = Some(row);
                 this.pending_delete = Some(item.file_path.clone());
             }
-            // Start the hide timer once per failure.
-            if let Some((_, _, serial)) = model.read(cx).delete_error.clone()
+            // Start the hide timer once per notice.
+            if let Some((_, serial)) = model.read(cx).library_notice.clone()
                 && serial != this.banner_serial
             {
                 this.banner_serial = serial;
                 let model = model.downgrade();
                 cx.spawn(async move |_, cx| {
                     cx.background_executor().timer(BANNER_TIME).await;
-                    let _ = model.update(cx, |model, cx| model.clear_delete_error(serial, cx));
+                    let _ = model.update(cx, |model, cx| model.clear_library_notice(serial, cx));
                 })
                 .detach();
             }
@@ -88,7 +88,19 @@ impl Render for LibraryPage {
             Column::new(tr!("col.download_date"), 2.),
             Column::new(tr!("col.actions"), 2.),
         ];
-        let banner = model.delete_error.clone();
+        let banner = model
+            .library_notice
+            .clone()
+            .map(|(notice, _)| match notice {
+                LibraryNotice::DeleteFailed { name, file_path } => (
+                    c.danger,
+                    tr!("library.delete_failed", name = name, path = file_path),
+                ),
+                LibraryNotice::FileMissing { name, file_path } => (
+                    c.warning,
+                    tr!("library.file_missing", name = name, path = file_path),
+                ),
+            });
         // The entry may have gone meanwhile (deleted, or its file vanished).
         let confirm = self.pending_delete.as_ref().and_then(|file| {
             model
@@ -128,13 +140,28 @@ impl Render for LibraryPage {
                     })
                     .into_any_element();
                 let cells = vec![
-                    trainer_name_cell(&item.display_name, &item.display_subtitle, &item.name, cx),
-                    text_cell(item.version.clone()),
+                    trainer_name_cell(
+                        ("name", i),
+                        &item.display_name,
+                        &item.display_subtitle,
+                        &item.name,
+                        cx,
+                    ),
+                    tooltip_cell(("version", i), item.version.clone()),
                     text_cell(item.display_date()),
                     actions,
                 ];
+                let label = tr!(
+                    "a11y.library_row",
+                    name =
+                        trainer_full_name(&item.display_name, &item.display_subtitle, &item.name),
+                    version = item.version.as_str(),
+                    date = item.display_date()
+                );
+                let file = item.file_path.clone();
                 let row = table_row(
                     ("library", i),
+                    label,
                     &columns,
                     cells,
                     i,
@@ -143,11 +170,23 @@ impl Render for LibraryPage {
                 )
                 .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
                     this.selected_row = Some(i);
-                    if event.click_count() >= 2 {
+                    // Double click, or Enter/Space on the focused row.
+                    if event.click_count() >= 2 || matches!(event, ClickEvent::Keyboard(_)) {
                         this.model.read(cx).send(Command::RunLibraryItem(i));
                     }
                     cx.notify();
-                }));
+                }))
+                // The Delete key on a focused row asks, like the trash button.
+                .on_key_down(cx.listener(
+                    move |this, event: &KeyDownEvent, _, cx| {
+                        if event.keystroke.key == "delete" {
+                            this.selected_row = Some(i);
+                            this.pending_delete = Some(file.clone());
+                            cx.stop_propagation();
+                            cx.notify();
+                        }
+                    },
+                ));
                 // Keyed by file, so a new download rises in and the rest stay put.
                 motion::row_in(
                     row,
@@ -211,17 +250,17 @@ impl Render for LibraryPage {
                         ),
                 )
             })
-            .when_some(banner, |page, (name, path, _)| {
+            .when_some(banner, |page, (color, message)| {
                 page.child(
                     div()
                         .p_2()
                         .rounded(px(6.))
                         .border_1()
-                        .border_color(c.danger)
-                        .bg(Hsla { a: 0.1, ..c.danger })
+                        .border_color(color)
+                        .bg(Hsla { a: 0.1, ..color })
                         .text_sm()
-                        .text_color(c.danger)
-                        .child(tr!("library.delete_failed", name = name, path = path)),
+                        .text_color(color)
+                        .child(message),
                 )
             })
             .child(
@@ -236,7 +275,7 @@ impl Render for LibraryPage {
                     .child(table_header(&columns, cx))
                     .map(|table| {
                         if empty {
-                            table.child(empty_table(cx))
+                            table.child(empty_table(tr!("library.empty"), cx))
                         } else {
                             table.child(
                                 div()
@@ -246,6 +285,8 @@ impl Render for LibraryPage {
                                     .child(
                                         v_flex()
                                             .id("library-rows")
+                                            .role(Role::List)
+                                            .aria_label(tr!("tab.library"))
                                             .size_full()
                                             .overflow_y_scroll()
                                             .track_scroll(self.scroll.handle())

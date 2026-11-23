@@ -103,6 +103,23 @@ pub fn update_status(state: &UpdateState, database: bool) -> SharedString {
     }
 }
 
+/// A release's `published_at` ("2026-10-04T07:00:18Z") as the app shows
+/// dates elsewhere: "2026-10-04" (the UTC day). Anything else is unchanged.
+pub fn format_published(published_at: &str) -> String {
+    let date = published_at.get(..10).unwrap_or_default();
+    let shaped = date.len() == 10
+        && date.bytes().enumerate().all(|(i, b)| match i {
+            4 | 7 => b == b'-',
+            _ => b.is_ascii_digit(),
+        });
+    let rest = &published_at[date.len()..];
+    if shaped && (rest.is_empty() || rest.starts_with('T')) {
+        date.to_owned()
+    } else {
+        published_at.to_owned()
+    }
+}
+
 /// `B`, `KB`, `MB`, `GB` with one decimal, as the Qt download popup.
 pub fn format_bytes(bytes: u64) -> String {
     const UNITS: [&str; 4] = ["B", "KB", "MB", "GB"];
@@ -126,6 +143,14 @@ pub fn format_speed(bytes_per_second: u64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn published_dates_drop_the_time() {
+        assert_eq!(format_published("2026-10-04T07:00:18Z"), "2026-10-04");
+        assert_eq!(format_published("2026-10-04"), "2026-10-04");
+        assert_eq!(format_published("next week"), "next week");
+        assert_eq!(format_published(""), "");
+    }
 
     #[test]
     fn formats_sizes() {

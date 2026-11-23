@@ -58,6 +58,8 @@ pub struct BackendConfig {
     pub cover_detector: DetectorLoader,
     /// Starts a downloaded app installer.
     pub launch_installer: InstallerLauncher,
+    /// Removes a library trainer the user deleted.
+    pub delete_file: fling_download::DeleteFile,
     /// `None` skips the startup fetch, warm-up and automatic update checks.
     pub startup: Option<StartupTimings>,
 }
@@ -75,6 +77,7 @@ impl BackendConfig {
             http: Arc::new(http),
             site_base_url: fling_site::DEFAULT_BASE_URL.to_owned(),
             launch_installer: Arc::new(fling_update::launch_installer),
+            delete_file: fling_download::move_to_recycle_bin,
             startup: Some(StartupTimings::default()),
         })
     }

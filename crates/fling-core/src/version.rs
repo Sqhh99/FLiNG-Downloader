@@ -59,6 +59,20 @@ fn is_numeric(token: &str) -> bool {
     !token.is_empty() && token.bytes().all(|b| b.is_ascii_digit())
 }
 
+/// Whether `latest` is an update for the running `current` version. A
+/// development build `X.Y.Z-dev.N+gHASH` (see `fling-ui/build.rs`) is made
+/// after the `vX.Y.Z` tag, so `X.Y.Z` itself is not an update for it.
+pub fn is_update(current: &str, latest: &str) -> bool {
+    if let (Some(current), Some(latest)) = (parse_version(current), parse_version(latest))
+        && current.prerelease.first() == Some(&"dev")
+        && (current.major, current.minor, current.patch)
+            == (latest.major, latest.minor, latest.patch)
+    {
+        return false;
+    }
+    compare_versions(current, latest).is_lt()
+}
+
 /// Compares two release versions. A prerelease sorts below its release;
 /// `+build` metadata is ignored.
 pub fn compare_versions(lhs: &str, rhs: &str) -> Ordering {
@@ -120,6 +134,18 @@ mod tests {
         assert_eq!(compare_versions("1.0.0-alpha", "1.0.0-alpha.1"), Less);
         assert_eq!(compare_versions("1.0.0-ALPHA", "1.0.0-alpha"), Equal);
         assert_eq!(compare_versions("v1.1.10-dev.3+g1234", "1.1.10"), Less);
+    }
+
+    #[test]
+    fn dev_builds_are_not_offered_their_own_base_release() {
+        assert!(!is_update("1.2.1-dev.2+gea99c53", "1.2.1"));
+        assert!(!is_update("1.2.1-dev.2+gea99c53", "v1.2.1-beta.1"));
+        assert!(is_update("1.2.1-dev.2+gea99c53", "1.2.2"));
+        // Other prereleases still sort below their release.
+        assert!(is_update("1.2.1-beta.1", "1.2.1"));
+        assert!(is_update("1.2.0", "1.2.1"));
+        assert!(!is_update("1.2.1", "1.2.1"));
+        assert!(is_update("v0.0.9", "v0.0.10"));
     }
 
     #[test]

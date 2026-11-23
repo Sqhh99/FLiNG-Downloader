@@ -4,7 +4,6 @@ use std::time::Duration;
 
 use fling_app::{Command, Language, SortOrder, Suggestion};
 use gpui_kit::assets::IconName;
-use gpui_kit::component::Disableable as _;
 use gpui_kit::component::button::{Button, ButtonVariants as _};
 use gpui_kit::component::input::{Input, InputEvent, InputState};
 use gpui_kit::component::select::{Select, SelectEvent, SelectState};
@@ -19,7 +18,8 @@ use crate::theme::palette;
 use crate::views::motion;
 use crate::views::smooth_scroll::SmoothScroll;
 use crate::views::widgets::{
-    Column, empty_table, icon_button, table_header, table_row, text_cell, trainer_name_cell,
+    Column, empty_table, icon_button, table_header, table_row, text_cell, trainer_full_name,
+    trainer_name_cell,
 };
 
 const MAX_SUGGESTIONS: usize = 8;
@@ -197,6 +197,11 @@ impl SearchPage {
         cx.notify();
     }
 
+    /// Ctrl+F: put the cursor in the search box.
+    pub fn focus_input(&self, window: &mut Window, cx: &mut Context<Self>) {
+        self.input.read(cx).focus_handle(cx).focus(window, cx);
+    }
+
     fn show_all(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.input
             .update(cx, |input, cx| input.set_value("", window, cx));
@@ -275,7 +280,13 @@ impl SearchPage {
             .enumerate()
             .map(|(i, m)| {
                 let cells = vec![
-                    trainer_name_cell(&m.display_name, &m.display_subtitle, &m.name, cx),
+                    trainer_name_cell(
+                        ("name", i),
+                        &m.display_name,
+                        &m.display_subtitle,
+                        &m.name,
+                        cx,
+                    ),
                     text_cell(m.last_update.clone()),
                     text_cell(m.game_version.clone()),
                     text_cell(m.options_count.to_string()),
@@ -286,8 +297,16 @@ impl SearchPage {
                         }))
                         .into_any_element(),
                 ];
+                let label = tr!(
+                    "a11y.result_row",
+                    name = trainer_full_name(&m.display_name, &m.display_subtitle, &m.name),
+                    date = m.last_update.as_str(),
+                    version = m.game_version.as_str(),
+                    options = m.options_count
+                );
                 let row = table_row(
                     ("result", i),
+                    label,
                     &columns,
                     cells,
                     i,
@@ -296,7 +315,8 @@ impl SearchPage {
                 )
                 .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
                     this.selected_row = Some(i);
-                    if event.click_count() >= 2 {
+                    // Double click, or Enter/Space on the focused row.
+                    if event.click_count() >= 2 || matches!(event, ClickEvent::Keyboard(_)) {
                         cx.emit(SearchPageEvent::ToggleDetails(i));
                     }
                     cx.notify();
@@ -312,6 +332,11 @@ impl SearchPage {
             .collect();
         let loading = model.search_loading;
         let empty = rows.is_empty();
+        let empty_message = if model.search_failed {
+            tr!("search.failed")
+        } else {
+            tr!("search.no_results")
+        };
 
         v_flex()
             .relative()
@@ -325,7 +350,7 @@ impl SearchPage {
             .child(table_header(&columns, cx))
             .map(|table| {
                 if empty {
-                    table.child(empty_table(cx))
+                    table.child(empty_table(empty_message, cx))
                 } else {
                     table.child(
                         div()
@@ -335,6 +360,8 @@ impl SearchPage {
                             .child(
                                 v_flex()
                                     .id("results")
+                                    .role(Role::List)
+                                    .aria_label(tr!("tab.search"))
                                     .size_full()
                                     .overflow_y_scroll()
                                     .track_scroll(self.results_scroll.handle())
@@ -367,7 +394,8 @@ impl SearchPage {
 
 impl Render for SearchPage {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let loading = self.model.read(cx).search_loading;
+        // The search bar stays usable while a search runs: a new search
+        // replaces the running one (the backend drops stale answers).
         let suggestions = motion::presence(
             "suggestions",
             self.show_suggestions && !self.suggestions.is_empty(),
@@ -387,7 +415,7 @@ impl Render for SearchPage {
                             .relative()
                             .flex_1()
                             .capture_key_down(cx.listener(Self::on_key))
-                            .child(Input::new(&self.input).cleanable(true).disabled(loading))
+                            .child(Input::new(&self.input).cleanable(true))
                             .when_some(suggestions, |d, shown| {
                                 // Deferred so it paints above the results table, which comes
                                 // later in the tree and would otherwise cover it.
@@ -401,13 +429,13 @@ impl Render for SearchPage {
                         Button::new("search")
                             .primary()
                             .label(tr!("search.button"))
-                            .disabled(loading)
                             .on_click(cx.listener(|this, _, window, cx| this.submit(window, cx))),
                     )
                     .child(
+                        // Wide enough for "Recent Updates", the longest label.
                         div()
-                            .w(px(130.))
-                            .child(Select::new(&self.sort).disabled(loading)),
+                            .w(px(160.))
+                            .child(Select::new(&self.sort).accessibility_label(tr!("sort.label"))),
                     )
                     .child(
                         Button::new("show-all")
@@ -415,7 +443,6 @@ impl Render for SearchPage {
                             // default button next to the primary "Search".
                             .secondary()
                             .label(tr!("search.show_all"))
-                            .disabled(loading)
                             .on_click(cx.listener(|this, _, window, cx| this.show_all(window, cx))),
                     ),
             )

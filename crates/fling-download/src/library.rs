@@ -12,8 +12,30 @@ use fling_core::DownloadedModifier;
 pub enum RunTarget {
     /// Open this file with the OS.
     Open(PathBuf),
-    /// The file was gone; its record has been dropped.
-    Missing,
+    /// The file was gone; this record has been dropped.
+    Missing(DownloadedModifier),
+}
+
+/// How [`Library::delete`] removes a trainer file.
+pub type DeleteFile = fn(&Path) -> io::Result<()>;
+
+/// Moves `path` to the Recycle Bin, so a deleted trainer can be restored.
+/// Off Windows it is deleted. Tests pass [`delete_permanently`] instead, so
+/// they never touch the user's Recycle Bin.
+pub fn move_to_recycle_bin(path: &Path) -> io::Result<()> {
+    #[cfg(windows)]
+    {
+        trash::delete(path).map_err(io::Error::other)
+    }
+    #[cfg(not(windows))]
+    {
+        fs::remove_file(path)
+    }
+}
+
+/// Deletes `path` outright.
+pub fn delete_permanently(path: &Path) -> io::Result<()> {
+    fs::remove_file(path)
 }
 
 /// The file exists but could not be deleted; the record is kept.
@@ -27,12 +49,14 @@ pub struct DeleteError {
 pub struct Library {
     path: PathBuf,
     items: Vec<DownloadedModifier>,
+    delete_file: DeleteFile,
 }
 
 impl Library {
     /// Loads the library, dropping (and saving away) entries whose file no
     /// longer exists. A missing or corrupt file is an empty library.
-    pub fn load(path: PathBuf) -> Self {
+    /// [`Library::delete`] removes files with `delete_file`.
+    pub fn load(path: PathBuf, delete_file: DeleteFile) -> Self {
         let items: Vec<DownloadedModifier> = fs::read_to_string(&path)
             .ok()
             .and_then(|text| serde_json::from_str::<Vec<serde_json::Value>>(&text).ok())
@@ -47,7 +71,11 @@ impl Library {
                 !item.file_path.is_empty() && Path::new(&item.file_path).exists()
             })
             .collect();
-        let library = Self { path, items };
+        let library = Self {
+            path,
+            items,
+            delete_file,
+        };
         if library.items.len() != total {
             library.save_logged();
         }
@@ -100,9 +128,9 @@ impl Library {
         if path.exists() {
             return Some(RunTarget::Open(path));
         }
-        self.items.remove(index);
+        let item = self.items.remove(index);
         self.save_logged();
-        Some(RunTarget::Missing)
+        Some(RunTarget::Missing(item))
     }
 
     /// Deletes entry `index`'s file and record. If the file exists but cannot
@@ -113,7 +141,7 @@ impl Library {
             return Ok(false);
         };
         let path = Path::new(&item.file_path);
-        if path.exists() && fs::remove_file(path).is_err() {
+        if path.exists() && (self.delete_file)(path).is_err() {
             return Err(DeleteError {
                 name: item.name.clone(),
                 file_path: item.file_path.clone(),
@@ -155,7 +183,7 @@ mod tests {
         ];
         fs::write(&json_path, serde_json::to_string(&entries).unwrap()).unwrap();
 
-        let library = Library::load(json_path.clone());
+        let library = Library::load(json_path.clone(), delete_permanently);
         assert_eq!(library.items().len(), 1);
         let saved: Vec<DownloadedModifier> =
             serde_json::from_str(&fs::read_to_string(&json_path).unwrap()).unwrap();
@@ -165,7 +193,7 @@ mod tests {
     #[test]
     fn upsert_replaces_same_name_and_version() {
         let dir = tempfile::tempdir().unwrap();
-        let mut library = Library::load(dir.path().join("lib.json"));
+        let mut library = Library::load(dir.path().join("lib.json"), delete_permanently);
         let file = dir.path().join("a.zip");
         assert_eq!(library.upsert(item("A", "v1", &file)), 0);
         assert_eq!(library.upsert(item("A", "v2", &file)), 1);
@@ -181,11 +209,14 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let file = dir.path().join("a.exe");
         fs::write(&file, b"MZ").unwrap();
-        let mut library = Library::load(dir.path().join("lib.json"));
+        let mut library = Library::load(dir.path().join("lib.json"), delete_permanently);
         library.upsert(item("A", "v1", &file));
         assert_eq!(library.run_target(0), Some(RunTarget::Open(file.clone())));
         fs::remove_file(&file).unwrap();
-        assert_eq!(library.run_target(0), Some(RunTarget::Missing));
+        assert!(matches!(
+            library.run_target(0),
+            Some(RunTarget::Missing(item)) if item.name == "A"
+        ));
         assert!(library.items().is_empty());
         assert_eq!(library.run_target(0), None);
     }
@@ -195,7 +226,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let file = dir.path().join("a.zip");
         fs::write(&file, b"x").unwrap();
-        let mut library = Library::load(dir.path().join("lib.json"));
+        let mut library = Library::load(dir.path().join("lib.json"), delete_permanently);
         library.upsert(item("A", "v1", &file));
         assert_eq!(library.delete(0), Ok(true));
         assert!(!file.exists());
@@ -215,7 +246,7 @@ mod tests {
             .share_mode(0)
             .open(&file)
             .unwrap();
-        let mut library = Library::load(dir.path().join("lib.json"));
+        let mut library = Library::load(dir.path().join("lib.json"), delete_permanently);
         library.upsert(item("A", "v1", &file));
         let err = library.delete(0).unwrap_err();
         assert_eq!(err.name, "A");

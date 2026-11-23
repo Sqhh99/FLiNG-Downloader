@@ -8,5 +8,7 @@ mod library;
 mod queue;
 
 pub use files::{clean_url, correct_file_extension, corrected_path};
-pub use library::{DeleteError, Library, RunTarget};
+pub use library::{
+    DeleteError, DeleteFile, Library, RunTarget, delete_permanently, move_to_recycle_bin,
+};
 pub use queue::{DownloadQueue, EventSink, MAX_CONCURRENT_DOWNLOADS, QueueEvent};

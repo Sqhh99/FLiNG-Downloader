@@ -47,10 +47,6 @@ common.unknown:
   zh-CN: 未知
   en: Unknown
   ja: 不明
-table.empty:
-  zh-CN: 暂无数据
-  en: No data available
-  ja: 利用可能なデータはありません
 
 search.placeholder:
   zh-CN: 搜索游戏...
@@ -64,6 +60,18 @@ search.show_all:
   zh-CN: 显示全部
   en: Show All
   ja: 全て表示
+search.no_results:
+  zh-CN: 没有找到修改器。可以试试游戏的英文名，或点“显示全部”查看最近更新。
+  en: No trainers found. Try the game's English title, or Show All for the latest trainers.
+  ja: トレーナーが見つかりません。ゲームの英語タイトルで検索するか、「全て表示」で最新のトレーナーを確認してください。
+search.failed:
+  zh-CN: 无法连接 flingtrainer.com。请检查网络后重新搜索。
+  en: Couldn't reach flingtrainer.com. Check your connection, then search again.
+  ja: flingtrainer.com に接続できません。接続を確認してから、もう一度検索してください。
+sort.label:
+  zh-CN: 排序方式
+  en: Sort by
+  ja: 並べ替え
 sort.recent:
   zh-CN: 最近更新
   en: Recent Updates
@@ -168,9 +176,17 @@ library.delete:
   en: Delete
   ja: 削除
 library.confirm_delete:
-  zh-CN: 删除「%{name}」？修改器文件将从磁盘删除，无法恢复。
-  en: "Delete \"%{name}\"? The trainer file is removed from disk and can't be restored."
-  ja: 「%{name}」を削除しますか？トレーナーのファイルはディスクから削除され、元に戻せません。
+  zh-CN: 删除「%{name}」？修改器文件将移到回收站。
+  en: "Delete \"%{name}\"? The trainer file is moved to the Recycle Bin."
+  ja: 「%{name}」を削除しますか？トレーナーのファイルはごみ箱に移動します。
+library.file_missing:
+  zh-CN: 「%{name}」已不在 %{path}，已从列表中移除。可以重新搜索并下载。
+  en: "\"%{name}\" is no longer at %{path}, so it was removed from the list. Search for it to download it again."
+  ja: 「%{name}」は %{path} に見つからないため、一覧から削除しました。もう一度検索してダウンロードできます。
+library.empty:
+  zh-CN: 下载的修改器会显示在这里，双击即可运行。
+  en: Trainers you download appear here. Double-click one to run it.
+  ja: ダウンロードしたトレーナーがここに表示されます。ダブルクリックで実行できます。
 library.delete_failed:
   zh-CN: 无法删除「%{name}」，文件可能正在使用中：%{path}
   en: "Couldn't delete \"%{name}\"; the file may be in use: %{path}"
@@ -213,9 +229,9 @@ downloads.cancel:
   en: Cancel
   ja: キャンセル
 downloads.remove:
-  zh-CN: 移除
-  en: Remove
-  ja: 削除
+  zh-CN: 从列表移除
+  en: Remove from list
+  ja: リストから削除
 downloads.open_folder:
   zh-CN: 打开文件夹
   en: Open Folder
@@ -521,3 +537,13 @@ db.reload_failed:
   zh-CN: 数据库已更新，但重新加载数据失败
   en: Database updated, but failed to reload data
   ja: データベースは更新されましたが、データの再読み込みに失敗しました
+
+# Accessible names of list rows, read by screen readers.
+a11y.result_row:
+  zh-CN: "%{name}，更新于 %{date}，版本 %{version}，%{options} 个选项"
+  en: "%{name}, updated %{date}, version %{version}, %{options} options"
+  ja: "%{name}、更新日 %{date}、バージョン %{version}、オプション %{options} 個"
+a11y.library_row:
+  zh-CN: "%{name}，%{version}，下载于 %{date}"
+  en: "%{name}, %{version}, downloaded %{date}"
+  ja: "%{name}、%{version}、ダウンロード日 %{date}"

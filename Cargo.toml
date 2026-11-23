@@ -49,6 +49,8 @@ tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt"] }
 dirs = "7.0"
 parking_lot = "0.12"
 windows-sys = "0.61"
+# Multithreaded COM: library deletes run on the backend's tokio workers.
+trash = { version = "5.2.9", default-features = false, features = ["coinit_multithreaded"] }
 
 # Cover extraction
 ort = { version = "=2.0.0-rc.13", default-features = false, features = ["std", "download-binaries", "tls-native"] }
